@@ -7,7 +7,7 @@ from datetime import date
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.config import Settings
+from app.config import Settings, base_meal_slot
 from app.db.models import MealPlan, MealPlanItem, Recipe, SessionState, WeeklyPlanningSession
 from app.llm.base import WeeklyPlanOutput
 from app.llm import build_llm_provider
@@ -58,8 +58,8 @@ class MealPlannerService:
         candidate_pool: list[Recipe] = []
         used_proteins: Counter[str] = Counter()
         for target_date in dates:
-            for slot in self.settings.meal_slots:
-                candidates = selector.select(slot, hard, week_start)
+            for slot in self.settings.planning_slots:
+                candidates = selector.select(base_meal_slot(slot), hard, week_start)
                 scored = scorer.score(candidates, target_date, used_proteins)
                 if scored:
                     selected = scored[:20]
@@ -67,7 +67,9 @@ class MealPlannerService:
                     used_proteins[selected[0].protein_type or selected[0].category] += 1
         context = {
             "household": {"default_servings": self.settings.default_servings},
-            "meal_slots": self.settings.meal_slots,
+            "meal_slots": self.settings.planning_slots,
+            "base_meal_slots": self.settings.meal_slots,
+            "courses_per_day": self.settings.courses_per_day,
             "dates": [d.isoformat() for d in dates],
             "hard_preferences": hard,
             "soft_preferences": PreferenceService(self.db).soft_rules(),
@@ -76,7 +78,7 @@ class MealPlannerService:
             "serving_overrides": {},
         }
         output = await self.llm.generate_plan(context)
-        PlanValidator(self.db).validate(output, dates, self.settings.meal_slots, hard)
+        PlanValidator(self.db).validate(output, dates, self.settings.planning_slots, hard)
         return output
 
     def _persist_plan(self, session: WeeklyPlanningSession, output: WeeklyPlanOutput, status: str) -> MealPlan:
@@ -130,4 +132,3 @@ class MealPlannerService:
     def _recent_meals(self, limit: int) -> list[dict]:
         rows = self.db.scalars(select(MealPlanItem).order_by(MealPlanItem.date.desc()).limit(limit))
         return [{"date": row.date.isoformat(), "recipe_id": row.recipe_id, "recipe": row.recipe.name} for row in rows]
-

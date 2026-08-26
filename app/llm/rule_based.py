@@ -70,24 +70,34 @@ class RuleBasedLLMProvider(LLMProvider):
             "pazar": "sunday",
         }
         known_recipes = [r["name"] for r in (context or {}).get("recipes", [])]
+        recipe_terms = _recipe_terms(known_recipes)
+        day_hits = sorted((text.find(tr_day), tr_day, en_day) for tr_day, en_day in days.items() if tr_day in text)
         for tr_day, en_day in days.items():
             if tr_day in text:
+                segment = _day_segment(text, tr_day, day_hits)
                 servings = None
-                if "kişi" in text:
-                    for token in text.replace(".", " ").split():
+                if "kişi" in segment:
+                    for token in segment.replace(".", " ").split():
                         if token.isdigit():
                             servings = int(token)
                             break
                 recipe_name = None
                 for known in known_recipes:
-                    if known.casefold() in text:
+                    if known.casefold() in segment:
                         recipe_name = known
                         break
-                if recipe_name or servings or any(word in text for word in ("dışarıda", "yemeyeceğiz")):
+                exclude_recipe_name = None
+                if any(word in segment for word in ("olmasın", "çıkar", "değiştir", "yemeyelim")):
+                    for term in recipe_terms:
+                        if _contains_term(segment, term):
+                            exclude_recipe_name = term
+                            break
+                if recipe_name or exclude_recipe_name or servings or any(word in segment for word in ("dışarıda", "yemeyeceğiz")):
                     operations.append(
                         RevisionOperation(
                             day_name=en_day,
                             recipe_name=recipe_name,
+                            exclude_recipe_name=exclude_recipe_name,
                             servings=servings,
                             instruction=message,
                         )
@@ -96,3 +106,31 @@ class RuleBasedLLMProvider(LLMProvider):
             operations.append(RevisionOperation(instruction=message))
         return RevisionOutput(operations=operations)
 
+
+def _recipe_terms(recipe_names: list[str]) -> list[str]:
+    terms = {"balık", "tavuk", "köfte", "fasulye", "makarna", "nohut", "çorba", "pilav"}
+    for name in recipe_names:
+        lowered = name.casefold()
+        terms.add(lowered)
+        terms.update(part for part in lowered.split() if len(part) > 3)
+    return sorted(terms, key=len, reverse=True)
+
+
+def _day_segment(text: str, tr_day: str, day_hits: list[tuple[int, str, str]]) -> str:
+    start = text.find(tr_day)
+    end = len(text)
+    for hit_start, _, _ in day_hits:
+        if hit_start > start:
+            end = hit_start
+            break
+    return text[start:end]
+
+
+def _contains_term(text: str, term: str) -> bool:
+    variants = {term}
+    if term.endswith("k"):
+        variants.add(f"{term[:-1]}ğ")
+    if term.endswith("t"):
+        variants.add(f"{term[:-1]}d")
+    variants.add(term.rstrip("k"))
+    return any(variant and variant in text for variant in variants)

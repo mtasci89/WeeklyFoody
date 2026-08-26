@@ -6,7 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.db.models import Ingredient, Recipe, RecipeIngredient, RecipeStatus
-from app.recipes.importer import PlainTextRecipeImporter, RecipeInput, StructuredRecipeImporter
+from app.recipes.importer import ExcelMenuRecipeImporter, PlainTextRecipeImporter, RecipeInput, StructuredRecipeImporter
 
 
 def normalize_name(name: str) -> str:
@@ -56,6 +56,14 @@ class RecipeService:
 
     def import_recipes(self, path: Path) -> int:
         importer = StructuredRecipeImporter()
+        count = 0
+        for recipe in importer.import_path(path):
+            self.upsert_recipe(recipe)
+            count += 1
+        return count
+
+    def import_menu_excel(self, path: Path) -> int:
+        importer = ExcelMenuRecipeImporter()
         count = 0
         for recipe in importer.import_path(path):
             self.upsert_recipe(recipe)
@@ -127,4 +135,3 @@ def categorize_ingredient(name: str) -> str:
     if any(token in lower for token in dry):
         return "Kuru Gıda / Baharat"
     return "Diğer"
-

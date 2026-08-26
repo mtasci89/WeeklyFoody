@@ -27,6 +27,7 @@ class Settings(BaseSettings):
 
     default_servings: int = 4
     meal_slots: Annotated[list[str], NoDecode] = Field(default_factory=lambda: ["dinner"])
+    courses_per_day: int = 3
     pantry_mode: Literal["exclude", "check"] = "exclude"
     log_level: str = "INFO"
 
@@ -58,6 +59,19 @@ class Settings(BaseSettings):
         if self.admin_telegram_user_id is not None and self.admin_telegram_user_id not in ids:
             ids.insert(0, self.admin_telegram_user_id)
         return ids
+
+    @property
+    def planning_slots(self) -> list[str]:
+        if self.courses_per_day <= 1:
+            return self.meal_slots
+        return [f"{slot}_{course}" for slot in self.meal_slots for course in range(1, self.courses_per_day + 1)]
+
+
+def base_meal_slot(slot: str) -> str:
+    base, separator, suffix = slot.rpartition("_")
+    if separator and suffix.isdigit():
+        return base
+    return slot
 
 
 @lru_cache(maxsize=1)

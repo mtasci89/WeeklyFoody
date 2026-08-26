@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 from typing import Protocol
 
@@ -63,6 +64,97 @@ class StructuredRecipeImporter:
         return [RecipeInput.model_validate(item) for item in data or []]
 
 
+class ExcelMenuRecipeImporter:
+    meal_labels = {
+        "öğle yemeği": "lunch",
+        "akşam": "dinner",
+        "ara öğün": "snack",
+    }
+    day_names = {"pazartesi", "salı", "çarşamba", "perşembe", "cuma", "cumartesi", "pazar"}
+    ignored_items = {
+        "yoğurt",
+        "salata",
+        "yeşil salata",
+        "1 dilim wasa fibre",
+        "wasa fibre",
+        "ayran",
+    }
+
+    def import_path(self, path: Path) -> list[RecipeInput]:
+        from openpyxl import load_workbook
+
+        workbook = load_workbook(path, data_only=True)
+        recipes: dict[tuple[str, str], RecipeInput] = {}
+        for sheet in workbook.worksheets:
+            for row in sheet.iter_rows(values_only=True):
+                meal_type = self._row_meal_type(row)
+                if not meal_type:
+                    continue
+                for value in row:
+                    if not isinstance(value, str):
+                        continue
+                    for name in self._extract_names(value):
+                        key = (name.casefold(), meal_type)
+                        recipes.setdefault(
+                            key,
+                            RecipeInput(
+                                name=name,
+                                meal_type=meal_type,
+                                category=self._category_for(name),
+                                source=f"excel:{path.name}",
+                                tags=["menu-import"],
+                                notes="Imported from historical menu list; ingredients can be taught later.",
+                            ),
+                        )
+        return sorted(recipes.values(), key=lambda recipe: (recipe.meal_type, recipe.name.casefold()))
+
+    def _row_meal_type(self, row: tuple) -> str | None:
+        for value in row:
+            if isinstance(value, str):
+                label = value.strip().casefold()
+                if label in self.meal_labels:
+                    return self.meal_labels[label]
+        return None
+
+    def _extract_names(self, value: str) -> list[str]:
+        chunks = re.split(r"https?://\S+", value)
+        names: list[str] = []
+        for chunk in chunks:
+            for line in chunk.splitlines():
+                cleaned = self._clean_name(line)
+                if cleaned:
+                    names.append(cleaned)
+        return names
+
+    def _clean_name(self, raw: str) -> str | None:
+        text = " ".join(raw.strip(" -\t,").split())
+        if not text:
+            return None
+        lower = text.casefold()
+        if lower in self.meal_labels or lower in self.day_names or lower in self.ignored_items:
+            return None
+        if text.startswith("(") and text.endswith(")"):
+            return None
+        text = re.sub(r"^\d+\s*(?:yemek kaşığı|bardak|gram|gr|g)\.?\s*", "", text, flags=re.IGNORECASE).strip()
+        text = re.sub(r"\b1\s+dilim\s+wasa\s+fibre\b", "", text, flags=re.IGNORECASE).strip(" -,")
+        text = re.sub(r"\s+", " ", text).strip()
+        if not text or text.casefold() in self.ignored_items:
+            return None
+        if len(text) < 3:
+            return None
+        return text[:1].upper() + text[1:]
+
+    def _category_for(self, name: str) -> str:
+        lower = name.casefold()
+        if "çorba" in lower:
+            return "soup"
+        if "salata" in lower or "meze" in lower or "cacık" in lower or "haydari" in lower:
+            return "side"
+        if "pilav" in lower or "makarna" in lower or "patates" in lower:
+            return "side"
+        return "main"
+
+
 class PlainTextRecipeImporter:
     """Small pragmatic parser for Telegram recipe messages."""
 
@@ -96,4 +188,3 @@ class PlainTextRecipeImporter:
             else:
                 instructions.append(line)
         return RecipeInput(name=name, ingredients=ingredients, instructions="\n".join(instructions) or None, source="telegram")
-

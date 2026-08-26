@@ -5,7 +5,7 @@ from datetime import timedelta
 
 from sqlalchemy.orm import Session
 
-from app.config import Settings
+from app.config import Settings, base_meal_slot
 from app.db.models import MealPlanItem, PreferenceType, SessionState, WeeklyPlanningSession
 from app.llm import build_llm_provider
 from app.memory.feedback import FeedbackService
@@ -46,13 +46,15 @@ class RevisionService:
         recipe_service = RecipeService(self.db)
         for op in revision.operations:
             target_items = self._target_items(session, op.day_name, op.date, op.meal_slot)
+            if op.exclude_recipe_name:
+                target_items = [item for item in target_items if self._item_matches_text(item, op.exclude_recipe_name)]
             if op.servings is not None:
                 for item in target_items:
                     item.servings = op.servings
             if op.recipe_name:
                 replacement = recipe_service.find_recipe(op.recipe_name)
                 if replacement:
-                    for item in target_items:
+                    for item in self._items_to_replace(target_items, replacement):
                         original = item.recipe_id
                         if original != replacement.id:
                             item.original_recipe_id = item.original_recipe_id or original
@@ -70,7 +72,7 @@ class RevisionService:
             elif op.exclude_recipe_name or op.instruction:
                 # Minimal deterministic substitution: change only targeted items, choosing the first different approved recipe.
                 for item in target_items:
-                    replacement = next((r for r in recipes if r.id != item.recipe_id and r.meal_type == item.meal_slot), None)
+                    replacement = next((r for r in recipes if r.id != item.recipe_id and r.meal_type == base_meal_slot(item.meal_slot)), None)
                     if replacement:
                         original = item.recipe_id
                         item.original_recipe_id = item.original_recipe_id or original
@@ -103,3 +105,37 @@ class RevisionService:
         if meal_slot:
             items = [item for item in items if item.meal_slot == meal_slot]
         return items
+
+    def _items_to_replace(self, target_items: list[MealPlanItem], replacement) -> list[MealPlanItem]:
+        if not target_items:
+            return []
+        matching_slot = [item for item in target_items if base_meal_slot(item.meal_slot) == replacement.meal_type]
+        candidates = matching_slot or target_items
+        same_category = [item for item in candidates if item.recipe.category == replacement.category]
+        if same_category:
+            return [same_category[0]]
+        return [candidates[0]]
+
+    def _item_matches_text(self, item: MealPlanItem, text: str) -> bool:
+        lower = text.casefold()
+        recipe = item.recipe
+        haystack = " ".join(
+            [
+                recipe.name,
+                recipe.category or "",
+                recipe.protein_type or "",
+                " ".join(recipe.tags or []),
+                " ".join(ingredient.ingredient.name for ingredient in recipe.ingredients),
+            ]
+        ).casefold()
+        for token in lower.replace(".", " ").replace(",", " ").split():
+            if not token:
+                continue
+            variants = {token}
+            if token.endswith("ı") or token.endswith("i") or token.endswith("u") or token.endswith("ü"):
+                variants.add(token[:-1])
+            if "ğ" in token:
+                variants.add(token.replace("ğ", "k"))
+            if any(variant and variant in haystack for variant in variants):
+                return True
+        return False

@@ -10,6 +10,7 @@ The app uses persistent application-level memory. It does not rely on fine-tunin
 - Creates exactly one planning session per week.
 - Sends draft menus only to `ADMIN_TELEGRAM_USER_ID`.
 - Accepts Turkish revision messages such as `Salıdaki balığı çıkar. Çarşambaya kuru fasulye koy.`
+- Plans multiple dishes per day by default, controlled by `COURSES_PER_DAY`.
 - Supports approval by inline button, `/approve`, or natural language like `onaylıyorum`.
 - Sends final menu and shopping list to `TELEGRAM_RECIPIENT_CHAT_IDS`.
 - Learns through recipe library, meal history, feedback history, hard preferences, and soft preferences.
@@ -42,6 +43,7 @@ TELEGRAM_RECIPIENT_CHAT_IDS=111111111,222222222
 LLM_PROVIDER=gemini
 GEMINI_API_KEY=...
 GEMINI_MODEL=gemini-2.5-flash
+COURSES_PER_DAY=3
 ```
 
 To find Telegram IDs, send a message to your bot and check logs, or use a helper bot such as `@userinfobot`. Group chat IDs are usually negative numbers.
@@ -99,6 +101,30 @@ Manual draft generation:
 python -m app.cli plan-now
 ```
 
+## Daily Menu Size
+
+By default the bot creates three dishes per day:
+
+```env
+MEAL_SLOTS=dinner
+COURSES_PER_DAY=3
+```
+
+For example, each day can include a soup, main dish, and side/vegetable dish. Set `COURSES_PER_DAY=2` or `COURSES_PER_DAY=4` if your household prefers a different menu size.
+
+## Revising A Menu In Telegram
+
+After a draft is generated, write naturally to your own bot, not BotFather:
+
+```text
+Salıdaki balığı çıkar.
+Çarşambaya kuru fasulye koy.
+Cumartesi 6 kişi olacağız.
+Bu hafta iki kere tavuk olmasın.
+```
+
+The revision engine preserves unrelated days and changes only the targeted dish where possible.
+
 ## Initial Recipes
 
 Example Turkish recipes live in `data/recipes/examples.yaml`. Replace that file or add your own `.yaml`, `.yml`, or `.json` files under `data/recipes`.
@@ -108,6 +134,14 @@ Import is idempotent:
 ```bash
 python -m app.cli import-recipes data/recipes
 ```
+
+You can also import dish names from a historical Excel menu list:
+
+```bash
+python -m app.cli import-menu-excel "/path/to/Yemek Listesi_Final.xlsx"
+```
+
+This imports meal names as minimal recipes with `source=excel:<filename>`. Ingredients are intentionally left empty until you teach the detailed recipe later, so shopping-list quantities remain reliable.
 
 ## Teaching Recipes In Telegram
 

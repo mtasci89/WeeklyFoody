@@ -17,6 +17,8 @@ def main() -> None:
     sub.add_parser("init-db")
     import_parser = sub.add_parser("import-recipes")
     import_parser.add_argument("path", type=Path)
+    excel_parser = sub.add_parser("import-menu-excel")
+    excel_parser.add_argument("path", type=Path)
     sub.add_parser("plan-now")
     sub.add_parser("run")
     args = parser.parse_args()
@@ -30,6 +32,11 @@ def main() -> None:
         with SessionLocal() as db:
             count = RecipeService(db).import_recipes(args.path)
             print(f"Imported {count} recipes")
+    elif args.command == "import-menu-excel":
+        init_db()
+        with SessionLocal() as db:
+            count = RecipeService(db).import_menu_excel(args.path)
+            print(f"Imported {count} menu recipes")
     elif args.command == "plan-now":
         init_db()
 
@@ -45,4 +52,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
