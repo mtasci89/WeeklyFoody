@@ -1,0 +1,2 @@
+"""Weekly meal planner agent."""
+

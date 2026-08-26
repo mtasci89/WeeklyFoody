@@ -1,0 +1,233 @@
+- name: Izgara Köfte
+  cuisine: Turkish
+  category: main
+  meal_type: dinner
+  servings: 4
+  prep_minutes: 20
+  cook_minutes: 20
+  protein_type: beef
+  tags: [weekday, grill]
+  ingredients:
+    - name: kıyma
+      quantity: 600
+      unit: gram
+    - name: soğan
+      quantity: 1
+      unit: adet
+    - name: galeta unu
+      quantity: 3
+      unit: yemek kaşığı
+    - name: karabiber
+      quantity: 1
+      unit: çay kaşığı
+  instructions: Malzemeleri yoğur, şekil ver ve ızgarada pişir.
+
+- name: Kuru Fasulye
+  aliases: [Etli Kuru Fasulye]
+  cuisine: Turkish
+  category: main
+  meal_type: dinner
+  servings: 4
+  prep_minutes: 15
+  cook_minutes: 80
+  protein_type: legumes
+  tags: [legume, classic]
+  ingredients:
+    - name: kuru fasulye
+      quantity: 500
+      unit: gram
+    - name: kuşbaşı et
+      quantity: 300
+      unit: gram
+    - name: soğan
+      quantity: 2
+      unit: adet
+    - name: salça
+      quantity: 1
+      unit: yemek kaşığı
+  instructions: Fasulyeyi haşla, et ve soğanla pişir.
+
+- name: Mercimek Çorbası
+  cuisine: Turkish
+  category: soup
+  meal_type: dinner
+  servings: 4
+  prep_minutes: 10
+  cook_minutes: 30
+  protein_type: legumes
+  vegetarian: true
+  ingredients:
+    - name: kırmızı mercimek
+      quantity: 250
+      unit: gram
+    - name: soğan
+      quantity: 1
+      unit: adet
+    - name: havuç
+      quantity: 1
+      unit: adet
+    - name: tereyağı
+      quantity: 1
+      unit: yemek kaşığı
+  instructions: Sebzelerle mercimeği haşla ve blenderdan geçir.
+
+- name: Fırında Tavuk
+  cuisine: Turkish
+  category: main
+  meal_type: dinner
+  servings: 4
+  prep_minutes: 15
+  cook_minutes: 50
+  protein_type: chicken
+  ingredients:
+    - name: tavuk
+      quantity: 1000
+      unit: gram
+    - name: patates
+      quantity: 4
+      unit: adet
+    - name: biber
+      quantity: 3
+      unit: adet
+    - name: zeytinyağı
+      quantity: 3
+      unit: yemek kaşığı
+  instructions: Tavuk ve sebzeleri baharatla fırınla.
+
+- name: Zeytinyağlı Taze Fasulye
+  cuisine: Turkish
+  category: main
+  meal_type: dinner
+  servings: 4
+  prep_minutes: 20
+  cook_minutes: 45
+  protein_type: vegetable
+  vegetarian: true
+  seasonal: [summer]
+  ingredients:
+    - name: taze fasulye
+      quantity: 750
+      unit: gram
+    - name: domates
+      quantity: 3
+      unit: adet
+    - name: soğan
+      quantity: 1
+      unit: adet
+    - name: zeytinyağı
+      quantity: 4
+      unit: yemek kaşığı
+  instructions: Fasulyeyi domates ve zeytinyağı ile kısık ateşte pişir.
+
+- name: Nohut
+  cuisine: Turkish
+  category: main
+  meal_type: dinner
+  servings: 4
+  prep_minutes: 15
+  cook_minutes: 75
+  protein_type: legumes
+  ingredients:
+    - name: nohut
+      quantity: 500
+      unit: gram
+    - name: kuşbaşı et
+      quantity: 250
+      unit: gram
+    - name: soğan
+      quantity: 1
+      unit: adet
+    - name: salça
+      quantity: 1
+      unit: yemek kaşığı
+  instructions: Nohutu etli salçalı sosla pişir.
+
+- name: Etli Sebze Yemeği
+  cuisine: Turkish
+  category: main
+  meal_type: dinner
+  servings: 4
+  prep_minutes: 25
+  cook_minutes: 50
+  protein_type: beef
+  ingredients:
+    - name: kuşbaşı et
+      quantity: 400
+      unit: gram
+    - name: patates
+      quantity: 2
+      unit: adet
+    - name: havuç
+      quantity: 2
+      unit: adet
+    - name: kabak
+      quantity: 2
+      unit: adet
+  instructions: Et ve sebzeleri tencerede pişir.
+
+- name: Izgara Balık
+  cuisine: Mediterranean
+  category: main
+  meal_type: dinner
+  servings: 4
+  prep_minutes: 10
+  cook_minutes: 20
+  protein_type: fish
+  tags: [fish, light]
+  ingredients:
+    - name: balık
+      quantity: 1000
+      unit: gram
+    - name: limon
+      quantity: 2
+      unit: adet
+    - name: roka
+      quantity: 1
+      unit: demet
+  instructions: Balığı ızgarada pişir, limon ve yeşillikle servis et.
+
+- name: Makarna
+  cuisine: Italian
+  category: main
+  meal_type: dinner
+  servings: 4
+  prep_minutes: 5
+  cook_minutes: 15
+  protein_type: wheat
+  vegetarian: true
+  ingredients:
+    - name: makarna
+      quantity: 500
+      unit: gram
+    - name: domates
+      quantity: 3
+      unit: adet
+    - name: salça
+      quantity: 1
+      unit: yemek kaşığı
+  instructions: Makarnayı haşla, domatesli sosla birleştir.
+
+- name: Bulgur Pilavı
+  cuisine: Turkish
+  category: side
+  meal_type: dinner
+  servings: 4
+  prep_minutes: 10
+  cook_minutes: 25
+  protein_type: wheat
+  vegetarian: true
+  ingredients:
+    - name: bulgur
+      quantity: 300
+      unit: gram
+    - name: soğan
+      quantity: 1
+      unit: adet
+    - name: domates
+      quantity: 2
+      unit: adet
+    - name: salça
+      quantity: 1
+      unit: yemek kaşığı
+  instructions: Bulguru soğan ve domatesle pişir.
+
