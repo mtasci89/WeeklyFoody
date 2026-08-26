@@ -59,3 +59,16 @@ def format_recipe_detail(recipe) -> str:
         lines.extend(["", "*Hazırlık*", recipe.instructions])
     return "\n".join(lines)
 
+
+def format_candidate_recipes(recipes) -> str:
+    if not recipes:
+        return "Aday tarif yok."
+    lines = ["*Aday Tarifler*"]
+    for recipe in recipes:
+        effort = (recipe.prep_minutes or 0) + (recipe.cook_minutes or 0)
+        effort_text = f", {effort} dk" if effort else ""
+        ingredient_count = len(recipe.ingredients or [])
+        lines.append(f"- {recipe.name} ({recipe.category}, {ingredient_count} malzeme{effort_text})")
+    lines.append("")
+    lines.append("Kalıcı yapmak için: `/approverecipe Tarif Adı`")
+    return "\n".join(lines)

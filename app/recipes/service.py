@@ -5,7 +5,9 @@ from pathlib import Path
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.config import Settings
 from app.db.models import Ingredient, Recipe, RecipeIngredient, RecipeStatus
+from app.recipes.discovery import build_recipe_discovery_provider
 from app.recipes.importer import ExcelMenuRecipeImporter, PlainTextRecipeImporter, RecipeInput, StructuredRecipeImporter
 
 
@@ -19,6 +21,8 @@ class RecipeService:
 
     def upsert_recipe(self, recipe_input: RecipeInput) -> Recipe:
         recipe = self.find_recipe(recipe_input.name, include_inactive=True)
+        if recipe and recipe.status == RecipeStatus.APPROVED and recipe_input.status == RecipeStatus.CANDIDATE.value:
+            return recipe
         if recipe is None:
             recipe = Recipe(name=recipe_input.name)
             self.db.add(recipe)
@@ -99,6 +103,17 @@ class RecipeService:
         if include_candidates:
             statuses.append(RecipeStatus.CANDIDATE)
         return list(self.db.scalars(select(Recipe).where(Recipe.status.in_(statuses)).order_by(Recipe.name)))
+
+    def list_candidates(self) -> list[Recipe]:
+        return list(self.db.scalars(select(Recipe).where(Recipe.status == RecipeStatus.CANDIDATE).order_by(Recipe.created_at.desc())))
+
+    async def discover_recipes(self, query: str, settings: Settings, limit: int = 3) -> list[Recipe]:
+        provider = build_recipe_discovery_provider(settings)
+        discovered = await provider.discover(query, limit=limit)
+        recipes: list[Recipe] = []
+        for recipe_input in discovered:
+            recipes.append(self.upsert_recipe(recipe_input))
+        return recipes
 
     def disable_recipe(self, name: str) -> bool:
         recipe = self.find_recipe(name)

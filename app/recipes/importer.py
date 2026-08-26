@@ -159,7 +159,19 @@ class PlainTextRecipeImporter:
     """Small pragmatic parser for Telegram recipe messages."""
 
     def parse_text(self, text: str) -> RecipeInput:
-        cleaned = text.replace("/addrecipe", "").replace("Bu tarifi kaydet:", "").strip()
+        source_url = None
+        url_match = re.search(r"https?://\S+", text)
+        if url_match:
+            source_url = url_match.group(0).rstrip(".,)")
+        cleaned = (
+            text.replace("/addrecipe", "")
+            .replace("Bu tarifi kaydet:", "")
+            .replace("bu tarifi kaydet:", "")
+            .replace("Kaydet:", "")
+            .replace("kaydet:", "")
+            .strip()
+        )
+        cleaned = re.sub(r"https?://\S+", "", cleaned).strip()
         lines = [line.strip(" -\t") for line in cleaned.splitlines() if line.strip()]
         if not lines:
             raise ValueError("Recipe text is empty")
@@ -178,8 +190,13 @@ class PlainTextRecipeImporter:
                     normalized = part.replace(",", ".")
                     try:
                         quantity = float(normalized)
-                        unit = parts[idx + 1] if idx + 1 < len(parts) else None
-                        name_parts = parts[idx + 2 :]
+                        next_part = parts[idx + 1] if idx + 1 < len(parts) else None
+                        if next_part and next_part.casefold() in ingredient_units:
+                            unit = next_part
+                            name_parts = parts[idx + 2 :]
+                        else:
+                            unit = "adet"
+                            name_parts = parts[idx + 1 :]
                         break
                     except ValueError:
                         continue
@@ -187,4 +204,4 @@ class PlainTextRecipeImporter:
                 ingredients.append(IngredientInput(name=ingredient_name.lower(), quantity=quantity, unit=unit))
             else:
                 instructions.append(line)
-        return RecipeInput(name=name, ingredients=ingredients, instructions="\n".join(instructions) or None, source="telegram")
+        return RecipeInput(name=name, ingredients=ingredients, instructions="\n".join(instructions) or None, source=source_url or "telegram")

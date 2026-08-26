@@ -166,6 +166,45 @@ Etli kuru fasulye
 
 Commands: `/recipes`, `/recipe <name>`, `/addrecipe`, `/deleterecipe <name>`.
 
+## Discovering New Recipes
+
+The admin can ask the bot to discover new recipe ideas with Gemini:
+
+```text
+/discover pratik tavuk yemeği
+Yeni bir balık yemeği bul.
+Bu hafta farklı şeyler öner.
+```
+
+Discovered recipes are saved as `candidate`, not trusted permanent recipes. Review them with:
+
+```text
+/candidates
+```
+
+Approve one into the permanent recipe library:
+
+```text
+/approverecipe Tavuk Fajita
+```
+
+This protects your library from filling up silently with recipes you have not approved.
+
+## Saving Recipes From Instagram Or Elsewhere
+
+If you see a recipe on Instagram, YouTube, a website, or a message, send the name and any recipe text to the bot:
+
+```text
+/addrecipe Tavuk Fajita
+https://www.instagram.com/reel/...
+600 gr tavuk
+2 biber
+1 soğan
+1 yemek kaşığı zeytinyağı
+```
+
+The link is stored as the recipe source. The app does not scrape Instagram directly; pasted recipe text and ingredients are parsed into the database.
+
 ## Preferences
 
 Hard preferences are explicit permanent rules, for example:

@@ -34,6 +34,9 @@ class Intent(str, Enum):
     REMOVE_PANTRY_ITEM = "REMOVE_PANTRY_ITEM"
     SHOW_MENU = "SHOW_MENU"
     SHOW_SHOPPING_LIST = "SHOW_SHOPPING_LIST"
+    DISCOVER_RECIPE = "DISCOVER_RECIPE"
+    SHOW_RECIPE_CANDIDATES = "SHOW_RECIPE_CANDIDATES"
+    APPROVE_RECIPE_CANDIDATE = "APPROVE_RECIPE_CANDIDATE"
     GENERAL_QUESTION = "GENERAL_QUESTION"
     UNKNOWN = "UNKNOWN"
 
@@ -50,6 +53,7 @@ class IntentOutput(BaseModel):
     recipe_text: str | None = None
     preference: PreferencePayload | None = None
     pantry_item: str | None = None
+    discovery_query: str | None = None
     clarification_question: str | None = None
     raw_request: str | None = None
 
@@ -84,4 +88,3 @@ class LLMProvider(Protocol):
 
 def json_schema(model: type[BaseModel]) -> str:
     return json.dumps(model.model_json_schema(), ensure_ascii=False)
-

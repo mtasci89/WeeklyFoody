@@ -26,6 +26,9 @@ def build_application(settings: Settings):
         "recipe": handlers.recipe,
         "addrecipe": handlers.add_recipe,
         "deleterecipe": handlers.delete_recipe,
+        "discover": handlers.discover,
+        "candidates": handlers.candidates,
+        "approverecipe": handlers.approve_recipe_candidate,
         "preferences": handlers.preferences,
         "addpreference": handlers.add_preference,
         "deletepreference": handlers.delete_preference,
@@ -48,4 +51,3 @@ class TelegramBotNotifier:
 
     async def send_message(self, chat_id: int, text: str, **kwargs) -> None:
         await self.bot.send_message(chat_id=chat_id, text=text, **kwargs)
-

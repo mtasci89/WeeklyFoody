@@ -13,7 +13,7 @@ from app.bot.security import TelegramSecurity
 from app.config import Settings
 from app.db.models import PantryItem, PreferenceType, SessionState, WeeklyPlanningSession
 from app.db.session import SessionLocal
-from app.formatting import format_meal_plan, format_recipe_detail
+from app.formatting import format_candidate_recipes, format_meal_plan, format_recipe_detail
 from app.llm.base import Intent
 from app.memory.preferences import PreferenceService
 from app.planner.dates import next_week_start
@@ -47,6 +47,7 @@ class TelegramHandlers:
     async def help(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await update.effective_message.reply_text(
             "/menu /approve /regenerate /recipes /recipe <ad> /addrecipe /deleterecipe <ad>\n"
+            "/discover <istek> /candidates /approverecipe <ad>\n"
             "/preferences /addpreference <kural> /deletepreference <kural>\n"
             "/shopping /history /pantry /pantryadd <malzeme> /pantryremove <malzeme>"
         )
@@ -117,6 +118,38 @@ class TelegramHandlers:
         with SessionLocal() as db:
             ok = RecipeService(db).disable_recipe(name)
             await update.effective_message.reply_text("Tarif pasifleştirildi." if ok else "Tarif bulunamadı.")
+
+    async def discover(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        if not self.security.require_admin(update.effective_user.id if update.effective_user else None):
+            await update.effective_message.reply_text("Bu komut yalnızca admin tarafından kullanılabilir.")
+            return
+        query = " ".join(context.args).strip()
+        if not query:
+            await update.effective_message.reply_text("Ne tür tarif bulayım? Örn: `/discover pratik tavuk yemeği`", parse_mode="Markdown")
+            return
+        await update.effective_message.reply_text("Yeni tarif adayları arıyorum; birkaç saniye sürebilir.")
+        with SessionLocal() as db:
+            recipes = await RecipeService(db).discover_recipes(query, self.settings, limit=3)
+            await update.effective_message.reply_text(format_candidate_recipes(recipes), parse_mode="Markdown")
+
+    async def candidates(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        if not self.security.require_admin(update.effective_user.id if update.effective_user else None):
+            await update.effective_message.reply_text("Bu komut yalnızca admin tarafından kullanılabilir.")
+            return
+        with SessionLocal() as db:
+            await update.effective_message.reply_text(format_candidate_recipes(RecipeService(db).list_candidates()), parse_mode="Markdown")
+
+    async def approve_recipe_candidate(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        if not self.security.require_admin(update.effective_user.id if update.effective_user else None):
+            await update.effective_message.reply_text("Bu komut yalnızca admin tarafından kullanılabilir.")
+            return
+        name = " ".join(context.args).strip()
+        if not name:
+            await update.effective_message.reply_text("Hangi adayı onaylayayım? Örn: `/approverecipe Tavuk Fajita`", parse_mode="Markdown")
+            return
+        with SessionLocal() as db:
+            ok = RecipeService(db).approve_candidate(name)
+            await update.effective_message.reply_text("Tarifi kalıcı kütüphaneye ekledim." if ok else "Bu isimde aday tarif bulamadım.")
 
     async def preferences(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         if not self.security.require_admin(update.effective_user.id if update.effective_user else None):
@@ -235,6 +268,19 @@ class TelegramHandlers:
             if routed.intent == Intent.ADD_RECIPE:
                 recipe = RecipeService(db).add_recipe_from_text(routed.recipe_text or message)
                 await update.effective_message.reply_text(f"{recipe.name} tarifini tarif kütüphanesine ekledim.")
+                return
+            if routed.intent == Intent.DISCOVER_RECIPE:
+                await update.effective_message.reply_text("Yeni tarif adayları arıyorum; birkaç saniye sürebilir.")
+                recipes = await RecipeService(db).discover_recipes(routed.discovery_query or message, self.settings, limit=3)
+                await update.effective_message.reply_text(format_candidate_recipes(recipes), parse_mode="Markdown")
+                return
+            if routed.intent == Intent.SHOW_RECIPE_CANDIDATES:
+                await update.effective_message.reply_text(format_candidate_recipes(RecipeService(db).list_candidates()), parse_mode="Markdown")
+                return
+            if routed.intent == Intent.APPROVE_RECIPE_CANDIDATE:
+                name = routed.recipe_name or message.replace("bu tarifi tariflerime ekle", "").strip()
+                ok = RecipeService(db).approve_candidate(name)
+                await update.effective_message.reply_text("Tarifi kalıcı kütüphaneye ekledim." if ok else "Bu isimde aday tarif bulamadım.")
                 return
             if routed.intent == Intent.ADD_PREFERENCE and routed.preference:
                 PreferenceService(db).add(routed.preference.rule, PreferenceType(routed.preference.type), source="telegram")

@@ -36,6 +36,14 @@ class RuleBasedLLMProvider(LLMProvider):
             return IntentOutput(intent=Intent.APPROVE_PLAN, confidence=0.95, raw_request=message)
         if "/regenerate" in text or "yeniden" in text or "baştan" in text:
             return IntentOutput(intent=Intent.REGENERATE_PLAN, confidence=0.9, raw_request=message)
+        if "/candidates" in text or "aday tarif" in text:
+            return IntentOutput(intent=Intent.SHOW_RECIPE_CANDIDATES, confidence=0.9, raw_request=message)
+        if "/approverecipe" in text or "bu tarifi tariflerime ekle" in text or "adayı onayla" in text:
+            name = message.replace("/approverecipe", "").replace("bu tarifi tariflerime ekle", "").replace("adayı onayla", "").strip()
+            return IntentOutput(intent=Intent.APPROVE_RECIPE_CANDIDATE, confidence=0.85, recipe_name=name or None, raw_request=message)
+        if "/discover" in text or ("yeni" in text and any(word in text for word in ("tarif", "yemek", "yemeği"))) or "farklı şeyler öner" in text:
+            query = message.replace("/discover", "").strip()
+            return IntentOutput(intent=Intent.DISCOVER_RECIPE, confidence=0.82, discovery_query=query or message, raw_request=message)
         if "/shopping" in text or "alışveriş" in text:
             return IntentOutput(intent=Intent.SHOW_SHOPPING_LIST, confidence=0.9, raw_request=message)
         if "/menu" in text or "menü" in text or "listeyi göster" in text:
