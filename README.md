@@ -62,6 +62,12 @@ Data is persisted through the bind-mounted `./data` directory. Back up `data/mea
 cp data/mealplanner.db data/mealplanner.backup.$(date +%Y%m%d).db
 ```
 
+## Run In The Cloud
+
+If your computer is off, the local bot is off too. GitHub stores the code but does not run the bot continuously.
+
+For an always-on setup, deploy the GitHub repo to Railway and use Railway Postgres for persistent memory. See [CLOUD_DEPLOY.md](CLOUD_DEPLOY.md).
+
 ## Local Run
 
 ```bash

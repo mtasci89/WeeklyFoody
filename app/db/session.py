@@ -19,9 +19,16 @@ def _ensure_sqlite_parent(database_url: str) -> None:
 
 def build_engine(settings: Settings | None = None):
     settings = settings or get_settings()
-    _ensure_sqlite_parent(settings.database_url)
-    connect_args = {"check_same_thread": False} if settings.database_url.startswith("sqlite") else {}
-    return create_engine(settings.database_url, future=True, connect_args=connect_args)
+    database_url = normalize_database_url(settings.database_url)
+    _ensure_sqlite_parent(database_url)
+    connect_args = {"check_same_thread": False} if database_url.startswith("sqlite") else {}
+    return create_engine(database_url, future=True, connect_args=connect_args)
+
+
+def normalize_database_url(database_url: str) -> str:
+    if database_url.startswith("postgresql://"):
+        return database_url.replace("postgresql://", "postgresql+psycopg://", 1)
+    return database_url
 
 
 engine = build_engine()
@@ -38,4 +45,3 @@ def get_db() -> Generator[Session, None, None]:
         yield db
     finally:
         db.close()
-
