@@ -39,8 +39,9 @@ Fill in:
 TELEGRAM_BOT_TOKEN=123456:...
 ADMIN_TELEGRAM_USER_ID=111111111
 TELEGRAM_RECIPIENT_CHAT_IDS=111111111,222222222
-OPENAI_API_KEY=sk-...
-OPENAI_MODEL=gpt-4o-mini
+LLM_PROVIDER=gemini
+GEMINI_API_KEY=...
+GEMINI_MODEL=gemini-2.5-flash
 ```
 
 To find Telegram IDs, send a message to your bot and check logs, or use a helper bot such as `@userinfobot`. Group chat IDs are usually negative numbers.
@@ -69,6 +70,28 @@ python -m app.cli init-db
 python -m app.cli import-recipes data/recipes
 python -m app.cli run
 ```
+
+## LLM Provider
+
+Gemini is recommended for a free-tier first run:
+
+```env
+LLM_PROVIDER=gemini
+GEMINI_API_KEY=...
+GEMINI_MODEL=gemini-2.5-flash
+```
+
+Create a key in [Google AI Studio](https://aistudio.google.com/app/apikey). Google currently lists Gemini 2.5 Flash input and output tokens as free of charge on the free tier, with limited access/rate limits.
+
+OpenAI is also supported:
+
+```env
+LLM_PROVIDER=openai
+OPENAI_API_KEY=sk-...
+OPENAI_MODEL=gpt-4o-mini
+```
+
+If the configured provider fails because of quota, billing, or temporary network issues, the app falls back to the deterministic local planner so the weekly workflow does not stop.
 
 Manual draft generation:
 
@@ -165,7 +188,6 @@ Tests mock external Telegram/LLM behavior and cover planner preferences, repetit
 
 ## Current Limitations
 
-- OpenAI is the only network LLM provider implemented; a deterministic fallback is used when no key is configured.
+- Gemini and OpenAI network providers are implemented; a deterministic fallback is used when no key is configured or a provider fails.
 - URL recipe ingestion and web recipe discovery are interface-ready but intentionally not active by default.
 - Natural-language understanding is Turkish-oriented with LLM support and rule-based fallback; uncertain permanent rules should be clarified by the admin.
-

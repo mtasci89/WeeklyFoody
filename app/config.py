@@ -2,16 +2,16 @@ from __future__ import annotations
 
 from functools import lru_cache
 from pathlib import Path
-from typing import Literal
+from typing import Annotated, Literal
 
 from pydantic import Field, field_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 
 class Settings(BaseSettings):
     telegram_bot_token: str = ""
     admin_telegram_user_id: int | None = None
-    telegram_recipient_chat_ids: list[int] = Field(default_factory=list)
+    telegram_recipient_chat_ids: Annotated[list[int], NoDecode] = Field(default_factory=list)
 
     timezone: str = "Europe/Istanbul"
     weekly_plan_day: str = "sunday"
@@ -22,9 +22,11 @@ class Settings(BaseSettings):
     llm_provider: str = "openai"
     openai_api_key: str = ""
     openai_model: str = "gpt-4o-mini"
+    gemini_api_key: str = ""
+    gemini_model: str = "gemini-2.5-flash"
 
     default_servings: int = 4
-    meal_slots: list[str] = Field(default_factory=lambda: ["dinner"])
+    meal_slots: Annotated[list[str], NoDecode] = Field(default_factory=lambda: ["dinner"])
     pantry_mode: Literal["exclude", "check"] = "exclude"
     log_level: str = "INFO"
 
@@ -61,4 +63,3 @@ class Settings(BaseSettings):
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
     return Settings()
-
