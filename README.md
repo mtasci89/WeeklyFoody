@@ -68,6 +68,33 @@ If your computer is off, the local bot is off too. GitHub stores the code but do
 
 For an always-on setup, deploy the GitHub repo to Railway and use Railway Postgres for persistent memory. See [CLOUD_DEPLOY.md](CLOUD_DEPLOY.md).
 
+## Web Panel
+
+The app includes a small read-only web panel for browsing the recipe database, candidate recipes, pantry items, and preferences.
+
+By default it runs on localhost only:
+
+```env
+WEB_PANEL_ENABLED=true
+WEB_PANEL_HOST=127.0.0.1
+WEB_PANEL_PORT=8000
+WEB_PANEL_TOKEN=choose-a-private-token
+```
+
+For the Oracle VM setup, keep `WEB_PANEL_HOST=127.0.0.1` and open it through an SSH tunnel from your Mac:
+
+```bash
+ssh -L 8000:127.0.0.1:8000 -i "$HOME/Downloads/ssh-key-weeklyfoody1GB.key" opc@152.67.69.25
+```
+
+Then open:
+
+```text
+http://127.0.0.1:8000/?token=YOUR_TOKEN
+```
+
+Do not expose this panel publicly unless you also set a strong `WEB_PANEL_TOKEN` and restrict network access.
+
 ## Local Run
 
 ```bash

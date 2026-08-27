@@ -44,6 +44,11 @@ class Settings(BaseSettings):
         ]
     )
 
+    web_panel_enabled: bool = True
+    web_panel_host: str = "127.0.0.1"
+    web_panel_port: int = 8000
+    web_panel_token: str = ""
+
     data_dir: Path = Path("data")
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")

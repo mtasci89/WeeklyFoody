@@ -55,6 +55,10 @@ RECIPE_DISCOVERY_ENABLED=true
 RECIPE_DISCOVERY_DAY=saturday
 RECIPE_DISCOVERY_TIME=18:00
 RECIPE_DISCOVERY_LIMIT_PER_CATEGORY=2
+WEB_PANEL_ENABLED=true
+WEB_PANEL_HOST=127.0.0.1
+WEB_PANEL_PORT=8000
+WEB_PANEL_TOKEN=choose-a-private-token
 ```
 
 If Railway does not accept the `${{Postgres.DATABASE_URL}}` reference from copy/paste, use its variable picker/reference UI to select the Postgres service's `DATABASE_URL`.
