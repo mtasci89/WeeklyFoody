@@ -1,0 +1,942 @@
+- name: Bademli Kabak
+  cuisine: Turkish
+  category: meze
+  meal_type: dinner
+  servings: 6
+  prep_minutes: 15
+  cook_minutes: 8
+  protein_type: vegetable
+  vegetarian: true
+  tags: [meze, yogurt, cold]
+  source: pasted-meze-list
+  ingredients:
+    - name: kabak
+      quantity: 3
+      unit: adet
+    - name: süzme yoğurt
+      quantity: 300
+      unit: gram
+    - name: sarımsak
+      quantity: 1
+      unit: adet
+    - name: file badem
+      quantity: 70
+      unit: gram
+    - name: zeytinyağı
+      quantity: 2
+      unit: yemek kaşığı
+    - name: dereotu
+      quantity: 1
+      unit: avuç
+    - name: tuz
+      quantity: null
+      unit: null
+  instructions: Kabakları iri rendeleyip suyunu çok iyi sık. Zeytinyağında 6-8 dakika suyunu çekene kadar çevir ve soğut. Süzme yoğurt, sarımsak, dereotu, kabak ve bademin yarısını karıştır; üstünü kalan bademle kapla.
+
+- name: Yoğurtlu Patlıcan
+  cuisine: Turkish
+  category: meze
+  meal_type: dinner
+  servings: 4
+  prep_minutes: 15
+  cook_minutes: 25
+  protein_type: vegetable
+  vegetarian: true
+  tags: [meze, yogurt, eggplant]
+  source: pasted-meze-list
+  ingredients:
+    - name: köz patlıcan
+      quantity: 3
+      unit: adet
+    - name: süzme yoğurt
+      quantity: 300
+      unit: gram
+    - name: sarımsak
+      quantity: 2
+      unit: adet
+    - name: zeytinyağı
+      quantity: 1
+      unit: yemek kaşığı
+    - name: tuz
+      quantity: null
+      unit: null
+  instructions: Patlıcanları közle, soy ve süzgeçte suyunu bırak. Bıçakla kıyıp soğut; sarımsaklı süzme yoğurtla karıştır.
+
+- name: Mutebbel
+  cuisine: Middle Eastern
+  category: meze
+  meal_type: dinner
+  servings: 4
+  prep_minutes: 15
+  cook_minutes: 25
+  protein_type: vegetable
+  vegetarian: true
+  tags: [meze, eggplant, tahini]
+  source: pasted-meze-list
+  ingredients:
+    - name: köz patlıcan
+      quantity: 3
+      unit: adet
+    - name: tahin
+      quantity: 3
+      unit: yemek kaşığı
+    - name: süzme yoğurt
+      quantity: 2
+      unit: yemek kaşığı
+    - name: sarımsak
+      quantity: 1
+      unit: adet
+    - name: limon
+      quantity: 0.5
+      unit: adet
+    - name: zeytinyağı
+      quantity: 1.5
+      unit: yemek kaşığı
+    - name: tuz
+      quantity: null
+      unit: null
+  instructions: Patlıcanı bıçakla kıy. Tahin, limon ve sarımsağı çırp; yoğurdu ekle ve patlıcanla birleştir.
+
+- name: Tahinli Patlıcan
+  cuisine: Turkish
+  category: meze
+  meal_type: dinner
+  servings: 4
+  prep_minutes: 10
+  cook_minutes: 25
+  protein_type: vegetable
+  vegetarian: true
+  tags: [meze, eggplant, tahini]
+  source: pasted-meze-list
+  ingredients:
+    - name: köz patlıcan
+      quantity: 2
+      unit: adet
+    - name: süzme yoğurt
+      quantity: 4
+      unit: yemek kaşığı
+    - name: tahin
+      quantity: 1.5
+      unit: yemek kaşığı
+    - name: sarımsak
+      quantity: 1
+      unit: adet
+    - name: tuz
+      quantity: null
+      unit: null
+  instructions: Köz patlıcanı kıy; süzme yoğurt, tahin, sarımsak ve tuzla karıştır. Üzerine biberli zeytinyağı gezdirilebilir.
+
+- name: Köpoğlu
+  cuisine: Turkish
+  category: meze
+  meal_type: dinner
+  servings: 4
+  prep_minutes: 20
+  cook_minutes: 25
+  protein_type: vegetable
+  vegetarian: true
+  tags: [meze, yogurt, eggplant]
+  source: pasted-meze-list
+  ingredients:
+    - name: patlıcan
+      quantity: 2
+      unit: adet
+    - name: kapya biber
+      quantity: 2
+      unit: adet
+    - name: sivri biber
+      quantity: 2
+      unit: adet
+    - name: süzme yoğurt
+      quantity: 300
+      unit: gram
+    - name: sarımsak
+      quantity: 3
+      unit: adet
+    - name: domates
+      quantity: 2
+      unit: adet
+    - name: zeytinyağı
+      quantity: null
+      unit: null
+  instructions: Patlıcan ve biberleri küp doğrayıp kızart. Sarımsaklı süzme yoğurtla karıştır. Domatesi zeytinyağında koyulaştırıp soğuttuktan sonra üzerine gezdir.
+
+- name: Atom
+  cuisine: Turkish
+  category: meze
+  meal_type: dinner
+  servings: 4
+  prep_minutes: 10
+  cook_minutes: 3
+  protein_type: dairy
+  vegetarian: true
+  tags: [meze, yogurt, spicy]
+  source: pasted-meze-list
+  ingredients:
+    - name: süzme yoğurt
+      quantity: 300
+      unit: gram
+    - name: sarımsak
+      quantity: 1
+      unit: adet
+    - name: kuru acı biber
+      quantity: 10
+      unit: adet
+    - name: tereyağı
+      quantity: 2
+      unit: yemek kaşığı
+    - name: zeytinyağı
+      quantity: 1
+      unit: yemek kaşığı
+  instructions: Sarımsaklı yoğurdu tabağa yay. Kırılmış kuru biberleri tereyağı ve zeytinyağında 20-30 saniye köpürt; yakmadan yoğurdun üzerine dök.
+
+- name: Havuç Tarator
+  cuisine: Turkish
+  category: meze
+  meal_type: dinner
+  servings: 4
+  prep_minutes: 10
+  cook_minutes: 8
+  protein_type: vegetable
+  vegetarian: true
+  tags: [meze, yogurt]
+  source: pasted-meze-list
+  ingredients:
+    - name: havuç
+      quantity: 4
+      unit: adet
+    - name: süzme yoğurt
+      quantity: 300
+      unit: gram
+    - name: sarımsak
+      quantity: 1
+      unit: adet
+    - name: zeytinyağı
+      quantity: 2
+      unit: yemek kaşığı
+    - name: ceviz
+      quantity: 2
+      unit: yemek kaşığı
+  instructions: Havuçları iri rendele ve zeytinyağında yumuşayana kadar çevir. Tamamen soğut; yoğurt, sarımsak ve cevizle karıştır.
+
+- name: Girit Meze
+  cuisine: Turkish
+  category: meze
+  meal_type: dinner
+  servings: 4
+  prep_minutes: 10
+  cook_minutes: 0
+  protein_type: dairy
+  vegetarian: true
+  tags: [meze, cheese]
+  source: pasted-meze-list
+  ingredients:
+    - name: ezine peyniri
+      quantity: 200
+      unit: gram
+    - name: lor
+      quantity: 100
+      unit: gram
+    - name: izmir tulumu
+      quantity: 50
+      unit: gram
+    - name: ceviz
+      quantity: 40
+      unit: gram
+    - name: antep fıstığı
+      quantity: 30
+      unit: gram
+    - name: zeytinyağı
+      quantity: 4
+      unit: yemek kaşığı
+    - name: sarımsak
+      quantity: 0.5
+      unit: adet
+    - name: dereotu
+      quantity: null
+      unit: null
+  instructions: Peynirleri çatalla ez ama krema haline getirme. Kuruyemişleri iri bırakıp zeytinyağı ve dereotuyla karıştır.
+
+- name: Fesleğenli Girit
+  cuisine: Turkish
+  category: meze
+  meal_type: dinner
+  servings: 4
+  prep_minutes: 10
+  cook_minutes: 0
+  protein_type: dairy
+  vegetarian: true
+  tags: [meze, cheese, basil]
+  source: pasted-meze-list
+  ingredients:
+    - name: ezine peyniri
+      quantity: 200
+      unit: gram
+    - name: lor
+      quantity: 100
+      unit: gram
+    - name: fesleğen
+      quantity: 20
+      unit: yaprak
+    - name: antep fıstığı
+      quantity: 2
+      unit: yemek kaşığı
+    - name: sarımsak
+      quantity: 1
+      unit: adet
+    - name: zeytinyağı
+      quantity: 4
+      unit: yemek kaşığı
+  instructions: Fesleğen, fıstık ve zeytinyağını kısa süre rondodan geçir. Peynirleri ekleyip sadece birkaç pulse yap; tamamen krema yapma.
+
+- name: Fava
+  cuisine: Turkish
+  category: meze
+  meal_type: dinner
+  servings: 6
+  prep_minutes: 10
+  cook_minutes: 45
+  protein_type: legumes
+  vegetarian: true
+  tags: [meze, legume]
+  source: pasted-meze-list
+  ingredients:
+    - name: kuru iç bakla
+      quantity: 250
+      unit: gram
+    - name: kuru soğan
+      quantity: 1
+      unit: adet
+    - name: zeytinyağı
+      quantity: 80
+      unit: ml
+    - name: şeker
+      quantity: 1
+      unit: tatlı kaşığı
+    - name: tuz
+      quantity: 1.5
+      unit: çay kaşığı
+    - name: su
+      quantity: 700
+      unit: ml
+    - name: limon
+      quantity: 0.5
+      unit: adet
+  instructions: Soğanı zeytinyağının yarısıyla yumuşat. Bakla, su, şeker ve tuzu ekleyip bakla dağılana kadar pişir. Blenderdan geçir; limon ve kalan zeytinyağını ekleyip soğut.
+
+- name: Humus
+  cuisine: Middle Eastern
+  category: meze
+  meal_type: dinner
+  servings: 4
+  prep_minutes: 15
+  cook_minutes: 0
+  protein_type: legumes
+  vegetarian: true
+  tags: [meze, legume, tahini]
+  source: pasted-meze-list
+  ingredients:
+    - name: haşlanmış nohut
+      quantity: 400
+      unit: gram
+    - name: tahin
+      quantity: 100
+      unit: gram
+    - name: limon
+      quantity: 1
+      unit: adet
+    - name: sarımsak
+      quantity: 2
+      unit: adet
+    - name: kimyon
+      quantity: 0.5
+      unit: çay kaşığı
+    - name: buzlu su
+      quantity: 6
+      unit: yemek kaşığı
+    - name: tuz
+      quantity: null
+      unit: null
+  instructions: Nohudu sıcakken robotta çek. Tahin, limon ve sarımsağı ayrı çırp; buzlu suyla rengi açılınca nohutla birleştir.
+
+- name: Acılı Ezme
+  cuisine: Turkish
+  category: meze
+  meal_type: dinner
+  servings: 4
+  prep_minutes: 20
+  cook_minutes: 0
+  protein_type: vegetable
+  vegetarian: true
+  tags: [meze, spicy]
+  source: pasted-meze-list
+  ingredients:
+    - name: domates
+      quantity: 3
+      unit: adet
+    - name: kapya biber
+      quantity: 2
+      unit: adet
+    - name: sivri biber
+      quantity: 2
+      unit: adet
+    - name: kuru soğan
+      quantity: 0.5
+      unit: adet
+    - name: sarımsak
+      quantity: 2
+      unit: adet
+    - name: biber salçası
+      quantity: 1
+      unit: yemek kaşığı
+    - name: nar ekşisi
+      quantity: 1
+      unit: yemek kaşığı
+    - name: limon
+      quantity: 0.5
+      unit: adet
+    - name: zeytinyağı
+      quantity: 3
+      unit: yemek kaşığı
+    - name: isot
+      quantity: null
+      unit: null
+    - name: maydanoz
+      quantity: null
+      unit: null
+  instructions: Sebzeleri bıçakla çok ince kıy veya robotu aralıklı çalıştır. Suyunu hafif süz; salça, nar ekşisi, limon, yağ ve baharatla karıştır.
+
+- name: Şakşuka
+  cuisine: Turkish
+  category: meze
+  meal_type: dinner
+  servings: 4
+  prep_minutes: 20
+  cook_minutes: 25
+  protein_type: vegetable
+  vegetarian: true
+  tags: [meze, vegetable]
+  source: pasted-meze-list
+  ingredients:
+    - name: patlıcan
+      quantity: 2
+      unit: adet
+    - name: yeşil biber
+      quantity: 2
+      unit: adet
+    - name: kabak
+      quantity: 1
+      unit: adet
+    - name: domates
+      quantity: 4
+      unit: adet
+    - name: sarımsak
+      quantity: 2
+      unit: adet
+    - name: zeytinyağı
+      quantity: null
+      unit: null
+    - name: sirke
+      quantity: null
+      unit: null
+  instructions: Sebzeleri ayrı ayrı kızart. Domatesi sarımsakla koyu sos haline getir. Her şey soğuyunca birleştir.
+
+- name: Köz Biber
+  cuisine: Turkish
+  category: meze
+  meal_type: dinner
+  servings: 4
+  prep_minutes: 15
+  cook_minutes: 20
+  protein_type: vegetable
+  vegetarian: true
+  tags: [meze, pepper]
+  source: pasted-meze-list
+  ingredients:
+    - name: kapya biber
+      quantity: 6
+      unit: adet
+    - name: sarımsak
+      quantity: 2
+      unit: adet
+    - name: zeytinyağı
+      quantity: 3
+      unit: yemek kaşığı
+    - name: sirke
+      quantity: 1
+      unit: yemek kaşığı
+    - name: limon
+      quantity: 0.5
+      unit: adet
+    - name: tuz
+      quantity: null
+      unit: null
+  instructions: Biberleri közle, kapalı kapta terlet ve soy. Şerit kesip sarımsak, zeytinyağı, sirke, limon ve tuzla en az 2 saat beklet.
+
+- name: Pancar Mezesi
+  cuisine: Turkish
+  category: meze
+  meal_type: dinner
+  servings: 4
+  prep_minutes: 10
+  cook_minutes: 60
+  protein_type: vegetable
+  vegetarian: true
+  tags: [meze, beet]
+  source: pasted-meze-list
+  ingredients:
+    - name: pancar
+      quantity: 4
+      unit: adet
+    - name: üzüm sirkesi
+      quantity: 2
+      unit: yemek kaşığı
+    - name: limon
+      quantity: 0.5
+      unit: adet
+    - name: zeytinyağı
+      quantity: 3
+      unit: yemek kaşığı
+    - name: sarımsak
+      quantity: 1
+      unit: adet
+    - name: tuz
+      quantity: null
+      unit: null
+  instructions: Pancarı folyoda 190 derecede 45-60 dakika pişir veya haşla. Küp doğra; sirke, limon, zeytinyağı, sarımsak ve tuzla bir gece beklet.
+
+- name: Deniz Börülcesi
+  cuisine: Turkish
+  category: meze
+  meal_type: dinner
+  servings: 4
+  prep_minutes: 20
+  cook_minutes: 10
+  protein_type: vegetable
+  vegetarian: true
+  seasonal: [summer]
+  tags: [meze, greens]
+  source: pasted-meze-list
+  ingredients:
+    - name: deniz börülcesi
+      quantity: 2
+      unit: demet
+    - name: sarımsak
+      quantity: 2
+      unit: adet
+    - name: limon
+      quantity: 0.5
+      unit: adet
+    - name: zeytinyağı
+      quantity: 4
+      unit: yemek kaşığı
+  instructions: Deniz börülcesini 8-10 dakika haşla, buzlu suya al ve sert kılçığını sıyır. Sarımsak, limon ve zeytinyağıyla karıştır; ayrıca tuz ekleme.
+
+- name: Kaya Koruğu
+  cuisine: Turkish
+  category: meze
+  meal_type: dinner
+  servings: 4
+  prep_minutes: 5
+  cook_minutes: 0
+  protein_type: vegetable
+  vegetarian: true
+  tags: [meze, pickle]
+  source: pasted-meze-list
+  ingredients:
+    - name: kaya koruğu turşusu
+      quantity: 250
+      unit: gram
+    - name: limon
+      quantity: 0.5
+      unit: adet
+    - name: zeytinyağı
+      quantity: 2
+      unit: yemek kaşığı
+    - name: sarımsak
+      quantity: 1
+      unit: adet
+  instructions: Kaya koruğunu limon, zeytinyağı ve sarımsakla karıştır. İstenirse az köz kapya eklenebilir.
+
+- name: Yoğurtlu Semizotu
+  cuisine: Turkish
+  category: meze
+  meal_type: dinner
+  servings: 4
+  prep_minutes: 15
+  cook_minutes: 0
+  protein_type: vegetable
+  vegetarian: true
+  seasonal: [summer]
+  tags: [meze, yogurt, greens]
+  source: pasted-meze-list
+  ingredients:
+    - name: semizotu
+      quantity: 2
+      unit: bağ
+    - name: süzme yoğurt
+      quantity: 300
+      unit: gram
+    - name: sarımsak
+      quantity: 1
+      unit: adet
+    - name: zeytinyağı
+      quantity: 2
+      unit: yemek kaşığı
+  instructions: Semizotunu yıka ve çok iyi kurut. Yaprak ve körpe sapları doğra; servis öncesi sarımsaklı yoğurtla karıştır.
+
+- name: Kuru Cacık
+  cuisine: Turkish
+  category: meze
+  meal_type: dinner
+  servings: 4
+  prep_minutes: 15
+  cook_minutes: 0
+  protein_type: dairy
+  vegetarian: true
+  tags: [meze, yogurt]
+  source: pasted-meze-list
+  ingredients:
+    - name: süzme yoğurt
+      quantity: 500
+      unit: gram
+    - name: salatalık
+      quantity: 3
+      unit: adet
+    - name: sarımsak
+      quantity: 2
+      unit: adet
+    - name: dereotu
+      quantity: null
+      unit: null
+    - name: nane
+      quantity: null
+      unit: null
+    - name: sirke
+      quantity: 1
+      unit: çay kaşığı
+    - name: zeytinyağı
+      quantity: null
+      unit: null
+  instructions: Salatalığı rendeleyip suyunu bezle çok iyi sık. Süzme yoğurt, sarımsak, dereotu, nane, sirke ve zeytinyağıyla karıştır; 1-2 saat dinlendir.
+
+- name: Kuru Börülce Atatürk Meze
+  aliases: [Atatürk Mezesi, Kuru Börülce]
+  cuisine: Turkish
+  category: meze
+  meal_type: dinner
+  servings: 4
+  prep_minutes: 15
+  cook_minutes: 0
+  protein_type: legumes
+  vegetarian: true
+  tags: [meze, legume]
+  source: pasted-meze-list
+  ingredients:
+    - name: haşlanmış kuru börülce
+      quantity: 2
+      unit: su bardağı
+    - name: limon
+      quantity: 0.5
+      unit: adet
+    - name: zeytinyağı
+      quantity: 4
+      unit: yemek kaşığı
+    - name: kimyon
+      quantity: 1
+      unit: çay kaşığı
+    - name: tuz
+      quantity: null
+      unit: null
+  instructions: Börülcenin yaklaşık yarısını ez, diğer yarısını taneli bırak. Limon, zeytinyağı, kimyon ve tuzla karıştır.
+
+- name: Hardal Soslu Levrek Marin
+  cuisine: Turkish
+  category: meze
+  meal_type: dinner
+  servings: 4
+  prep_minutes: 20
+  cook_minutes: 0
+  protein_type: fish
+  vegetarian: false
+  tags: [meze, seafood, raw-fish]
+  source: pasted-meze-list
+  notes: Çiğ veya marine balık için güvenilir tedarik ve uygun dondurma/gıda güvenliği gerekir.
+  ingredients:
+    - name: levrek fileto
+      quantity: 400
+      unit: gram
+    - name: soğan
+      quantity: 1
+      unit: adet
+    - name: limon
+      quantity: 1
+      unit: adet
+    - name: elma sirkesi
+      quantity: 3
+      unit: yemek kaşığı
+    - name: dijon hardalı
+      quantity: 1.5
+      unit: yemek kaşığı
+    - name: zeytinyağı
+      quantity: 4
+      unit: yemek kaşığı
+    - name: şeker
+      quantity: 0.5
+      unit: çay kaşığı
+    - name: tuz
+      quantity: null
+      unit: null
+    - name: tane karabiber
+      quantity: null
+      unit: null
+  instructions: Levreği ince şerit kes. Soğanı tuzlu suda bekletip süz. Hardal, limon, sirke, şeker ve zeytinyağını çırp; balık ve soğanla birleştirip buzdolabında 3-5 saat beklet.
+
+- name: Fesleğenli Levrek Marin
+  cuisine: Turkish
+  category: meze
+  meal_type: dinner
+  servings: 4
+  prep_minutes: 20
+  cook_minutes: 0
+  protein_type: fish
+  vegetarian: false
+  tags: [meze, seafood, basil, raw-fish]
+  source: pasted-meze-list
+  notes: Çiğ veya marine balık için güvenilir tedarik ve uygun dondurma/gıda güvenliği gerekir.
+  ingredients:
+    - name: levrek fileto
+      quantity: 400
+      unit: gram
+    - name: limon
+      quantity: 0.5
+      unit: adet
+    - name: zeytinyağı
+      quantity: 3
+      unit: yemek kaşığı
+    - name: elma sirkesi
+      quantity: 1
+      unit: yemek kaşığı
+    - name: fesleğen
+      quantity: 15
+      unit: yaprak
+    - name: sarımsak
+      quantity: 0.5
+      unit: adet
+    - name: şeker
+      quantity: null
+      unit: null
+    - name: tuz
+      quantity: null
+      unit: null
+  instructions: Balığı önce limon ve sirkede 60-90 dakika beklet. Fesleğen, zeytinyağı, sarımsak, az şeker ve tuzla yeşil sos yap; balığı süzüp sosla karıştır.
+
+- name: Soslu Hamsi
+  cuisine: Turkish
+  category: meze
+  meal_type: dinner
+  servings: 4
+  prep_minutes: 20
+  cook_minutes: 0
+  protein_type: fish
+  vegetarian: false
+  tags: [meze, seafood, raw-fish]
+  source: pasted-meze-list
+  notes: Çiğ veya marine balık için güvenilir tedarik ve uygun dondurma/gıda güvenliği gerekir.
+  ingredients:
+    - name: hamsi
+      quantity: 500
+      unit: gram
+    - name: sirke
+      quantity: 0.5
+      unit: su bardağı
+    - name: limon
+      quantity: 0.5
+      unit: adet
+    - name: sarımsak
+      quantity: null
+      unit: null
+    - name: maydanoz
+      quantity: null
+      unit: null
+    - name: zeytinyağı
+      quantity: null
+      unit: null
+    - name: tane karabiber
+      quantity: null
+      unit: null
+  instructions: Ayıklanmış hamsiyi asitli karışımda beklet, süz ve zeytinyağı, sarımsak, maydanoz ve tane karabiberle dinlendir.
+
+- name: Lakerda
+  cuisine: Turkish
+  category: meze
+  meal_type: dinner
+  servings: 4
+  prep_minutes: 30
+  cook_minutes: 0
+  protein_type: fish
+  vegetarian: false
+  tags: [meze, seafood, cured-fish]
+  source: pasted-meze-list
+  notes: Evde ilk kez yapılacaksa güvenilir hazır lakerda tercih edilmeli; tuzlama parazit riskini tek başına güvenilir biçimde ortadan kaldırmaz.
+  ingredients:
+    - name: lakerda
+      quantity: 300
+      unit: gram
+    - name: kırmızı soğan
+      quantity: 1
+      unit: adet
+    - name: limon
+      quantity: 1
+      unit: adet
+  instructions: Güvenilir hazır lakerdayı ince dilimle; kırmızı soğan ve limonla servis et.
+
+- name: Çiroz
+  cuisine: Turkish
+  category: meze
+  meal_type: dinner
+  servings: 4
+  prep_minutes: 10
+  cook_minutes: 0
+  protein_type: fish
+  vegetarian: false
+  tags: [meze, seafood]
+  source: pasted-meze-list
+  ingredients:
+    - name: çiroz
+      quantity: 150
+      unit: gram
+    - name: sirke
+      quantity: 2
+      unit: yemek kaşığı
+    - name: zeytinyağı
+      quantity: 3
+      unit: yemek kaşığı
+    - name: limon
+      quantity: 0.5
+      unit: adet
+    - name: kırmızı soğan
+      quantity: 1
+      unit: adet
+    - name: dereotu
+      quantity: null
+      unit: null
+  instructions: Güvenilir hazır çirozu didikle; sirke, zeytinyağı, limon, kırmızı soğan ve dereotuyla 1-2 saat dinlendir.
+
+- name: Ahtapot Salatası
+  cuisine: Mediterranean
+  category: salad
+  meal_type: dinner
+  servings: 4
+  prep_minutes: 15
+  cook_minutes: 0
+  protein_type: seafood
+  vegetarian: false
+  tags: [salad, meze, seafood]
+  source: pasted-meze-list
+  ingredients:
+    - name: pişmiş ahtapot
+      quantity: 500
+      unit: gram
+    - name: kırmızı soğan
+      quantity: 0.5
+      unit: adet
+    - name: maydanoz
+      quantity: null
+      unit: null
+    - name: limon
+      quantity: 0.5
+      unit: adet
+    - name: zeytinyağı
+      quantity: 3
+      unit: yemek kaşığı
+    - name: sirke
+      quantity: 1
+      unit: yemek kaşığı
+    - name: kapari
+      quantity: null
+      unit: null
+  instructions: Pişmiş ahtapotu küçük küp doğra. Diğer malzemelerle karıştırıp en az 1 saat soğukta beklet.
+
+- name: Mücver
+  cuisine: Turkish
+  category: meze
+  meal_type: dinner
+  servings: 4
+  prep_minutes: 20
+  cook_minutes: 15
+  protein_type: vegetable
+  vegetarian: true
+  tags: [meze, zucchini]
+  source: pasted-meze-list
+  ingredients:
+    - name: kabak
+      quantity: 3
+      unit: adet
+    - name: yumurta
+      quantity: 2
+      unit: adet
+    - name: un
+      quantity: 5
+      unit: yemek kaşığı
+    - name: dereotu
+      quantity: null
+      unit: null
+    - name: maydanoz
+      quantity: null
+      unit: null
+    - name: taze soğan
+      quantity: 4
+      unit: dal
+    - name: beyaz peynir
+      quantity: 80
+      unit: gram
+    - name: karabiber
+      quantity: null
+      unit: null
+  instructions: Kabağı rendele, tuzlayıp beklet ve çok iyi sık. Diğer malzemeleri ekle; küçük ve ince porsiyonlar halinde kızart.
+
+- name: Kabak Çiçeği Dolması
+  cuisine: Turkish
+  category: meze
+  meal_type: dinner
+  servings: 6
+  prep_minutes: 30
+  cook_minutes: 25
+  protein_type: rice
+  vegetarian: true
+  seasonal: [summer]
+  tags: [meze, dolma]
+  source: pasted-meze-list
+  ingredients:
+    - name: kabak çiçeği
+      quantity: 20
+      unit: adet
+    - name: pirinç
+      quantity: 1
+      unit: su bardağı
+    - name: soğan
+      quantity: 2
+      unit: adet
+    - name: zeytinyağı
+      quantity: 0.5
+      unit: çay bardağı
+    - name: dereotu
+      quantity: null
+      unit: null
+    - name: nane
+      quantity: null
+      unit: null
+    - name: maydanoz
+      quantity: null
+      unit: null
+    - name: karabiber
+      quantity: null
+      unit: null
+    - name: tarçın
+      quantity: null
+      unit: null
+    - name: yenibahar
+      quantity: null
+      unit: null
+  instructions: Soğanı zeytinyağında çevir, pirinci 2-3 dakika kavur; az suyla yarı pişir. Otları ekle. Çiçekleri gevşek doldurup az su ve zeytinyağıyla 20-25 dakika pişir.
