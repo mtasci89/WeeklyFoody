@@ -51,6 +51,10 @@ MEAL_SLOTS=dinner
 MEAL_COURSE_ROLES=main,meze,meze,side
 PANTRY_MODE=exclude
 LOG_LEVEL=INFO
+RECIPE_DISCOVERY_ENABLED=true
+RECIPE_DISCOVERY_DAY=saturday
+RECIPE_DISCOVERY_TIME=18:00
+RECIPE_DISCOVERY_LIMIT_PER_CATEGORY=2
 ```
 
 If Railway does not accept the `${{Postgres.DATABASE_URL}}` reference from copy/paste, use its variable picker/reference UI to select the Postgres service's `DATABASE_URL`.

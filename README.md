@@ -196,6 +196,21 @@ Approve one into the permanent recipe library:
 
 This protects your library from filling up silently with recipes you have not approved.
 
+The bot can also run weekly automatic discovery. By default it looks for current, healthy, unusual but home-cookable main dishes, side dishes, and meze/salad ideas every Saturday at 18:00 Europe/Istanbul. These are also saved as `candidate` and sent only to the admin for review:
+
+```env
+RECIPE_DISCOVERY_ENABLED=true
+RECIPE_DISCOVERY_DAY=saturday
+RECIPE_DISCOVERY_TIME=18:00
+RECIPE_DISCOVERY_LIMIT_PER_CATEGORY=2
+```
+
+Run it manually when needed:
+
+```bash
+python -m app.cli discover-now
+```
+
 ## Saving Recipes From Instagram Or Elsewhere
 
 If you see a recipe on Instagram, YouTube, a website, or a message, send the name and any recipe text to the bot:

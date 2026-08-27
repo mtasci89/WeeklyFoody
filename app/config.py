@@ -32,6 +32,18 @@ class Settings(BaseSettings):
     pantry_mode: Literal["exclude", "check"] = "exclude"
     log_level: str = "INFO"
 
+    recipe_discovery_enabled: bool = True
+    recipe_discovery_day: str = "saturday"
+    recipe_discovery_time: str = "18:00"
+    recipe_discovery_limit_per_category: int = 2
+    recipe_discovery_queries: Annotated[list[str], NoDecode] = Field(
+        default_factory=lambda: [
+            "Güncel, sağlıklı, sıradışı ama evde yapılabilir ana yemek önerileri. category=main meal_type=dinner",
+            "Güncel, sağlıklı, sıradışı yan yemek önerileri: çorba, kinoa, bulgur, pilav, makarna, sebze. category=side meal_type=dinner",
+            "Modern meyhane tarzı sağlıklı meze veya salata önerileri. category=meze_or_salad meal_type=dinner",
+        ]
+    )
+
     data_dir: Path = Path("data")
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
@@ -62,6 +74,20 @@ class Settings(BaseSettings):
         if isinstance(value, list):
             return value
         return [part.strip().casefold() for part in value.split(",") if part.strip()]
+
+    @field_validator("recipe_discovery_queries", mode="before")
+    @classmethod
+    def parse_discovery_queries(cls, value: str | list[str] | None) -> list[str]:
+        if value is None or value == "":
+            return [
+                "Güncel, sağlıklı, sıradışı ama evde yapılabilir ana yemek önerileri. category=main meal_type=dinner",
+                "Güncel, sağlıklı, sıradışı yan yemek önerileri: çorba, kinoa, bulgur, pilav, makarna, sebze. category=side meal_type=dinner",
+                "Modern meyhane tarzı sağlıklı meze veya salata önerileri. category=meze_or_salad meal_type=dinner",
+            ]
+        if isinstance(value, list):
+            return value
+        separator = ";" if ";" in value else "|"
+        return [part.strip() for part in value.split(separator) if part.strip()]
 
     @property
     def all_recipient_ids(self) -> list[int]:

@@ -1,0 +1,958 @@
+- name: Datça Güzeli
+  cuisine: Turkish
+  category: meze
+  meal_type: dinner
+  servings: 4
+  prep_minutes: 15
+  cook_minutes: 5
+  protein_type: vegetable
+  vegetarian: true
+  tags: [meze, yogurt, modern, healthy]
+  source: pasted-modern-trends
+  ingredients:
+    - name: süzme yoğurt
+      quantity: 350
+      unit: gram
+    - name: kabak
+      quantity: 1
+      unit: adet
+    - name: kuş üzümü
+      quantity: 30
+      unit: gram
+    - name: çağla badem
+      quantity: 10
+      unit: adet
+    - name: sarımsak
+      quantity: 1
+      unit: adet
+    - name: dereotu
+      quantity: 1
+      unit: avuç
+    - name: zeytinyağı
+      quantity: 1
+      unit: yemek kaşığı
+    - name: tuz
+      quantity: null
+      unit: null
+  instructions: Kuş üzümünü sıcak suda beklet. Kabağı rendele, tuzla bekletip suyunu sık ve az zeytinyağında 4-5 dakika çevir. Soğuyunca yoğurt, sarımsak, dereotu, kuş üzümü ve doğranmış çağlayla karıştır.
+
+- name: Çıtır Nohutlu Mütebbel
+  cuisine: Middle Eastern
+  category: meze
+  meal_type: dinner
+  servings: 4
+  prep_minutes: 20
+  cook_minutes: 20
+  protein_type: legumes
+  vegetarian: true
+  tags: [meze, eggplant, tahini, modern]
+  source: pasted-modern-trends
+  ingredients:
+    - name: köz patlıcan
+      quantity: 3
+      unit: adet
+    - name: süzme yoğurt
+      quantity: 150
+      unit: gram
+    - name: tahin
+      quantity: 2
+      unit: yemek kaşığı
+    - name: sarımsak
+      quantity: 1
+      unit: adet
+    - name: limon
+      quantity: 0.5
+      unit: adet
+    - name: haşlanmış nohut
+      quantity: 150
+      unit: gram
+    - name: zeytinyağı
+      quantity: 1
+      unit: tatlı kaşığı
+    - name: kimyon
+      quantity: null
+      unit: null
+    - name: kırmızı biber
+      quantity: null
+      unit: null
+  instructions: Nohudu baharat ve az yağla 200 derecede çıtırlaştır. Köz patlıcanı yoğurt, tahin, limon ve sarımsakla karıştır. Üzerine çıtır nohut, maydanoz ve sumak koy.
+
+- name: Yeşil Elmalı Atom
+  cuisine: Turkish
+  category: meze
+  meal_type: dinner
+  servings: 4
+  prep_minutes: 10
+  cook_minutes: 5
+  protein_type: dairy
+  vegetarian: true
+  tags: [meze, yogurt, spicy, modern]
+  source: pasted-modern-trends
+  ingredients:
+    - name: granny smith elma
+      quantity: 2
+      unit: adet
+    - name: süzme yoğurt
+      quantity: 300
+      unit: gram
+    - name: sarımsak
+      quantity: 1
+      unit: adet
+    - name: kuru acı biber
+      quantity: 6
+      unit: adet
+    - name: tereyağı
+      quantity: 15
+      unit: gram
+    - name: zeytinyağı
+      quantity: 1
+      unit: tatlı kaşığı
+    - name: tuz
+      quantity: null
+      unit: null
+  instructions: Elmaları küp doğrayıp tereyağının yarısında 2-3 dakika karamelize et ve soğut. Sarımsaklı yoğurtla karıştır. Kalan tereyağında kuru biberleri çevirip üzerine dök.
+
+- name: Karamelize Arpacık Soğanlı Yoğurt
+  cuisine: Turkish
+  category: meze
+  meal_type: dinner
+  servings: 4
+  prep_minutes: 10
+  cook_minutes: 17
+  protein_type: vegetable
+  vegetarian: true
+  tags: [meze, yogurt, modern]
+  source: pasted-modern-trends
+  ingredients:
+    - name: arpacık soğan
+      quantity: 25
+      unit: adet
+    - name: süzme yoğurt
+      quantity: 300
+      unit: gram
+    - name: sarımsak
+      quantity: 1
+      unit: adet
+    - name: ceviz
+      quantity: 50
+      unit: gram
+    - name: nar ekşisi
+      quantity: 2
+      unit: tatlı kaşığı
+    - name: zeytinyağı
+      quantity: 1
+      unit: tatlı kaşığı
+    - name: nar tanesi
+      quantity: null
+      unit: null
+  instructions: Arpacık soğanları bütün halde yağla orta-kısık ateşte karamelize et. Sonunda nar ekşisi ve az su ekle. Sarımsaklı yoğurt üzerine koyup ceviz ve narla servis et.
+
+- name: Pancarlı Humus
+  cuisine: Middle Eastern
+  category: meze
+  meal_type: dinner
+  servings: 4
+  prep_minutes: 15
+  cook_minutes: 0
+  protein_type: legumes
+  vegetarian: true
+  tags: [meze, hummus, healthy]
+  source: pasted-modern-trends
+  ingredients:
+    - name: haşlanmış nohut
+      quantity: 250
+      unit: gram
+    - name: fırınlanmış pancar
+      quantity: 1
+      unit: adet
+    - name: tahin
+      quantity: 50
+      unit: gram
+    - name: limon suyu
+      quantity: 1
+      unit: adet
+    - name: sarımsak
+      quantity: 1
+      unit: adet
+    - name: kimyon
+      quantity: 0.5
+      unit: çay kaşığı
+    - name: buzlu su
+      quantity: 5
+      unit: yemek kaşığı
+    - name: tuz
+      quantity: null
+      unit: null
+  instructions: Tüm malzemeyi robota koy; buzlu suyu azar azar ekleyerek en az 2 dakika çek. Üzerine az Ezine veya Antep fıstığı eklenebilir.
+
+- name: Fırınlanmış Tahinli Kabak Labneli
+  cuisine: Mediterranean
+  category: meze
+  meal_type: dinner
+  servings: 4
+  prep_minutes: 15
+  cook_minutes: 25
+  protein_type: vegetable
+  vegetarian: true
+  tags: [meze, zucchini, tahini, modern]
+  source: pasted-modern-trends
+  ingredients:
+    - name: kabak
+      quantity: 4
+      unit: adet
+    - name: sarımsak
+      quantity: 6
+      unit: adet
+    - name: tahin
+      quantity: 2
+      unit: yemek kaşığı
+    - name: labne
+      quantity: 2
+      unit: yemek kaşığı
+    - name: süzme yoğurt
+      quantity: 2
+      unit: yemek kaşığı
+    - name: limon
+      quantity: 0.5
+      unit: adet
+    - name: zeytinyağı
+      quantity: null
+      unit: null
+    - name: ceviz
+      quantity: null
+      unit: null
+  instructions: Kabak ve sarımsakları az yağla 210 derecede renk alana kadar fırınla. Kabakları kıy, sarımsağı ez; tahin, labne, yoğurt ve limonla karıştır. Üzerine cevizli biberli yağ gezdir.
+
+- name: Narlı Ezine Fıstıklı Peynir Ezmesi
+  cuisine: Turkish
+  category: meze
+  meal_type: dinner
+  servings: 4
+  prep_minutes: 10
+  cook_minutes: 0
+  protein_type: dairy
+  vegetarian: true
+  tags: [meze, cheese, modern]
+  source: pasted-modern-trends
+  ingredients:
+    - name: ezine peyniri
+      quantity: 150
+      unit: gram
+    - name: labne
+      quantity: 60
+      unit: gram
+    - name: antep fıstığı
+      quantity: 25
+      unit: gram
+    - name: bal
+      quantity: 0.5
+      unit: çay kaşığı
+    - name: zeytinyağı
+      quantity: 1
+      unit: tatlı kaşığı
+    - name: nar tanesi
+      quantity: 3
+      unit: yemek kaşığı
+    - name: limon kabuğu
+      quantity: null
+      unit: null
+  instructions: Ezineyi çatalla ez, labne ve fıstığın yarısını ekle. Üzerine nar, kalan fıstık, birkaç damla bal ve zeytinyağı koy.
+
+- name: Tahin Zahter Yoğurt Üzerinde Köz Patlıcan
+  cuisine: Turkish
+  category: meze
+  meal_type: dinner
+  servings: 4
+  prep_minutes: 15
+  cook_minutes: 25
+  protein_type: vegetable
+  vegetarian: true
+  tags: [meze, eggplant, tahini, modern]
+  source: pasted-modern-trends
+  ingredients:
+    - name: patlıcan
+      quantity: 2
+      unit: adet
+    - name: süzme yoğurt
+      quantity: 250
+      unit: gram
+    - name: tahin
+      quantity: 1.5
+      unit: yemek kaşığı
+    - name: zahter
+      quantity: 1
+      unit: tatlı kaşığı
+    - name: çam fıstığı
+      quantity: 25
+      unit: gram
+    - name: zeytinyağı
+      quantity: null
+      unit: null
+    - name: pul biber
+      quantity: null
+      unit: null
+  instructions: Yoğurt, tahin ve zahteri çırpıp tabağa yay. Köz patlıcanı uzun parçalar halinde üzerine koy. Kavrulmuş fıstık, pul biber ve zeytinyağıyla servis et.
+
+- name: Portakallı Enginar Tarator
+  cuisine: Turkish
+  category: meze
+  meal_type: dinner
+  servings: 4
+  prep_minutes: 15
+  cook_minutes: 10
+  protein_type: vegetable
+  vegetarian: true
+  seasonal: [spring]
+  tags: [meze, artichoke, modern]
+  source: pasted-modern-trends
+  ingredients:
+    - name: enginar çanağı
+      quantity: 3
+      unit: adet
+    - name: süzme yoğurt
+      quantity: 250
+      unit: gram
+    - name: portakal kabuğu
+      quantity: 0.5
+      unit: adet
+    - name: portakal suyu
+      quantity: 1
+      unit: yemek kaşığı
+    - name: sarımsak
+      quantity: 1
+      unit: adet
+    - name: çam fıstığı
+      quantity: 25
+      unit: gram
+  instructions: Enginarı küp doğrayıp zeytinyağında çevir, az suyla yumuşat ve soğut. Portakallı sarımsaklı yoğurt üzerine enginar, kavrulmuş fıstık ve kırmızı soğan turşusu koy.
+
+- name: Avokadolu Fesleğenli Girit
+  cuisine: Turkish
+  category: meze
+  meal_type: dinner
+  servings: 4
+  prep_minutes: 10
+  cook_minutes: 0
+  protein_type: dairy
+  vegetarian: true
+  tags: [meze, cheese, avocado, modern]
+  source: pasted-modern-trends
+  ingredients:
+    - name: avokado
+      quantity: 1
+      unit: adet
+    - name: ezine peyniri
+      quantity: 120
+      unit: gram
+    - name: lor
+      quantity: 70
+      unit: gram
+    - name: fesleğen
+      quantity: 15
+      unit: yaprak
+    - name: antep fıstığı
+      quantity: 25
+      unit: gram
+    - name: sarımsak
+      quantity: 0.5
+      unit: adet
+    - name: limon
+      quantity: 0.5
+      unit: adet
+    - name: zeytinyağı
+      quantity: 1
+      unit: yemek kaşığı
+  instructions: Fesleğen, fıstık, yağ ve sarımsağı kısa çek. Avokado ve peynirleri ekleyip birkaç pulse daha yap; tamamen püre haline getirme.
+
+- name: Lor Tabanlı Protein Pizza
+  cuisine: Fitness
+  category: main
+  meal_type: dinner
+  servings: 2
+  prep_minutes: 15
+  cook_minutes: 23
+  protein_type: dairy
+  vegetarian: false
+  tags: [main, high-protein, healthy]
+  source: pasted-modern-trends
+  ingredients:
+    - name: yağsız lor
+      quantity: 200
+      unit: gram
+    - name: yumurta
+      quantity: 2
+      unit: adet
+    - name: yulaf unu
+      quantity: 30
+      unit: gram
+    - name: domates sosu
+      quantity: 2
+      unit: yemek kaşığı
+    - name: mozzarella
+      quantity: 70
+      unit: gram
+    - name: mantar
+      quantity: null
+      unit: null
+    - name: biber
+      quantity: null
+      unit: null
+    - name: pişmiş tavuk
+      quantity: 100
+      unit: gram
+  instructions: Lor, yumurta, yulaf unu, tuz ve kekiği pürüzsüz çek. Yağlı kağıda ince yay ve 200 derecede 15 dakika ön pişir. Üst malzemeleri ekleyip 7-8 dakika daha fırınla.
+
+- name: Kırmızı Mercimek Lavaşı
+  cuisine: Fitness
+  category: side
+  meal_type: dinner
+  servings: 4
+  prep_minutes: 10
+  cook_minutes: 12
+  protein_type: legumes
+  vegetarian: true
+  tags: [side, high-protein, healthy]
+  source: pasted-modern-trends
+  ingredients:
+    - name: kırmızı mercimek
+      quantity: 1
+      unit: su bardağı
+    - name: su
+      quantity: 1
+      unit: su bardağı
+    - name: tuz
+      quantity: null
+      unit: null
+    - name: kimyon
+      quantity: null
+      unit: null
+  instructions: Mercimeği 3-4 saat ıslat, süz ve taze suyla pürüzsüz çek. Yapışmaz tavada ince lavaşlar halinde iki tarafını pişir.
+
+- name: Ton Balıklı Yumurta Protein Salatası
+  cuisine: Fitness
+  category: salad
+  meal_type: dinner
+  servings: 2
+  prep_minutes: 15
+  cook_minutes: 10
+  protein_type: fish
+  vegetarian: false
+  tags: [salad, high-protein, healthy]
+  source: pasted-modern-trends
+  ingredients:
+    - name: ton balığı
+      quantity: 2
+      unit: kutu
+    - name: haşlanmış yumurta
+      quantity: 4
+      unit: adet
+    - name: süzme yoğurt
+      quantity: 80
+      unit: gram
+    - name: labne
+      quantity: 20
+      unit: gram
+    - name: kornişon turşu
+      quantity: 50
+      unit: gram
+    - name: kırmızı soğan
+      quantity: 0.5
+      unit: adet
+    - name: limon
+      quantity: null
+      unit: null
+    - name: dereotu
+      quantity: null
+      unit: null
+  instructions: Yumurtayı iri doğra. Ton balığı, yoğurt, labne, kornişon, kırmızı soğan, limon, karabiber ve dereotuyla karıştır.
+
+- name: Lor Yulaf Protein Lokmaları
+  cuisine: Fitness
+  category: side
+  meal_type: dinner
+  servings: 4
+  prep_minutes: 10
+  cook_minutes: 22
+  protein_type: dairy
+  vegetarian: true
+  tags: [side, high-protein, healthy]
+  source: pasted-modern-trends
+  ingredients:
+    - name: lor
+      quantity: 250
+      unit: gram
+    - name: yumurta
+      quantity: 2
+      unit: adet
+    - name: yulaf
+      quantity: 60
+      unit: gram
+    - name: kabartma tozu
+      quantity: 0.5
+      unit: paket
+    - name: dereotu
+      quantity: null
+      unit: null
+    - name: pul biber
+      quantity: null
+      unit: null
+    - name: limon kabuğu
+      quantity: 0.5
+      unit: adet
+  instructions: Tüm malzemeyi karıştırıp küçük toplar yap. 190 derecede 18-22 dakika pişir. Yoğurt, nane ve limon sosuyla servis edilebilir.
+
+- name: Yufkasız Protein Böreği
+  cuisine: Fitness
+  category: main
+  meal_type: dinner
+  servings: 4
+  prep_minutes: 10
+  cook_minutes: 25
+  protein_type: dairy
+  vegetarian: true
+  tags: [main, high-protein, meal-prep]
+  source: pasted-modern-trends
+  ingredients:
+    - name: lor
+      quantity: 250
+      unit: gram
+    - name: yumurta
+      quantity: 4
+      unit: adet
+    - name: yulaf
+      quantity: 110
+      unit: gram
+    - name: ıspanak
+      quantity: 150
+      unit: gram
+    - name: taze soğan
+      quantity: 3
+      unit: dal
+    - name: dereotu
+      quantity: null
+      unit: null
+    - name: karabiber
+      quantity: null
+      unit: null
+  instructions: Yulafı hafif parçala. Tüm malzemeyi karıştırıp küçük fırın kabına dök. 185 derecede yaklaşık 25 dakika pişir.
+
+- name: Tortillasız Protein Wrap
+  cuisine: Fitness
+  category: main
+  meal_type: dinner
+  servings: 2
+  prep_minutes: 12
+  cook_minutes: 15
+  protein_type: chicken
+  vegetarian: false
+  tags: [main, high-protein, healthy]
+  source: pasted-modern-trends
+  ingredients:
+    - name: yumurta
+      quantity: 2
+      unit: adet
+    - name: lor
+      quantity: 120
+      unit: gram
+    - name: az yağlı kaşar
+      quantity: 30
+      unit: gram
+    - name: tavuk
+      quantity: 100
+      unit: gram
+    - name: roka
+      quantity: null
+      unit: null
+    - name: domates
+      quantity: null
+      unit: null
+    - name: turşu
+      quantity: null
+      unit: null
+    - name: yoğurt-hardal sos
+      quantity: null
+      unit: null
+  instructions: Yumurta, lor, kaşar ve tuzu çekip yağlı kağıda ince dikdörtgen yay. 190 derecede 12-15 dakika pişir. Soğumadan ayırıp tavuk ve sebzelerle sar.
+
+- name: Patlıcan Pizza
+  cuisine: Fitness
+  category: main
+  meal_type: dinner
+  servings: 4
+  prep_minutes: 15
+  cook_minutes: 23
+  protein_type: vegetable
+  vegetarian: true
+  tags: [main, healthy, eggplant]
+  source: pasted-modern-trends
+  ingredients:
+    - name: bostan patlıcan
+      quantity: 2
+      unit: adet
+    - name: domates sosu
+      quantity: null
+      unit: null
+    - name: lor
+      quantity: null
+      unit: null
+    - name: mozzarella
+      quantity: null
+      unit: null
+    - name: mantar
+      quantity: null
+      unit: null
+    - name: biber
+      quantity: null
+      unit: null
+  instructions: Patlıcanı 1.5 cm halkalar halinde kes, tuzla beklet ve kurula. Az yağla 210 derecede 15 dakika ön pişir. Domates sosu, lor, az mozzarella, mantar ve biber ekleyip 8 dakika daha pişir.
+
+- name: Chicken Caesar Smash Taco
+  cuisine: Modern
+  category: main
+  meal_type: dinner
+  servings: 6
+  prep_minutes: 20
+  cook_minutes: 20
+  protein_type: chicken
+  vegetarian: false
+  tags: [main, high-protein, modern]
+  source: pasted-modern-trends
+  ingredients:
+    - name: tavuk kıyma
+      quantity: 450
+      unit: gram
+    - name: küçük tortilla
+      quantity: 6
+      unit: adet
+    - name: süzme yoğurt
+      quantity: 120
+      unit: gram
+    - name: parmesan
+      quantity: 15
+      unit: gram
+    - name: dijon hardalı
+      quantity: 1
+      unit: tatlı kaşığı
+    - name: limon
+      quantity: null
+      unit: null
+    - name: sarımsak
+      quantity: null
+      unit: null
+    - name: marul
+      quantity: null
+      unit: null
+  instructions: Tavuğu tortillalara ince bastırıp tavuk tarafı tavaya gelecek şekilde pişir. Yoğurt, parmesan, Dijon, limon, sarımsak ve karabiberle fit Caesar sos yap; marulu karıştırıp sıcak tacoların üzerine koy.
+
+- name: Salmon Sushi Bake
+  cuisine: Japanese-inspired
+  category: main
+  meal_type: dinner
+  servings: 4
+  prep_minutes: 20
+  cook_minutes: 25
+  protein_type: fish
+  vegetarian: false
+  tags: [main, modern, seafood]
+  source: pasted-modern-trends
+  ingredients:
+    - name: sushi pirinci
+      quantity: 200
+      unit: gram
+    - name: somon
+      quantity: 350
+      unit: gram
+    - name: krem peynir
+      quantity: 2
+      unit: yemek kaşığı
+    - name: mayonez
+      quantity: 1.5
+      unit: yemek kaşığı
+    - name: sriracha
+      quantity: 1
+      unit: tatlı kaşığı
+    - name: soya sosu
+      quantity: 1
+      unit: yemek kaşığı
+    - name: susam
+      quantity: null
+      unit: null
+    - name: nori
+      quantity: null
+      unit: null
+  instructions: Pirinci pişirip pirinç sirkesiyle tatlandır ve fırın kabına bastır. Pişmiş somonu parçala; krem peynir, mayo, sriracha ve soya ile karıştırıp pirincin üzerine yay. 210 derece grill altında kızart.
+
+- name: Çıtır Pirinç Salatası
+  cuisine: Modern
+  category: salad
+  meal_type: dinner
+  servings: 4
+  prep_minutes: 15
+  cook_minutes: 25
+  protein_type: grain
+  vegetarian: true
+  tags: [salad, side, modern]
+  source: pasted-modern-trends
+  ingredients:
+    - name: pişmiş pirinç
+      quantity: 2
+      unit: su bardağı
+    - name: susam yağı
+      quantity: 2
+      unit: tatlı kaşığı
+    - name: zeytinyağı
+      quantity: 1
+      unit: tatlı kaşığı
+    - name: salatalık
+      quantity: 1
+      unit: adet
+    - name: avokado
+      quantity: 1
+      unit: adet
+    - name: edamame
+      quantity: 100
+      unit: gram
+    - name: taze soğan
+      quantity: null
+      unit: null
+    - name: limon
+      quantity: 1
+      unit: adet
+    - name: soya sosu
+      quantity: 1
+      unit: yemek kaşığı
+    - name: bal
+      quantity: 1
+      unit: tatlı kaşığı
+  instructions: Pirinci yağ ve az soya sosuyla karıştırıp 210 derecede 20-25 dakika çıtırlaştır. Salatalık, avokado, edamame ve taze otlarla birleştir; soya, limon, bal ve susam yağı sosuyla servis et.
+
+- name: Fırında Yaprak Tavuk Döner
+  cuisine: Turkish
+  category: main
+  meal_type: dinner
+  servings: 4
+  prep_minutes: 20
+  cook_minutes: 35
+  protein_type: chicken
+  vegetarian: false
+  tags: [main, high-protein]
+  source: pasted-modern-trends
+  ingredients:
+    - name: kemiksiz tavuk but
+      quantity: 600
+      unit: gram
+    - name: tavuk göğüs
+      quantity: 400
+      unit: gram
+    - name: yoğurt
+      quantity: 2
+      unit: yemek kaşığı
+    - name: zeytinyağı
+      quantity: 2
+      unit: yemek kaşığı
+    - name: salça
+      quantity: 1
+      unit: yemek kaşığı
+    - name: soğan suyu
+      quantity: 1
+      unit: adet
+    - name: paprika
+      quantity: null
+      unit: null
+    - name: kekik
+      quantity: null
+      unit: null
+    - name: karabiber
+      quantity: null
+      unit: null
+  instructions: Tavukları ince açıp yoğurt, yağ, salça, soğan suyu ve baharatla marine et. Üst üste sıkıştırıp rulo/blok yap; 200 derecede pişir. İnce dilimleyip ikinci kez kızart.
+
+- name: Fıstık Ezmeli Acılı Noodle
+  cuisine: Asian-inspired
+  category: main
+  meal_type: dinner
+  servings: 2
+  prep_minutes: 10
+  cook_minutes: 12
+  protein_type: chicken
+  vegetarian: false
+  tags: [main, modern]
+  source: pasted-modern-trends
+  ingredients:
+    - name: noodle
+      quantity: 180
+      unit: gram
+    - name: tavuk
+      quantity: 200
+      unit: gram
+    - name: şekersiz fıstık ezmesi
+      quantity: 1.5
+      unit: yemek kaşığı
+    - name: soya sosu
+      quantity: 2
+      unit: yemek kaşığı
+    - name: elma sirkesi
+      quantity: 1
+      unit: yemek kaşığı
+    - name: bal
+      quantity: 1
+      unit: çay kaşığı
+    - name: sarımsak
+      quantity: null
+      unit: null
+    - name: zencefil
+      quantity: null
+      unit: null
+  instructions: Fıstık ezmesi, soya, sirke, bal ve noodle suyunu çırp. Tavuğu sıcak tavada sotele; noodle ve sosla 1 dakika çevir. Taze soğan ve susamla servis et.
+
+- name: Baked Ezine Pasta
+  cuisine: Turkish-inspired
+  category: main
+  meal_type: dinner
+  servings: 3
+  prep_minutes: 10
+  cook_minutes: 25
+  protein_type: dairy
+  vegetarian: true
+  tags: [main, pasta, modern]
+  source: pasted-modern-trends
+  ingredients:
+    - name: makarna
+      quantity: 250
+      unit: gram
+    - name: ezine peyniri
+      quantity: 180
+      unit: gram
+    - name: çeri domates
+      quantity: 300
+      unit: gram
+    - name: mor soğan
+      quantity: 1
+      unit: adet
+    - name: sarımsak
+      quantity: 3
+      unit: adet
+    - name: zeytinyağı
+      quantity: 1
+      unit: yemek kaşığı
+    - name: fesleğen
+      quantity: null
+      unit: null
+  instructions: Ezineyi fırın kabının ortasına koy; etrafına domates, soğan ve sarımsak ekle. 200 derecede 25 dakika pişir. Sıcak makarna suyu ile açıp makarnayla karıştır.
+
+- name: Kore Usulü Yangnyeom Tavuk
+  cuisine: Korean-inspired
+  category: main
+  meal_type: dinner
+  servings: 3
+  prep_minutes: 15
+  cook_minutes: 18
+  protein_type: chicken
+  vegetarian: false
+  tags: [main, high-protein, modern]
+  source: pasted-modern-trends
+  ingredients:
+    - name: tavuk but
+      quantity: 500
+      unit: gram
+    - name: mısır nişastası
+      quantity: 2
+      unit: yemek kaşığı
+    - name: gochujang
+      quantity: 1.5
+      unit: yemek kaşığı
+    - name: ketçap
+      quantity: 1
+      unit: yemek kaşığı
+    - name: soya sosu
+      quantity: 1
+      unit: yemek kaşığı
+    - name: bal
+      quantity: 1
+      unit: tatlı kaşığı
+    - name: pirinç sirkesi
+      quantity: 1
+      unit: tatlı kaşığı
+    - name: sarımsak
+      quantity: 1
+      unit: adet
+  instructions: Tavuğu nişastayla kapla, az yağla 200 derece airfryer/fırında 15-18 dakika pişir. Sosu tavada kaynat; çıtır tavuğu içine alıp kısa çevir. Susam ve taze soğanla servis et.
+
+- name: Çıtır Patates Salatası
+  cuisine: Modern
+  category: salad
+  meal_type: dinner
+  servings: 4
+  prep_minutes: 15
+  cook_minutes: 35
+  protein_type: vegetable
+  vegetarian: true
+  tags: [salad, side, modern]
+  source: pasted-modern-trends
+  ingredients:
+    - name: küçük patates
+      quantity: 800
+      unit: gram
+    - name: süzme yoğurt
+      quantity: 200
+      unit: gram
+    - name: dijon hardalı
+      quantity: 1
+      unit: tatlı kaşığı
+    - name: limon
+      quantity: 0.5
+      unit: adet
+    - name: dereotu
+      quantity: null
+      unit: null
+    - name: kornişon turşu
+      quantity: null
+      unit: null
+    - name: turşu suyu
+      quantity: null
+      unit: null
+  instructions: Patatesleri haşla, tepside ezip az yağ ve baharatla 220 derecede çıtırlaştır. Yoğurt, Dijon, limon, dereotu ve kornişonlu sosu hazırla; patatesleri çıtır kalacak şekilde servis anında ekle.
+
+- name: Vişneli Zeytinyağlı Yaprak Sarma
+  cuisine: Turkish
+  category: meze
+  meal_type: dinner
+  servings: 6
+  prep_minutes: 45
+  cook_minutes: 45
+  protein_type: rice
+  vegetarian: true
+  tags: [meze, dolma, modern]
+  source: pasted-modern-trends
+  ingredients:
+    - name: asma yaprağı
+      quantity: 400
+      unit: gram
+    - name: pirinç
+      quantity: 1.5
+      unit: su bardağı
+    - name: soğan
+      quantity: 2
+      unit: adet
+    - name: çam fıstığı
+      quantity: 2
+      unit: yemek kaşığı
+    - name: kuş üzümü
+      quantity: 1
+      unit: yemek kaşığı
+    - name: vişne
+      quantity: 200
+      unit: gram
+    - name: zeytinyağı
+      quantity: null
+      unit: null
+    - name: yenibahar
+      quantity: null
+      unit: null
+    - name: tarçın
+      quantity: null
+      unit: null
+    - name: karabiber
+      quantity: null
+      unit: null
+  instructions: Klasik zeytinyağlı iç hazırla, vişnelerin yarısını iç harca kat. Sarmaları diz, kalan vişneleri aralara koy. Vişne suyu, sıcak su ve zeytinyağıyla pişir; soğuk servis et.

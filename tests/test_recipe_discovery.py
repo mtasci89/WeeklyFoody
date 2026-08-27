@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
 from app.db.models import RecipeStatus
@@ -7,6 +9,8 @@ from app.llm.base import Intent
 from app.llm.rule_based import RuleBasedLLMProvider
 from app.recipes.importer import IngredientInput, PlainTextRecipeImporter, RecipeInput
 from app.recipes.service import RecipeService
+from app.recipes.weekly_discovery import WeeklyRecipeDiscoveryService
+from app.scheduler.weekly import build_scheduler
 
 
 def test_candidate_can_be_approved(db):
@@ -42,6 +46,31 @@ def test_plain_text_recipe_importer_keeps_instagram_url_as_source():
     assert recipe.name == "Tavuk Fajita"
     assert recipe.source == "https://www.instagram.com/reel/example"
     assert [ingredient.name for ingredient in recipe.ingredients] == ["tavuk", "biber"]
+
+
+def test_modern_trend_seed_recipes_import(db):
+    count = RecipeService(db).import_recipes(Path("data/recipes/modern_healthy_trends.yaml"))
+
+    assert count == 26
+    assert RecipeService(db).find_recipe("Datça Güzeli").category == "meze"
+    assert RecipeService(db).find_recipe("Chicken Caesar Smash Taco").category == "main"
+    assert RecipeService(db).find_recipe("Kırmızı Mercimek Lavaşı").category == "side"
+
+
+@pytest.mark.asyncio
+async def test_weekly_discovery_noops_without_provider_key(db, settings):
+    no_provider_settings = settings.model_copy(update={"gemini_api_key": "", "openai_api_key": ""})
+    candidates = await WeeklyRecipeDiscoveryService(db, no_provider_settings).discover_candidates()
+
+    assert candidates == []
+
+
+def test_scheduler_registers_recipe_discovery_job(settings):
+    scheduler = build_scheduler(settings)
+
+    job_ids = {job.id for job in scheduler.get_jobs()}
+    assert "weekly_meal_plan" in job_ids
+    assert "weekly_recipe_discovery" in job_ids
 
 
 @pytest.mark.asyncio

@@ -9,6 +9,7 @@ from app.db.session import SessionLocal, init_db
 from app.main import async_main
 from app.planner.service import MealPlannerService
 from app.recipes.service import RecipeService
+from app.recipes.weekly_discovery import WeeklyRecipeDiscoveryService
 
 
 def main() -> None:
@@ -20,6 +21,7 @@ def main() -> None:
     excel_parser = sub.add_parser("import-menu-excel")
     excel_parser.add_argument("path", type=Path)
     sub.add_parser("plan-now")
+    sub.add_parser("discover-now")
     sub.add_parser("run")
     args = parser.parse_args()
 
@@ -46,6 +48,17 @@ def main() -> None:
                 print(f"Created/found session for {session.week_start}: {session.id}")
 
         asyncio.run(_plan())
+    elif args.command == "discover-now":
+        init_db()
+
+        async def _discover() -> None:
+            with SessionLocal() as db:
+                candidates = await WeeklyRecipeDiscoveryService(db, settings).discover_candidates()
+                print(f"Discovered {len(candidates)} candidate recipes")
+                for recipe in candidates:
+                    print(f"- {recipe.name} ({recipe.category})")
+
+        asyncio.run(_discover())
     elif args.command == "run":
         asyncio.run(async_main())
 
