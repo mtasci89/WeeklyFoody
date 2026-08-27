@@ -32,6 +32,8 @@ class RuleBasedLLMProvider(LLMProvider):
 
     async def route_intent(self, message: str, context: dict[str, Any] | None = None) -> IntentOutput:
         text = message.casefold().strip()
+        if _looks_like_recipe_text(message):
+            return IntentOutput(intent=Intent.ADD_RECIPE, confidence=0.92, recipe_text=message, raw_request=message)
         if "/approve" in text or any(word in text for word in ("onaylıyorum", "onayla", "tamamdır", "bu liste iyi", "güzel oldu")):
             return IntentOutput(intent=Intent.APPROVE_PLAN, confidence=0.95, raw_request=message)
         if "/regenerate" in text or "yeniden" in text or "baştan" in text:
@@ -41,7 +43,9 @@ class RuleBasedLLMProvider(LLMProvider):
         if "/approverecipe" in text or "bu tarifi tariflerime ekle" in text or "adayı onayla" in text:
             name = message.replace("/approverecipe", "").replace("bu tarifi tariflerime ekle", "").replace("adayı onayla", "").strip()
             return IntentOutput(intent=Intent.APPROVE_RECIPE_CANDIDATE, confidence=0.85, recipe_name=name or None, raw_request=message)
-        if "/discover" in text or ("yeni" in text and any(word in text for word in ("tarif", "yemek", "yemeği"))) or "farklı şeyler öner" in text:
+        if "/addrecipe" in text or "bu tarifi kaydet" in text or any(phrase in text for phrase in ("tarif ekle", "tarifi ekle", "yemek ekle", "tarif kaydet")):
+            return IntentOutput(intent=Intent.ADD_RECIPE, confidence=0.92, recipe_text=message if _has_recipe_details(message) else None, raw_request=message)
+        if "/discover" in text or any(word in text for word in ("bul", "öner", "keşfet", "ara")) and any(word in text for word in ("tarif", "yemek", "yemeği")) or "farklı şeyler öner" in text:
             query = message.replace("/discover", "").strip()
             return IntentOutput(intent=Intent.DISCOVER_RECIPE, confidence=0.82, discovery_query=query or message, raw_request=message)
         if "/shopping" in text or "alışveriş" in text:
@@ -50,8 +54,6 @@ class RuleBasedLLMProvider(LLMProvider):
             return IntentOutput(intent=Intent.SHOW_MENU, confidence=0.8, raw_request=message)
         if "/recipes" in text or "tarifler" in text:
             return IntentOutput(intent=Intent.SHOW_RECIPE if "/recipe " in text else Intent.GENERAL_QUESTION, confidence=0.75, raw_request=message)
-        if "/addrecipe" in text or "bu tarifi kaydet" in text:
-            return IntentOutput(intent=Intent.ADD_RECIPE, confidence=0.9, recipe_text=message, raw_request=message)
         if "bundan sonra" in text or "/addpreference" in text or "artık" in text:
             return IntentOutput(
                 intent=Intent.ADD_PREFERENCE,
@@ -63,6 +65,8 @@ class RuleBasedLLMProvider(LLMProvider):
             return IntentOutput(intent=Intent.ADD_PANTRY_ITEM, confidence=0.8, pantry_item=message.replace("/pantryadd", "").strip(), raw_request=message)
         if any(word in text for word in ("değiştir", "olmasın", "koy", "çıkar", "kişi olacağız", "yemeyeceğiz", "dışarıda")):
             return IntentOutput(intent=Intent.MODIFY_PLAN, confidence=0.82, raw_request=message)
+        if "?" in text or any(word in text for word in ("nasıl", "nedir", "ne yap", "yardım", "hangi", "kaç", "kim")):
+            return IntentOutput(intent=Intent.GENERAL_QUESTION, confidence=0.7, raw_request=message)
         return IntentOutput(intent=Intent.UNKNOWN, confidence=0.2, raw_request=message)
 
     async def parse_revision(self, message: str, context: dict[str, Any] | None = None) -> RevisionOutput:
@@ -114,6 +118,18 @@ class RuleBasedLLMProvider(LLMProvider):
             operations.append(RevisionOperation(instruction=message))
         return RevisionOutput(operations=operations)
 
+    async def answer_general_question(self, message: str, context: dict[str, Any] | None = None) -> str:
+        text = message.casefold()
+        if "tarif" in text and "ekle" in text:
+            return "Yeni tarif eklemek için tarifin adını ve malzemelerini yazabilirsin. Örn:\n\nTavuk Fajita\n600 gr tavuk\n2 biber\n1 soğan"
+        if "ne yap" in text or "yardım" in text or "komut" in text:
+            return (
+                "Ben haftalık yemek planı hazırlayabilir, menüyü konuşarak revize edebilir, tarif ve tercih hafızası tutabilir, "
+                "onaydan sonra alışveriş listesi çıkarabilirim. Örn: `Salı balık olmasın`, `yeni tavuk yemeği bul`, "
+                "`bu tarifi kaydet:` diye yazabilirsin."
+            )
+        return "Yemek planı, tarifler, tercihler ve alışveriş listesi hakkında yardımcı olabilirim. Bir işlem yapmak istersen doğal dille yazman yeterli."
+
 
 def _recipe_terms(recipe_names: list[str]) -> list[str]:
     terms = {"balık", "tavuk", "köfte", "fasulye", "makarna", "nohut", "çorba", "pilav"}
@@ -142,3 +158,23 @@ def _contains_term(text: str, term: str) -> bool:
         variants.add(f"{term[:-1]}d")
     variants.add(term.rstrip("k"))
     return any(variant and variant in text for variant in variants)
+
+
+def _has_recipe_details(message: str) -> bool:
+    lines = [line.strip() for line in message.splitlines() if line.strip()]
+    if len(lines) < 2:
+        return False
+    units = ("gr", "g", "gram", "kg", "ml", "l", "lt", "adet", "paket", "demet", "kaşığı", "bardak")
+    ingredient_like = 0
+    for line in lines[1:]:
+        lowered = line.casefold()
+        if any(char.isdigit() for char in lowered) or any(unit in lowered.split() for unit in units):
+            ingredient_like += 1
+    return ingredient_like >= 1
+
+
+def _looks_like_recipe_text(message: str) -> bool:
+    text = message.casefold()
+    return _has_recipe_details(message) and not text.startswith("/") and not any(
+        phrase in text for phrase in ("menüyü", "menü", "alışveriş", "pantry", "tercih")
+    )

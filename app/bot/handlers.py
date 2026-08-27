@@ -105,6 +105,13 @@ class TelegramHandlers:
             await update.effective_message.reply_text("Bu komut yalnızca admin tarafından kullanılabilir.")
             return
         text = update.effective_message.text or ""
+        if not _has_recipe_details(text):
+            context.user_data["awaiting_recipe_text"] = True
+            await update.effective_message.reply_text(
+                "Tabii. Tarifin adını ve malzemelerini yazıp gönder. Örn:\n\n"
+                "Tavuk Fajita\n600 gr tavuk\n2 biber\n1 soğan\nBaharatlarla sotele."
+            )
+            return
         with SessionLocal() as db:
             recipe = RecipeService(db).add_recipe_from_text(text)
             logger.info("recipe_added recipe_id=%s", recipe.id)
@@ -256,17 +263,47 @@ class TelegramHandlers:
             await update.effective_message.reply_text("Bu botta değişiklik yapma yetkisi sadece adminde.")
             return
         message = update.effective_message.text or ""
-        routed = await self.router.route(message)
         with SessionLocal() as db:
+            if context.user_data.get("awaiting_recipe_text"):
+                if message.casefold().strip() in {"iptal", "vazgeç", "vazgec"}:
+                    context.user_data.pop("awaiting_recipe_text", None)
+                    await update.effective_message.reply_text("Tamam, tarif eklemeyi iptal ettim.")
+                    return
+                if not _has_recipe_details(message):
+                    await update.effective_message.reply_text(
+                        "Bunu tarif olarak kaydetmem için en az tarif adı ve bir malzeme satırı lazım. "
+                        "Örn:\n\nTavuk Fajita\n600 gr tavuk\n2 biber"
+                    )
+                    return
+                recipe = RecipeService(db).add_recipe_from_text(message)
+                context.user_data.pop("awaiting_recipe_text", None)
+                logger.info("recipe_added recipe_id=%s", recipe.id)
+                await update.effective_message.reply_text(f"{recipe.name} tarifini tarif kütüphanesine ekledim.")
+                return
+
+            router_context = self._router_context(db)
+            routed = await self.router.route(message, router_context)
             if routed.intent == Intent.APPROVE_PLAN:
                 session = MealPlannerService(db, self.settings).current_session()
                 if session:
                     MealPlannerService(db, self.settings).approve(session)
                     await WeeklyWorkflowService(db, self.settings, self.notifier).publish_final(session)
                     await update.effective_message.reply_text("Menüyü onayladım ve yayınladım.")
+                else:
+                    await update.effective_message.reply_text("Onaylanacak aktif menü yok.")
                 return
             if routed.intent == Intent.ADD_RECIPE:
-                recipe = RecipeService(db).add_recipe_from_text(routed.recipe_text or message)
+                recipe_text = routed.recipe_text or message
+                if not _has_recipe_details(recipe_text):
+                    context.user_data["awaiting_recipe_text"] = True
+                    await update.effective_message.reply_text(
+                        "Tabii. Eklemek istediğin tarifi adı ve malzemeleriyle gönder. "
+                        "Instagram/link varsa aynı mesaja koyabilirsin.\n\n"
+                        "Örn:\nTavuk Fajita\n600 gr tavuk\n2 biber\n1 soğan"
+                    )
+                    return
+                recipe = RecipeService(db).add_recipe_from_text(recipe_text)
+                context.user_data.pop("awaiting_recipe_text", None)
                 await update.effective_message.reply_text(f"{recipe.name} tarifini tarif kütüphanesine ekledim.")
                 return
             if routed.intent == Intent.DISCOVER_RECIPE:
@@ -303,6 +340,10 @@ class TelegramHandlers:
             if routed.intent == Intent.SHOW_MENU:
                 await self.menu(update, context)
                 return
+            if routed.intent == Intent.SHOW_RECIPE:
+                recipe = RecipeService(db).find_recipe(routed.recipe_name or message)
+                await update.effective_message.reply_text(format_recipe_detail(recipe) if recipe else "Tarif bulunamadı.", parse_mode="Markdown")
+                return
             if routed.intent == Intent.MODIFY_PLAN:
                 session = MealPlannerService(db, self.settings).current_session()
                 if not session:
@@ -311,4 +352,42 @@ class TelegramHandlers:
                 revised = await RevisionService(db, self.settings).revise(session, message)
                 await update.effective_message.reply_text(format_meal_plan(revised), parse_mode="Markdown", reply_markup=approval_keyboard())
                 return
-        await update.effective_message.reply_text("Bunu nasıl uygulayacağımdan emin olamadım. Biraz daha açık yazar mısın?")
+            if routed.intent in {Intent.GENERAL_QUESTION, Intent.UNKNOWN}:
+                answer = await self.router.answer_general_question(message, router_context)
+                await update.effective_message.reply_text(answer)
+                return
+
+    def _router_context(self, db) -> dict:
+        session = MealPlannerService(db, self.settings).current_session()
+        return {
+            "bot_role": "personal_family_weekly_meal_planner",
+            "language": "tr",
+            "can_modify_plan": bool(session and session.state not in {SessionState.APPROVED, SessionState.PUBLISHED}),
+            "has_active_plan": bool(session),
+            "session_state": session.state.value if session else None,
+            "week_start": session.week_start.isoformat() if session else None,
+            "commands": [
+                "/menu",
+                "/regenerate",
+                "/approve",
+                "/addrecipe",
+                "/discover",
+                "/recipes",
+                "/shopping",
+                "/preferences",
+                "/pantry",
+            ],
+        }
+
+
+def _has_recipe_details(text: str) -> bool:
+    cleaned = text.replace("/addrecipe", "").replace("Bu tarifi kaydet:", "").replace("bu tarifi kaydet:", "").strip()
+    lines = [line.strip(" -\t") for line in cleaned.splitlines() if line.strip()]
+    if len(lines) < 2:
+        return False
+    units = {"gr", "g", "gram", "kg", "ml", "l", "lt", "adet", "paket", "demet", "kaşığı", "bardak"}
+    for line in lines[1:]:
+        words = set(line.casefold().split())
+        if any(char.isdigit() for char in line) or words.intersection(units):
+            return True
+    return False

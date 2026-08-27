@@ -37,6 +37,13 @@ class FallbackLLMProvider:
             logger.warning("llm_primary_failed operation=parse_revision fallback=rule_based error=%s", exc.__class__.__name__)
             return await self.fallback.parse_revision(message, context)
 
+    async def answer_general_question(self, message: str, context: dict | None = None) -> str:
+        try:
+            return await self.primary.answer_general_question(message, context)
+        except Exception as exc:
+            logger.warning("llm_primary_failed operation=answer_general_question fallback=rule_based error=%s", exc.__class__.__name__)
+            return await self.fallback.answer_general_question(message, context)
+
 
 def build_llm_provider(settings: Settings) -> LLMProvider:
     if settings.llm_provider == "gemini" and settings.gemini_api_key:

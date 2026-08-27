@@ -51,3 +51,27 @@ async def test_rule_router_detects_recipe_discovery():
     assert routed.intent == Intent.DISCOVER_RECIPE
     assert routed.discovery_query == "Yeni bir tavuk yemeği bul"
 
+
+@pytest.mark.asyncio
+async def test_rule_router_distinguishes_recipe_add_from_discovery():
+    routed = await RuleBasedLLMProvider().route_intent("yeni tarif ekle")
+
+    assert routed.intent == Intent.ADD_RECIPE
+    assert routed.recipe_text is None
+
+
+@pytest.mark.asyncio
+async def test_rule_router_detects_plain_recipe_text():
+    routed = await RuleBasedLLMProvider().route_intent("Tavuk Fajita\n600 gr tavuk\n2 biber")
+
+    assert routed.intent == Intent.ADD_RECIPE
+    assert routed.recipe_text == "Tavuk Fajita\n600 gr tavuk\n2 biber"
+
+
+@pytest.mark.asyncio
+async def test_rule_router_handles_general_questions():
+    routed = await RuleBasedLLMProvider().route_intent("Sen ne yapabiliyorsun?")
+
+    assert routed.intent == Intent.GENERAL_QUESTION
+    answer = await RuleBasedLLMProvider().answer_general_question("Sen ne yapabiliyorsun?")
+    assert "haftalık yemek planı" in answer

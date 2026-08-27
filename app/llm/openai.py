@@ -56,3 +56,22 @@ class OpenAILLMProvider(LLMProvider):
             RevisionOutput,
         )
 
+    @retry(wait=wait_exponential(min=1, max=8), stop=stop_after_attempt(3))
+    async def answer_general_question(self, message: str, context: dict[str, Any] | None = None) -> str:
+        response = await self.client.chat.completions.create(
+            model=self.model,
+            messages=[
+                {
+                    "role": "system",
+                    "content": (
+                        "Türkçe konuşan, kısa ve pratik cevap veren bir aile yemek planlama botusun. "
+                        "Basit yemek, tarif, menü, alışveriş listesi ve bot kullanımı sorularını cevapla. "
+                        "Kullanıcı bir işlem yapmak istiyorsa yapılabilecek doğal dil örnekleri ver; işlem yapmış gibi davranma. "
+                        "Konu yemek planlama dışına çıkarsa kibarca kendi alanına döndür."
+                    ),
+                },
+                {"role": "user", "content": json.dumps({"message": message, "context": context or {}}, ensure_ascii=False)},
+            ],
+            temperature=0.4,
+        )
+        return (response.choices[0].message.content or "").strip() or "Bu konuda yardımcı olabilirim; biraz daha açar mısın?"

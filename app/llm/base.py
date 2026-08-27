@@ -85,6 +85,9 @@ class LLMProvider(Protocol):
     async def parse_revision(self, message: str, context: dict[str, Any] | None = None) -> RevisionOutput:
         ...
 
+    async def answer_general_question(self, message: str, context: dict[str, Any] | None = None) -> str:
+        ...
+
 
 def json_schema(model: type[BaseModel]) -> str:
     return json.dumps(model.model_json_schema(), ensure_ascii=False)
