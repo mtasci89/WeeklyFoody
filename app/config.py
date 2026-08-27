@@ -27,6 +27,7 @@ class Settings(BaseSettings):
 
     default_servings: int = 4
     meal_slots: Annotated[list[str], NoDecode] = Field(default_factory=lambda: ["dinner"])
+    meal_course_roles: Annotated[list[str], NoDecode] = Field(default_factory=lambda: ["main", "meze", "meze", "side"])
     courses_per_day: int = 3
     pantry_mode: Literal["exclude", "check"] = "exclude"
     log_level: str = "INFO"
@@ -53,6 +54,15 @@ class Settings(BaseSettings):
             return value
         return [part.strip() for part in value.split(",") if part.strip()]
 
+    @field_validator("meal_course_roles", mode="before")
+    @classmethod
+    def parse_course_roles(cls, value: str | list[str] | None) -> list[str]:
+        if value is None or value == "":
+            return ["main", "meze", "meze", "side"]
+        if isinstance(value, list):
+            return value
+        return [part.strip().casefold() for part in value.split(",") if part.strip()]
+
     @property
     def all_recipient_ids(self) -> list[int]:
         ids = list(self.telegram_recipient_chat_ids)
@@ -62,16 +72,39 @@ class Settings(BaseSettings):
 
     @property
     def planning_slots(self) -> list[str]:
+        if self.meal_course_roles:
+            slots: list[str] = []
+            for meal_slot in self.meal_slots:
+                seen: dict[str, int] = {}
+                for role in self.meal_course_roles:
+                    seen[role] = seen.get(role, 0) + 1
+                    suffix = role if self.meal_course_roles.count(role) == 1 else f"{role}_{seen[role]}"
+                    slots.append(f"{meal_slot}_{suffix}")
+            return slots
         if self.courses_per_day <= 1:
             return self.meal_slots
         return [f"{slot}_{course}" for slot in self.meal_slots for course in range(1, self.courses_per_day + 1)]
 
 
 def base_meal_slot(slot: str) -> str:
+    if "_" in slot:
+        return slot.split("_", 1)[0]
     base, separator, suffix = slot.rpartition("_")
     if separator and suffix.isdigit():
         return base
     return slot
+
+
+def course_role(slot: str) -> str:
+    if "_" not in slot:
+        return "main"
+    role = slot.split("_", 1)[1]
+    base, separator, suffix = role.rpartition("_")
+    if separator and suffix.isdigit():
+        return base
+    if role.isdigit():
+        return "main"
+    return role
 
 
 @lru_cache(maxsize=1)

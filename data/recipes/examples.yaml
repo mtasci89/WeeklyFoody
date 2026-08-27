@@ -188,7 +188,7 @@
 
 - name: Makarna
   cuisine: Italian
-  category: main
+  category: side
   meal_type: dinner
   servings: 4
   prep_minutes: 5
@@ -231,3 +231,146 @@
       unit: yemek kaşığı
   instructions: Bulguru soğan ve domatesle pişir.
 
+- name: Çoban Salata
+  cuisine: Turkish
+  category: salad
+  meal_type: dinner
+  servings: 4
+  prep_minutes: 10
+  cook_minutes: 0
+  protein_type: vegetable
+  vegetarian: true
+  tags: [salad, fresh]
+  ingredients:
+    - name: domates
+      quantity: 3
+      unit: adet
+    - name: salatalık
+      quantity: 2
+      unit: adet
+    - name: yeşil biber
+      quantity: 2
+      unit: adet
+    - name: maydanoz
+      quantity: 0.5
+      unit: demet
+  instructions: Sebzeleri küçük doğra, zeytinyağı ve limonla karıştır.
+
+- name: Gavurdağı Salatası
+  cuisine: Turkish
+  category: salad
+  meal_type: dinner
+  servings: 4
+  prep_minutes: 15
+  cook_minutes: 0
+  protein_type: vegetable
+  vegetarian: true
+  tags: [salad, meze]
+  ingredients:
+    - name: domates
+      quantity: 4
+      unit: adet
+    - name: ceviz
+      quantity: 80
+      unit: gram
+    - name: nar ekşisi
+      quantity: 2
+      unit: yemek kaşığı
+    - name: maydanoz
+      quantity: 0.5
+      unit: demet
+  instructions: Malzemeleri ince doğra, ceviz ve nar ekşisiyle harmanla.
+
+- name: Haydari
+  cuisine: Turkish
+  category: meze
+  meal_type: dinner
+  servings: 4
+  prep_minutes: 10
+  cook_minutes: 0
+  protein_type: dairy
+  vegetarian: true
+  tags: [meze]
+  ingredients:
+    - name: süzme yoğurt
+      quantity: 400
+      unit: gram
+    - name: dereotu
+      quantity: 0.5
+      unit: demet
+    - name: sarımsak
+      quantity: 1
+      unit: adet
+  instructions: Yoğurdu sarımsak ve dereotu ile karıştır, soğuk servis et.
+
+- name: Humus
+  cuisine: Middle Eastern
+  category: meze
+  meal_type: dinner
+  servings: 4
+  prep_minutes: 15
+  cook_minutes: 0
+  protein_type: legumes
+  vegetarian: true
+  tags: [meze, legume]
+  ingredients:
+    - name: haşlanmış nohut
+      quantity: 400
+      unit: gram
+    - name: tahin
+      quantity: 3
+      unit: yemek kaşığı
+    - name: limon
+      quantity: 1
+      unit: adet
+    - name: sarımsak
+      quantity: 1
+      unit: adet
+  instructions: Malzemeleri pürüzsüz olana kadar ez veya blenderdan geçir.
+
+- name: Köz Patlıcan Salatası
+  cuisine: Turkish
+  category: meze
+  meal_type: dinner
+  servings: 4
+  prep_minutes: 10
+  cook_minutes: 25
+  protein_type: vegetable
+  vegetarian: true
+  tags: [meze, salad]
+  ingredients:
+    - name: patlıcan
+      quantity: 3
+      unit: adet
+    - name: yoğurt
+      quantity: 250
+      unit: gram
+    - name: sarımsak
+      quantity: 1
+      unit: adet
+  instructions: Patlıcanları közle, yoğurt ve sarımsakla karıştır.
+
+- name: Kinoa Salatası
+  cuisine: Mediterranean
+  category: side
+  meal_type: dinner
+  servings: 4
+  prep_minutes: 15
+  cook_minutes: 15
+  protein_type: grain
+  vegetarian: true
+  tags: [side, salad]
+  ingredients:
+    - name: kinoa
+      quantity: 250
+      unit: gram
+    - name: salatalık
+      quantity: 1
+      unit: adet
+    - name: domates
+      quantity: 2
+      unit: adet
+    - name: maydanoz
+      quantity: 0.5
+      unit: demet
+  instructions: Kinoayı haşla, doğranmış sebzelerle karıştır.

@@ -4,6 +4,7 @@ from collections import defaultdict
 from datetime import date
 
 from app.db.models import MealPlan, WeeklyPlanningSession
+from app.config import course_role
 from app.planner.dates import TR_DAY_NAMES
 
 MONTHS_TR = {
@@ -41,9 +42,21 @@ def format_meal_plan(session: WeeklyPlanningSession, final: bool = False) -> str
         lines.append(f"*{TR_DAY_NAMES[day.weekday()]}*")
         for item in items:
             servings = f" ({item.servings} kişi)" if item.servings else ""
-            lines.append(f"• {item.recipe.name}{servings}")
+            label = course_label(item.meal_slot)
+            lines.append(f"• {label}: {item.recipe.name}{servings}")
         lines.append("")
     return "\n".join(lines).strip()
+
+
+def course_label(meal_slot: str) -> str:
+    role = course_role(meal_slot)
+    labels = {
+        "main": "Ana yemek",
+        "meze": "Meze/salata",
+        "salad": "Meze/salata",
+        "side": "Yan",
+    }
+    return labels.get(role, role.replace("_", " ").title())
 
 
 def format_recipe_detail(recipe) -> str:

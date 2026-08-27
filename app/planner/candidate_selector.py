@@ -12,7 +12,7 @@ class CandidateSelector:
     def __init__(self, db: Session):
         self.db = db
 
-    def select(self, meal_slot: str, hard_rules: list[str], week_start: date, recent_weeks: int = 3) -> list[Recipe]:
+    def select(self, meal_slot: str, hard_rules: list[str], week_start: date, recent_weeks: int = 3, course_role: str | None = None) -> list[Recipe]:
         recipes = list(
             self.db.scalars(
                 select(Recipe).where(Recipe.status == RecipeStatus.APPROVED, Recipe.meal_type == meal_slot).order_by(Recipe.name)
@@ -32,9 +32,26 @@ class CandidateSelector:
             ).casefold()
             if any(term in text for term in excluded):
                 continue
+            if course_role and not self._matches_course_role(recipe, course_role):
+                continue
             filtered.append(recipe)
         less_recent = [recipe for recipe in filtered if recipe.id not in recent_ids]
         return less_recent or filtered
+
+    def _matches_course_role(self, recipe: Recipe, course_role: str) -> bool:
+        category = (recipe.category or "main").casefold()
+        name = recipe.name.casefold()
+        tags = {tag.casefold() for tag in recipe.tags or []}
+        role = course_role.casefold()
+        if role == "main":
+            return category == "main"
+        if role in {"meze", "salad"}:
+            return category in {"meze", "salad"} or "meze" in tags or "salata" in name or "salad" in name
+        if role == "side":
+            return category in {"side", "soup", "grain", "pasta", "pilaf"} or any(
+                token in name for token in ("çorba", "pilav", "makarna", "kinoa", "quinoa", "bulgur")
+            )
+        return category == role
 
     def _recent_recipe_ids(self, week_start: date, recent_weeks: int) -> set[str]:
         cutoff = week_start - timedelta(weeks=recent_weeks)
@@ -56,4 +73,3 @@ class CandidateSelector:
                 stop = {"bundan", "sonra", "artık", "asla", "bir", "daha", "do", "not", "suggest", "avoid", "exclude", "önerme", "olmasın"}
                 terms.update(w for w in words if len(w) > 2 and w not in stop)
         return terms
-

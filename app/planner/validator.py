@@ -6,6 +6,8 @@ from sqlalchemy.orm import Session
 
 from app.db.models import Recipe, RecipeStatus
 from app.llm.base import WeeklyPlanOutput
+from app.config import course_role
+from app.planner.candidate_selector import CandidateSelector
 
 
 class PlanValidationError(ValueError):
@@ -35,9 +37,11 @@ class PlanValidator:
             text = " ".join([recipe.name, recipe.protein_type or "", " ".join(i.ingredient.name for i in recipe.ingredients)]).casefold()
             if any(term in text for term in excluded):
                 raise PlanValidationError(f"Hard preference violation: {recipe.name}")
+            role = course_role(meal.meal_slot)
+            if not CandidateSelector(self.db)._matches_course_role(recipe, role):
+                raise PlanValidationError(f"Recipe category does not match {meal.meal_slot}: {recipe.name}")
 
     def _excluded_terms(self, hard_rules: list[str]) -> set[str]:
         from app.planner.candidate_selector import CandidateSelector
 
         return CandidateSelector(self.db)._excluded_terms(hard_rules)
-

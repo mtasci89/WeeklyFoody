@@ -10,15 +10,21 @@ class RuleBasedLLMProvider(LLMProvider):
 
     async def generate_plan(self, context: dict[str, Any]) -> WeeklyPlanOutput:
         candidates = context.get("candidate_recipes", [])
+        candidates_by_slot = context.get("candidate_recipes_by_slot", {})
         slots = context.get("meal_slots", ["dinner"])
         dates = context.get("dates", [])
         meals: list[PlannedMeal] = []
-        idx = 0
+        slot_indexes = {slot: 0 for slot in slots}
         for date_value in dates:
+            used_recipe_ids: set[str] = set()
             for slot in slots:
-                if not candidates:
+                slot_candidates = candidates_by_slot.get(slot) or candidates
+                if not slot_candidates:
                     continue
-                recipe = candidates[idx % len(candidates)]
+                slot_index = slot_indexes.get(slot, 0)
+                recipe = slot_candidates[slot_index % len(slot_candidates)]
+                if recipe["id"] in used_recipe_ids:
+                    recipe = next((candidate for candidate in slot_candidates if candidate["id"] not in used_recipe_ids), recipe)
                 meals.append(
                     PlannedMeal(
                         date=date_value,
@@ -27,7 +33,8 @@ class RuleBasedLLMProvider(LLMProvider):
                         servings=context.get("serving_overrides", {}).get(date_value),
                     )
                 )
-                idx += 1
+                used_recipe_ids.add(recipe["id"])
+                slot_indexes[slot] = slot_index + 1
         return WeeklyPlanOutput(meals=meals, notes="Kural tabanlı yedek plan.")
 
     async def route_intent(self, message: str, context: dict[str, Any] | None = None) -> IntentOutput:

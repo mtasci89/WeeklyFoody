@@ -46,7 +46,11 @@ class GeminiLLMProvider(LLMProvider):
 
     async def generate_plan(self, context: dict[str, Any]) -> WeeklyPlanOutput:
         return await self._structured(
-            "You are a Turkish-speaking weekly meal planning assistant. Use only supplied recipe IDs.",
+            (
+                "You are a Turkish-speaking weekly meal planning assistant. Use only supplied recipe IDs. "
+                "Respect slot_requirements exactly: main slots need one main dish, meze slots need meze/salad dishes, "
+                "and side slots need soup, pilaf, pasta, quinoa, grain, or other side dishes. Prefer candidate_recipes_by_slot."
+            ),
             json.dumps(context, ensure_ascii=False),
             WeeklyPlanOutput,
         )

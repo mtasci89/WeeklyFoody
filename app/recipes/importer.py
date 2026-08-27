@@ -145,14 +145,7 @@ class ExcelMenuRecipeImporter:
         return text[:1].upper() + text[1:]
 
     def _category_for(self, name: str) -> str:
-        lower = name.casefold()
-        if "çorba" in lower:
-            return "soup"
-        if "salata" in lower or "meze" in lower or "cacık" in lower or "haydari" in lower:
-            return "side"
-        if "pilav" in lower or "makarna" in lower or "patates" in lower:
-            return "side"
-        return "main"
+        return infer_recipe_category(name)
 
 
 class PlainTextRecipeImporter:
@@ -204,4 +197,23 @@ class PlainTextRecipeImporter:
                 ingredients.append(IngredientInput(name=ingredient_name.lower(), quantity=quantity, unit=unit))
             else:
                 instructions.append(line)
-        return RecipeInput(name=name, ingredients=ingredients, instructions="\n".join(instructions) or None, source=source_url or "telegram")
+        return RecipeInput(
+            name=name,
+            category=infer_recipe_category(name),
+            ingredients=ingredients,
+            instructions="\n".join(instructions) or None,
+            source=source_url or "telegram",
+        )
+
+
+def infer_recipe_category(name: str) -> str:
+    lower = name.casefold()
+    if any(token in lower for token in ("salata", "salatası")):
+        return "salad"
+    if any(token in lower for token in ("meze", "haydari", "humus", "cacık", "ezme", "muhammara", "şakşuka")):
+        return "meze"
+    if "çorba" in lower:
+        return "soup"
+    if any(token in lower for token in ("pilav", "makarna", "kinoa", "quinoa", "bulgur", "patates püresi")):
+        return "side"
+    return "main"

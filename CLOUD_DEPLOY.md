@@ -48,7 +48,7 @@ GEMINI_API_KEY=...
 GEMINI_MODEL=gemini-2.5-flash
 DEFAULT_SERVINGS=4
 MEAL_SLOTS=dinner
-COURSES_PER_DAY=3
+MEAL_COURSE_ROLES=main,meze,meze,side
 PANTRY_MODE=exclude
 LOG_LEVEL=INFO
 ```
@@ -102,4 +102,3 @@ Then message your Telegram bot:
 - Railway deploys from GitHub, so future commits can auto-deploy.
 - Memory is in Postgres, not on your laptop.
 - If you use SQLite on a cloud service without a persistent disk, memory can be lost on redeploy. Use Postgres for cloud.
-

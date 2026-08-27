@@ -66,6 +66,7 @@ def seed_recipes(db):
         RecipeInput(
             name="Makarna",
             meal_type="dinner",
+            category="side",
             servings=4,
             protein_type="wheat",
             ingredients=[IngredientInput(name="makarna", quantity=500, unit="g"), IngredientInput(name="domates", quantity=3, unit="adet")],
@@ -91,7 +92,33 @@ def seed_recipes(db):
             protein_type="vegetable",
             ingredients=[IngredientInput(name="kabak", quantity=2, unit="adet"), IngredientInput(name="havuç", quantity=2, unit="adet")],
         ),
+        RecipeInput(
+            name="Çoban Salata",
+            meal_type="dinner",
+            category="salad",
+            servings=4,
+            protein_type="vegetable",
+            vegetarian=True,
+            ingredients=[IngredientInput(name="domates", quantity=3, unit="adet"), IngredientInput(name="salatalık", quantity=2, unit="adet")],
+        ),
+        RecipeInput(
+            name="Haydari",
+            meal_type="dinner",
+            category="meze",
+            servings=4,
+            protein_type="dairy",
+            vegetarian=True,
+            ingredients=[IngredientInput(name="yoğurt", quantity=400, unit="g"), IngredientInput(name="dereotu", quantity=1, unit="demet")],
+        ),
+        RecipeInput(
+            name="Mercimek Çorbası",
+            meal_type="dinner",
+            category="soup",
+            servings=4,
+            protein_type="legumes",
+            vegetarian=True,
+            ingredients=[IngredientInput(name="mercimek", quantity=250, unit="g"), IngredientInput(name="havuç", quantity=1, unit="adet")],
+        ),
     ]
     for recipe in recipes:
         service.upsert_recipe(recipe)
-

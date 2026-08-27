@@ -5,6 +5,7 @@ from datetime import date, timedelta
 import pytest
 
 from app.db.models import MealPlan, MealPlanItem, PreferenceType, SessionState, WeeklyPlanningSession
+from app.config import course_role
 from app.memory.preferences import PreferenceService
 from app.planner.candidate_selector import CandidateSelector
 from app.planner.revision import RevisionService
@@ -45,9 +46,27 @@ async def test_weekly_session_is_idempotent(db, settings):
 @pytest.mark.asyncio
 async def test_planner_creates_multiple_dishes_per_day(db, settings):
     session = await MealPlannerService(db, settings).create_or_get_weekly_session(date(2026, 8, 31))
-    assert len(session.meal_plan.items) == 7 * settings.courses_per_day
+    assert len(session.meal_plan.items) == 7 * len(settings.planning_slots)
     monday_items = [item for item in session.meal_plan.items if item.date == date(2026, 8, 31)]
-    assert len(monday_items) == settings.courses_per_day
+    assert len(monday_items) == len(settings.planning_slots)
+
+
+@pytest.mark.asyncio
+async def test_planner_uses_meal_course_template(db, settings):
+    session = await MealPlannerService(db, settings).create_or_get_weekly_session(date(2026, 8, 31))
+    allowed = {
+        "main": {"main"},
+        "meze": {"meze", "salad"},
+        "side": {"side", "soup", "grain", "pasta", "pilaf"},
+    }
+    for day_offset in range(7):
+        items = [item for item in session.meal_plan.items if item.date == date(2026, 8, 31) + timedelta(days=day_offset)]
+        roles = [course_role(item.meal_slot) for item in sorted(items, key=lambda item: item.meal_slot)]
+        assert roles.count("main") == 1
+        assert roles.count("meze") == 2
+        assert roles.count("side") == 1
+        for item in items:
+            assert item.recipe.category in allowed[course_role(item.meal_slot)]
 
 
 @pytest.mark.asyncio

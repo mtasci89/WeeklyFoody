@@ -7,7 +7,7 @@ from datetime import date
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.config import Settings, base_meal_slot
+from app.config import Settings, base_meal_slot, course_role
 from app.db.models import MealPlan, MealPlanItem, Recipe, SessionState, WeeklyPlanningSession
 from app.llm.base import WeeklyPlanOutput
 from app.llm import build_llm_provider
@@ -56,24 +56,34 @@ class MealPlannerService:
         scorer = CandidateScorer(self.db)
         dates = week_dates(week_start)
         candidate_pool: list[Recipe] = []
+        candidates_by_slot: dict[str, list[Recipe]] = {}
         used_proteins: Counter[str] = Counter()
         for target_date in dates:
             for slot in self.settings.planning_slots:
-                candidates = selector.select(base_meal_slot(slot), hard, week_start)
+                role = course_role(slot)
+                candidates = selector.select(base_meal_slot(slot), hard, week_start, course_role=role)
+                if not candidates:
+                    candidates = selector.select(base_meal_slot(slot), hard, week_start)
                 scored = scorer.score(candidates, target_date, used_proteins)
                 if scored:
                     selected = scored[:20]
+                    candidates_by_slot.setdefault(slot, [])
+                    candidates_by_slot[slot].extend(recipe for recipe in selected if recipe not in candidates_by_slot[slot])
                     candidate_pool.extend(recipe for recipe in selected if recipe not in candidate_pool)
                     used_proteins[selected[0].protein_type or selected[0].category] += 1
         context = {
             "household": {"default_servings": self.settings.default_servings},
             "meal_slots": self.settings.planning_slots,
             "base_meal_slots": self.settings.meal_slots,
-            "courses_per_day": self.settings.courses_per_day,
+            "meal_course_roles": self.settings.meal_course_roles,
+            "slot_requirements": {slot: {"role": course_role(slot), "allowed_categories": allowed_categories_for_role(course_role(slot))} for slot in self.settings.planning_slots},
             "dates": [d.isoformat() for d in dates],
             "hard_preferences": hard,
             "soft_preferences": PreferenceService(self.db).soft_rules(),
-            "candidate_recipes": [self._recipe_context(recipe) for recipe in candidate_pool[:35]],
+            "candidate_recipes": [self._recipe_context(recipe) for recipe in candidate_pool[:60]],
+            "candidate_recipes_by_slot": {
+                slot: [self._recipe_context(recipe) for recipe in recipes[:25]] for slot, recipes in candidates_by_slot.items()
+            },
             "recent_meals": self._recent_meals(limit=28),
             "serving_overrides": {},
         }
@@ -132,3 +142,14 @@ class MealPlannerService:
     def _recent_meals(self, limit: int) -> list[dict]:
         rows = self.db.scalars(select(MealPlanItem).order_by(MealPlanItem.date.desc()).limit(limit))
         return [{"date": row.date.isoformat(), "recipe_id": row.recipe_id, "recipe": row.recipe.name} for row in rows]
+
+
+def allowed_categories_for_role(role: str) -> list[str]:
+    normalized = role.casefold()
+    if normalized == "main":
+        return ["main"]
+    if normalized in {"meze", "salad"}:
+        return ["meze", "salad"]
+    if normalized == "side":
+        return ["side", "soup", "grain", "pasta", "pilaf"]
+    return [normalized]

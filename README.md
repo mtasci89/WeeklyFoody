@@ -10,7 +10,7 @@ The app uses persistent application-level memory. It does not rely on fine-tunin
 - Creates exactly one planning session per week.
 - Sends draft menus only to `ADMIN_TELEGRAM_USER_ID`.
 - Accepts Turkish revision messages such as `Salıdaki balığı çıkar. Çarşambaya kuru fasulye koy.`
-- Plans multiple dishes per day by default, controlled by `COURSES_PER_DAY`.
+- Plans each configured meal as `1 main + 2 meze/salad + 1 side` by default.
 - Supports approval by inline button, `/approve`, or natural language like `onaylıyorum`.
 - Sends final menu and shopping list to `TELEGRAM_RECIPIENT_CHAT_IDS`.
 - Learns through recipe library, meal history, feedback history, hard preferences, and soft preferences.
@@ -43,7 +43,7 @@ TELEGRAM_RECIPIENT_CHAT_IDS=111111111,222222222
 LLM_PROVIDER=gemini
 GEMINI_API_KEY=...
 GEMINI_MODEL=gemini-2.5-flash
-COURSES_PER_DAY=3
+MEAL_COURSE_ROLES=main,meze,meze,side
 ```
 
 To find Telegram IDs, send a message to your bot and check logs, or use a helper bot such as `@userinfobot`. Group chat IDs are usually negative numbers.
@@ -107,16 +107,16 @@ Manual draft generation:
 python -m app.cli plan-now
 ```
 
-## Daily Menu Size
+## Meal Structure
 
-By default the bot creates three dishes per day:
+By default the bot creates four dishes for each configured meal:
 
 ```env
 MEAL_SLOTS=dinner
-COURSES_PER_DAY=3
+MEAL_COURSE_ROLES=main,meze,meze,side
 ```
 
-For example, each day can include a soup, main dish, and side/vegetable dish. Set `COURSES_PER_DAY=2` or `COURSES_PER_DAY=4` if your household prefers a different menu size.
+This means each dinner gets one main dish, two meze/salad dishes, and one side such as soup, pilaf, pasta, quinoa, or bulgur. To change the structure later, edit `MEAL_COURSE_ROLES`; for example `main,side` or `main,salad,side`.
 
 ## Revising A Menu In Telegram
 
