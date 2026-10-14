@@ -5,6 +5,7 @@ from datetime import date, datetime
 from uuid import uuid4
 
 from sqlalchemy import (
+    BigInteger,
     Boolean,
     Date,
     DateTime,
@@ -125,7 +126,10 @@ class WeeklyPlanningSession(Base, TimestampMixin):
     state: Mapped[SessionState] = mapped_column(Enum(SessionState), default=SessionState.DRAFT_GENERATED, nullable=False)
     draft_version: Mapped[int] = mapped_column(Integer, default=1)
     published_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
-    admin_chat_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # Telegram kimlikleri 32-bit INTEGER'a sigmiyor: supergroup id'leri
+    # (-100...) ve yeni kullanici id'leri 2^31'i asiyor. SQLite dinamik
+    # tipledigi icin gizli kaliyor, PostgreSQL'de yazma hatasi veriyor.
+    admin_chat_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     context: Mapped[dict] = mapped_column(JSON, default=dict)
 
     meal_plan: Mapped["MealPlan | None"] = relationship(back_populates="session", cascade="all, delete-orphan")
@@ -187,7 +191,7 @@ class TelegramRecipient(Base, TimestampMixin):
     __tablename__ = "telegram_recipients"
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=new_uuid)
-    chat_id: Mapped[int] = mapped_column(Integer, unique=True, nullable=False)
+    chat_id: Mapped[int] = mapped_column(BigInteger, unique=True, nullable=False)
     label: Mapped[str | None] = mapped_column(String, nullable=True)
     active: Mapped[bool] = mapped_column(Boolean, default=True)
 

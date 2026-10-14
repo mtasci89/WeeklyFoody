@@ -370,6 +370,33 @@ class TelegramHandlers:
                 await update.effective_message.reply_text(answer)
                 return
 
+    async def on_error(self, update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
+        """Yakalanmamis her handler istisnasi buraya duser.
+
+        Eskiden hic hata yakalayici yoktu: python-telegram-bot istisnayi
+        loglayip geciyor, kullanici tarafinda hicbir sey olmuyordu. Her
+        arizanin sessiz arizaya donusmesinin sebebi buydu (RUN-03).
+        """
+        logger.exception("handler_failed", exc_info=context.error)
+        message = getattr(update, "effective_message", None)
+        if message is not None:
+            try:
+                await message.reply_text(
+                    "Bir aksilik oldu, isteğini tamamlayamadım. Tekrar dener misin? "
+                    "Sorun sürerse /menu ve /shopping komutları çalışmaya devam ediyor."
+                )
+            except Exception:
+                logger.exception("error_reply_failed")
+        admin_id = self.settings.admin_telegram_user_id
+        chat = getattr(update, "effective_chat", None)
+        if admin_id and (chat is None or chat.id != admin_id):
+            try:
+                await self.notifier.send_message(
+                    admin_id, f"Bot bir hata aldı: {type(context.error).__name__}: {context.error}"
+                )
+            except Exception:
+                logger.exception("admin_error_notify_failed")
+
     async def _agent_turn(self, update: Update, message: str) -> None:
         chat = update.effective_chat
         chat_id = chat.id if chat else (update.effective_user.id if update.effective_user else 0)

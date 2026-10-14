@@ -54,7 +54,7 @@ class Settings(BaseSettings):
         ]
     )
 
-    web_panel_enabled: bool = True
+    web_panel_enabled: bool = False
     web_panel_host: str = "127.0.0.1"
     web_panel_port: int = 8000
     web_panel_token: str = ""

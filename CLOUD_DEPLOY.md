@@ -46,6 +46,8 @@ DATABASE_URL=${{Postgres.DATABASE_URL}}
 LLM_PROVIDER=gemini
 GEMINI_API_KEY=...
 GEMINI_MODEL=gemini-2.5-flash
+ANTHROPIC_API_KEY=...
+ANTHROPIC_MODEL=claude-opus-5-5
 DEFAULT_SERVINGS=4
 MEAL_SLOTS=dinner
 MEAL_COURSE_ROLES=main,meze,meze,side
@@ -55,11 +57,16 @@ RECIPE_DISCOVERY_ENABLED=true
 RECIPE_DISCOVERY_DAY=saturday
 RECIPE_DISCOVERY_TIME=18:00
 RECIPE_DISCOVERY_LIMIT_PER_CATEGORY=2
-WEB_PANEL_ENABLED=true
+WEB_PANEL_ENABLED=false
 WEB_PANEL_HOST=127.0.0.1
 WEB_PANEL_PORT=8000
-WEB_PANEL_TOKEN=choose-a-private-token
+WEB_PANEL_TOKEN=
 ```
+
+The panel is read-only and off by default. If you enable it, `WEB_PANEL_TOKEN`
+is required: the app refuses to start without one rather than serving the
+recipe library, pantry, and preferences unauthenticated. Note that the token
+travels in the URL query string, so it appears in browser history.
 
 If Railway does not accept the `${{Postgres.DATABASE_URL}}` reference from copy/paste, use its variable picker/reference UI to select the Postgres service's `DATABASE_URL`.
 
@@ -110,3 +117,8 @@ Then message your Telegram bot:
 - Railway deploys from GitHub, so future commits can auto-deploy.
 - Memory is in Postgres, not on your laptop.
 - If you use SQLite on a cloud service without a persistent disk, memory can be lost on redeploy. Use Postgres for cloud.
+- The scheduler shares the app's database engine, so Railway's `postgresql://`
+  URL is normalized to psycopg v3 automatically. Earlier versions crashed on
+  startup here.
+- Telegram chat ids are stored as `BIGINT`. Supergroup ids and newer user ids
+  exceed 32-bit `INTEGER`, which PostgreSQL rejects.

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import secrets
 from collections import Counter
 from html import escape
 from typing import Callable
@@ -17,11 +18,22 @@ SessionFactory = Callable[[], Session]
 
 
 def create_web_app(settings: Settings, session_factory: SessionFactory = SessionLocal) -> FastAPI:
+    # Hataya kapali: eskiden token bos oldugunda kontrol tamamen atlaniyor,
+    # panel herkese aciliyordu. Varsayilan .env tam olarak bu durumdaydi.
+    if not settings.web_panel_token:
+        raise ValueError(
+            "WEB_PANEL_TOKEN zorunlu: panel tokensiz baslatilamaz. "
+            "Bir deger ata ya da WEB_PANEL_ENABLED=false yap."
+        )
     app = FastAPI(title="WeeklyFoody Panel", docs_url=None, redoc_url=None)
 
     def require_auth(request: Request) -> str:
         token = request.query_params.get("token") or request.headers.get("x-panel-token", "")
-        if settings.web_panel_token and token != settings.web_panel_token:
+        # Sabit zamanli karsilastirma; bos token her zaman reddedilir.
+        # Baytlar uzerinden: compare_digest ASCII olmayan str'de TypeError atar.
+        if not token or not secrets.compare_digest(
+            token.encode("utf-8"), settings.web_panel_token.encode("utf-8")
+        ):
             raise HTTPException(status_code=401, detail="Unauthorized")
         return token
 

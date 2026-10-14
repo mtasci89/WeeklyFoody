@@ -42,6 +42,7 @@ def build_application(settings: Settings):
         application.add_handler(CommandHandler(name, callback))
     application.add_handler(CallbackQueryHandler(handlers.callback))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handlers.text))
+    application.add_error_handler(handlers.on_error)
     return application
 
 

@@ -7,8 +7,8 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 
 from app.bot.keyboards import approval_keyboard
-from app.config import Settings
-from app.db.session import SessionLocal
+from app.config import Settings, get_settings
+from app.db.session import SessionLocal, build_engine
 from app.formatting import format_candidate_recipes, format_meal_plan
 from app.planner.service import MealPlannerService
 from app.recipes.weekly_discovery import WeeklyRecipeDiscoveryService
@@ -30,7 +30,10 @@ DAY_ALIASES = {
 def build_scheduler(settings: Settings, bot=None) -> AsyncIOScheduler:
     global _CURRENT_BOT
     _CURRENT_BOT = bot
-    jobstores = {"default": SQLAlchemyJobStore(url=settings.database_url)}
+    # Jobstore uygulamanin motorunu paylasir. Ham `url=` vermek
+    # `postgresql://` on-ekini psycopg2'ye cozdurur ve psycopg v3 kurulu
+    # oldugu icin acilista ModuleNotFoundError atar (RUN-01).
+    jobstores = {"default": SQLAlchemyJobStore(engine=build_engine(settings))}
     scheduler = AsyncIOScheduler(timezone=settings.timezone, jobstores=jobstores)
     hour, minute = settings.weekly_plan_time.split(":", maxsplit=1)
     scheduler.add_job(
@@ -43,7 +46,6 @@ def build_scheduler(settings: Settings, bot=None) -> AsyncIOScheduler:
         ),
         id="weekly_meal_plan",
         replace_existing=True,
-        kwargs={"settings_values": settings.model_dump(mode="json")},
         coalesce=True,
         max_instances=1,
         misfire_grace_time=3600,
@@ -60,7 +62,6 @@ def build_scheduler(settings: Settings, bot=None) -> AsyncIOScheduler:
             ),
             id="weekly_recipe_discovery",
             replace_existing=True,
-            kwargs={"settings_values": settings.model_dump(mode="json")},
             coalesce=True,
             max_instances=1,
             misfire_grace_time=3600,
@@ -68,34 +69,59 @@ def build_scheduler(settings: Settings, bot=None) -> AsyncIOScheduler:
     return scheduler
 
 
-async def weekly_plan_job(settings_values: dict) -> None:
-    settings = Settings.model_validate(settings_values)
+async def _notify_admin(settings: Settings, text: str) -> None:
+    """Admin'e en iyi caba ile haber verir; bildirim hatasi isi dusurmez."""
+    if not (_CURRENT_BOT and settings.admin_telegram_user_id):
+        return
+    try:
+        await _CURRENT_BOT.send_message(chat_id=settings.admin_telegram_user_id, text=text)
+    except Exception:
+        logger.exception("admin_notify_failed")
+
+
+async def weekly_plan_job(**_legacy: object) -> None:
+    """Haftalik taslagi uretir ve admin'e gonderir.
+
+    `_legacy` yalnizca eski surumden kalmis, kwargs tasiyan kalici job
+    kayitlarini tolere etmek icin var; yeni kayitlar argumansiz.
+    """
+    settings = get_settings()
     logger.info("weekly_plan_started")
-    with SessionLocal() as db:
-        session = await MealPlannerService(db, settings).create_or_get_weekly_session()
-        if _CURRENT_BOT and settings.admin_telegram_user_id:
-            await _CURRENT_BOT.send_message(
-                chat_id=settings.admin_telegram_user_id,
-                text=f"🍽️ Önümüzdeki haftanın yemek planını hazırladım.\n\n{format_meal_plan(session)}",
-                parse_mode="Markdown",
-                reply_markup=approval_keyboard(),
-            )
-            logger.info("draft_sent_to_admin session_id=%s", session.id)
+    try:
+        with SessionLocal() as db:
+            session = await MealPlannerService(db, settings).create_or_get_weekly_session()
+            if _CURRENT_BOT and settings.admin_telegram_user_id:
+                await _CURRENT_BOT.send_message(
+                    chat_id=settings.admin_telegram_user_id,
+                    text=f"🍽️ Önümüzdeki haftanın yemek planını hazırladım.\n\n{format_meal_plan(session)}",
+                    parse_mode="Markdown",
+                    reply_markup=approval_keyboard(),
+                )
+                logger.info("draft_sent_to_admin session_id=%s", session.id)
+    except Exception:
+        # Sessizce olmek yok: yoksa admin pazar sabahi hicbir sey gormuyor
+        # ve nedenini anlamak icin loglara bakmasi gerekiyor (RUN-02).
+        logger.exception("weekly_plan_failed")
+        await _notify_admin(
+            settings,
+            "Bu haftanın menüsünü hazırlarken bir hata oldu ve taslak oluşmadı. "
+            "/regenerate ile tekrar deneyebilirsin; sorun sürerse loglara bakmak gerekebilir.",
+        )
 
 
-async def weekly_recipe_discovery_job(settings_values: dict) -> None:
-    settings = Settings.model_validate(settings_values)
+async def weekly_recipe_discovery_job(**_legacy: object) -> None:
+    settings = get_settings()
     logger.info("weekly_recipe_discovery_started")
     with SessionLocal() as db:
         try:
             candidates = await WeeklyRecipeDiscoveryService(db, settings).discover_candidates()
         except Exception:
             logger.exception("weekly_recipe_discovery_failed")
-            if _CURRENT_BOT and settings.admin_telegram_user_id:
-                await _CURRENT_BOT.send_message(
-                    chat_id=settings.admin_telegram_user_id,
-                    text="Yeni tarif keşfi sırasında bir hata oldu. Bot çalışmaya devam ediyor; loglara bakmak gerekebilir.",
-                )
+            await _notify_admin(
+                settings,
+                "Yeni tarif keşfi sırasında bir hata oldu. Bot çalışmaya devam ediyor; "
+                "loglara bakmak gerekebilir.",
+            )
             return
         if _CURRENT_BOT and settings.admin_telegram_user_id and candidates:
             await _CURRENT_BOT.send_message(

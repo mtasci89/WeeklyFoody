@@ -47,6 +47,17 @@ ikisini yan yana karsilastirabilirsin.
 Maliyet: tarif kutuphanesi ve arac semalari sabit on-ek olarak onbellege
 alindigi icin tipik bir aile kullaniminda aylik maliyet birkac dolari gecmez.
 
+## Guvenlik Notlari
+
+- Zamanlayici isleri hicbir ayar tasimaz; ayarlari kendileri ortamdan okur.
+  Eskiden `settings.model_dump()` job argumani olarak geciliyordu ve
+  APScheduler bunu jobstore tablosuna pickle'ledigi icin butun API
+  anahtarlari veritabani dosyasina duz metin yaziliyordu.
+- Web panel varsayilan olarak kapali; acilirsa `WEB_PANEL_TOKEN` zorunlu.
+  Token bos oldugunda kontrol atlanmiyor, uygulama hic baslamiyor.
+- Bot'ta genel hata yakalayici var: yakalanmamis istisnalar kullaniciya sakin
+  bir mesaj, admin'e ozet, loga tam iz olarak doner.
+
 ## Architecture
 
 - `app/agent`: Claude arac dongusu, arac tanimlari, sistem istemi, sohbet gecmisi.
