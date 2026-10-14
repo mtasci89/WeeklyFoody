@@ -22,8 +22,8 @@ listesine eslemek yerine su araclari kendisi secip sirayla cagirir:
 
 | Arac | Ne yapar |
 | --- | --- |
-| `plan_hazirla` | Slotlari ve PUANLANMIS aday havuzunu dondurur |
-| `plan_kaydet` | Kurulan haftalik plani tumuyle yazar |
+| `plan_hazirla` | Onerilen gun seklini ve rol basina PUANLANMIS aday havuzunu dondurur |
+| `plan_kaydet` | Kurulan haftalik plani yazar; gunun sekli serbest |
 | `plani_getir` | Aktif / bu hafta / gelecek hafta planini dondurur |
 | `tarif_ara` | Tarif kutuphanesinde ada ve malzemeye gore arar |
 | `tarif_detay` | Bir tarifin malzeme ve hazirlanisini dondurur |
@@ -42,6 +42,12 @@ aday havuzunu verir (puan; son yapilma tarihi, red sayisi, protein tekrari ve
 hafta ici/sonu hazirlik suresinden olusur), model haftayi kurar, `plan_kaydet`
 tumunu dogrulayip yazar. Eksik slot, aday tarif, kategori uyusmazligi ya da
 tekrarlanan satir varsa kaydetmez ve neyin yanlis oldugunu soyler.
+
+`MEAL_COURSE_ROLES` haftanin **onerilen** seklidir, dayatma degil. "Her gun tek
+meze olsun", "cumartesi sadece ana yemek", "pazar disaridayiz" gibi istekler
+plana oldugu gibi yansir; araclar yalnizca dogrulugu denetler (tarif onayli mi,
+kategori role uyuyor mu, tarih haftanin icinde mi), gunun kac ogunden
+olusacagini denetlemez.
 
 Deterministik katmanin hesapladigi skorlar ilk kez modele ulasiyor: onceden
 yalnizca liste SIRASI olarak gidiyordu, puanin kendisi ve gecmis bilgisi

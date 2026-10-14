@@ -95,6 +95,9 @@ def parse_ingredient(line: str) -> IngredientInput:
     return IngredientInput(name=name or line.strip().casefold(), quantity=quantity, unit=unit)
 
 
+KNOWN_ROLES = {"main", "meze", "salad", "side", "soup"}
+
+
 def selector_matches_role(db: Session, recipe: Recipe, role: str) -> bool:
     """Kategori/rol esleme kuralini tek yerden kullan."""
     return CandidateSelector(db)._matches_course_role(recipe, role)
@@ -377,8 +380,12 @@ class MealAgentToolset:
             hafta: Literal["gelecek_hafta", "bu_hafta"] = "gelecek_hafta",
         ) -> str:
             """Yeni bir haftalık plan kurmak için hazırlık bilgisini verir:
-            doldurulacak gün/öğün slotları ve her slot için PUANLANMIŞ aday
-            havuzu. Plan kurmadan önce bunu çağır; seçimlerini bu havuzdan yap.
+            haftanın günleri, ÖNERİLEN gün şekli ve her ROL için PUANLANMIŞ
+            aday havuzu. Plan kurmadan önce bunu çağır; seçimlerini bu
+            havuzdan yap.
+
+            Önerilen şekil bağlayıcı değildir. Kullanıcı "tek meze olsun",
+            "çorba ekle", "cumartesi sadece ana yemek" derse ona göre kurarsın.
 
             Puan; yemeğin en son ne zaman yapıldığını, kaç kez reddedildiğini,
             protein tekrarını ve hafta içi/sonu hazırlık süresini birleştirir.
@@ -408,24 +415,28 @@ class MealAgentToolset:
                 last_seen = scorer.last_seen()
                 rejected = FeedbackService(db).rejected_counts()
                 dates = week_dates(week_start)
+                base = toolset.settings.meal_slots[0] if toolset.settings.meal_slots else "dinner"
+                suggested = Counter(course_role(slot) for slot in toolset.settings.planning_slots)
                 lines = [
                     f"Hafta: {week_start} - {week_end(week_start)}",
                     "Günler: " + ", ".join(f"{d.isoformat()} {TR_DAY_NAMES[d.weekday()]}" for d in dates),
-                    f"Her gün doldurulacak {len(toolset.settings.planning_slots)} slot: "
-                    + ", ".join(toolset.settings.planning_slots),
                     "",
-                    "Aday havuzu (puan sırasına göre):",
+                    "Önerilen gün şekli (ZORUNLU DEĞİL, kullanıcı başka istiyorsa ona uy): "
+                    + ", ".join(f"{count}x {role}" for role, count in suggested.items()),
+                    f"Slot adlandırma: {base}_main, {base}_meze, {base}_salad, {base}_side, "
+                    f"{base}_soup. Aynı rolden birden fazlaysa {base}_meze_1, {base}_meze_2.",
+                    "",
+                    "Aday havuzu (rol başına, puan sırasına göre):",
                 ]
-                for slot in toolset.settings.planning_slots:
-                    role = course_role(slot)
-                    candidates = selector.select(base_meal_slot(slot), hard, week_start, course_role=role)
+                for role in ("main", "meze", "salad", "side", "soup"):
+                    candidates = selector.select(base, hard, week_start, course_role=role)
                     scored = scorer.score_with_values(candidates, dates[0], Counter())
                     lines.append(
-                        f"\n{slot} (rol={role}, uygun kategoriler: "
+                        f"\n{role} (uygun kategoriler: "
                         f"{', '.join(allowed_categories_for_role(role))}) - {len(scored)} aday:"
                     )
                     if not scored:
-                        lines.append("  (aday yok - tercihler havuzu boşaltmış olabilir)")
+                        lines.append("  (aday yok)")
                         continue
                     for score, recipe in scored[:15]:
                         seen = last_seen.get(recipe.id)
@@ -449,15 +460,19 @@ class MealAgentToolset:
         ) -> str:
             """Kurduğun haftalık planı kaydeder. Önce `plan_hazirla` çağır.
 
-            Haftanın TAMAMINI tek seferde vermelisin: her gün için her slot,
-            eksiksiz. Eksik ya da fazla olursa kaydetmem ve neyin eksik
-            olduğunu söylerim.
+            Haftanın şeklini SEN belirlersin: bir güne kaç öğün koyacağın,
+            hangi rollerden kaçar tane olacağı sabit değil. Kullanıcı "her gün
+            tek meze olsun" ya da "cumartesi sadece ana yemek" derse öyle
+            yazarsın. Bir günü tamamen boş bırakabilirsin (dışarıda
+            yiyeceklerse); o gün hiç satır yazma.
 
             Args:
                 ogunler: Her biri "TARİH|SLOT|TARİF ADI" biçiminde satır.
-                    Örn: "2026-10-20|dinner_main|Fırında Tavuk". Tarih ISO,
-                    slot `plan_hazirla`nın verdiği adlardan biri, tarif adı
-                    kütüphanedeki tam ad olmalı.
+                    Örn: "2026-10-20|dinner_main|Fırında Tavuk". Slot adı
+                    "dinner_" ile başlar ve rolle biter: dinner_main,
+                    dinner_meze, dinner_salad, dinner_side, dinner_soup. Aynı
+                    rolden birden fazla varsa numara ekle: dinner_meze_1,
+                    dinner_meze_2. Tarif adı kütüphanedeki tam ad olmalı.
                 hafta: Hangi hafta.
                 notlar: Planı kurarken izlediğin mantık, bir iki cümle.
                     Kaydedilir.
@@ -474,11 +489,8 @@ class MealAgentToolset:
                 if session and session.state in (SessionState.APPROVED, SessionState.PUBLISHED):
                     return f"{week_start} haftası onaylanmış/yayınlanmış, üzerine yazamam."
 
-                expected = {
-                    (d.isoformat(), slot)
-                    for d in week_dates(week_start)
-                    for slot in toolset.settings.planning_slots
-                }
+                valid_dates = {d.isoformat() for d in week_dates(week_start)}
+                valid_bases = set(toolset.settings.meal_slots)
                 service = RecipeService(db)
                 parsed: dict[tuple[str, str], Recipe] = {}
                 problems: list[str] = []
@@ -488,8 +500,21 @@ class MealAgentToolset:
                         problems.append(f"'{raw}' üç alan değil (TARİH|SLOT|TARİF)")
                         continue
                     iso, slot, recipe_name = parts
-                    if (iso, slot) not in expected:
-                        problems.append(f"'{iso}|{slot}' bu haftaya ait geçerli bir slot değil")
+                    if iso not in valid_dates:
+                        problems.append(
+                            f"'{iso}' bu haftanın dışında ({week_start} - {week_end(week_start)})"
+                        )
+                        continue
+                    if base_meal_slot(slot) not in valid_bases:
+                        problems.append(
+                            f"'{slot}' tanınmıyor; slot adı "
+                            f"{'/'.join(sorted(valid_bases))} ile başlamalı (örn. dinner_main)"
+                        )
+                        continue
+                    if course_role(slot) not in KNOWN_ROLES:
+                        problems.append(
+                            f"'{slot}' rolü tanınmıyor; bilinen roller: {', '.join(sorted(KNOWN_ROLES))}"
+                        )
                         continue
                     if (iso, slot) in parsed:
                         problems.append(f"'{iso}|{slot}' iki kez verilmiş")
@@ -510,17 +535,13 @@ class MealAgentToolset:
                         continue
                     parsed[(iso, slot)] = recipe
 
-                missing = sorted(expected - set(parsed))
-                if problems or missing:
-                    report = ["Plan kaydedilmedi."]
-                    if problems:
-                        report.append("Sorunlar:")
-                        report += [f"  - {p}" for p in problems[:15]]
-                    if missing:
-                        report.append(f"Doldurulmayan {len(missing)} slot:")
-                        report += [f"  - {iso}|{slot}" for iso, slot in missing[:15]]
+                if problems:
+                    report = ["Plan kaydedilmedi.", "Sorunlar:"]
+                    report += [f"  - {p}" for p in problems[:15]]
                     report.append("Düzeltip tekrar çağır.")
                     return "\n".join(report)
+                if not parsed:
+                    return "Hiç geçerli öğün verilmedi, plan kaydedilmedi."
 
                 if session is None:
                     session = WeeklyPlanningSession(
@@ -553,11 +574,19 @@ class MealAgentToolset:
                     "agent_plan_saved session_id=%s week_start=%s items=%s",
                     session.id, week_start, len(parsed),
                 )
-                return (
-                    f"{week_start} - {week_end(week_start)} haftası kaydedildi "
-                    f"({len(parsed)} öğün). Kullanıcı onaylamak isterse /approve yazmalı; "
-                    "onaylanınca alıcılara menü ve alışveriş listesi gider."
+                per_day = Counter(iso for iso, _ in parsed)
+                empty = sorted(valid_dates - set(per_day))
+                summary = [
+                    f"{week_start} - {week_end(week_start)} haftası kaydedildi ({len(parsed)} öğün).",
+                    "Gün başına: " + ", ".join(f"{iso}={per_day[iso]}" for iso in sorted(per_day)),
+                ]
+                if empty:
+                    summary.append("Öğün yazılmayan günler: " + ", ".join(empty))
+                summary.append(
+                    "Kullanıcı onaylamak isterse /approve yazmalı; onaylanınca alıcılara "
+                    "menü ve alışveriş listesi gider."
                 )
+                return "\n".join(summary)
 
         @beta_async_tool
         async def tarif_ekle(

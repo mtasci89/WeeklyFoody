@@ -459,11 +459,11 @@ async def test_plan_hazirla_exposes_scores_and_history(db, settings, toolset):
     out = await call(toolset, "plan_hazirla", hafta="gelecek_hafta")
 
     assert f"Hafta: {WEEK.isoformat()}" in out
-    for slot in settings.planning_slots:
-        assert f"{slot} (rol=" in out
+    for role in ("main", "meze", "side"):
+        assert f"{role} (uygun kategoriler" in out
     assert "puan " in out
     assert "hiç yapılmadı" in out
-    assert "Aday havuzu (puan sırasına göre)" in out
+    assert "Aday havuzu (rol başına, puan sırasına göre)" in out
 
 
 @pytest.mark.asyncio
@@ -492,17 +492,6 @@ async def test_plan_kaydet_writes_a_whole_week(db, settings, toolset):
     assert len(session.meal_plan.items) == 7 * len(settings.planning_slots)
     assert session.state == SessionState.AWAITING_APPROVAL
     assert session.context["agent_notes"].startswith("Haftaya protein")
-
-
-@pytest.mark.asyncio
-async def test_plan_kaydet_rejects_a_partial_week(db, settings, toolset):
-    partial = full_week(db, settings, WEEK)[:5]
-
-    out = await call(toolset, "plan_kaydet", ogunler=partial)
-
-    assert "Plan kaydedilmedi" in out
-    assert "Doldurulmayan" in out
-    assert MealPlannerService(db, settings).current_session(WEEK) is None
 
 
 @pytest.mark.asyncio
@@ -568,3 +557,108 @@ async def test_plan_kaydet_refuses_to_overwrite_an_approved_week(db, settings, t
     out = await call(toolset, "plan_kaydet", ogunler=full_week(db, settings, WEEK))
 
     assert "üzerine yazamam" in out
+
+
+# --- haftanin sekli esnek olmali ---------------------------------------
+
+
+def shaped_week(db, settings, week_start, roles_per_day, skip_dates=()):
+    """Istenen rol dagilimina gore hafta uretir (sabit sablona bagli degil)."""
+    from app.agent.tools import selector_matches_role
+    from app.planner.dates import week_dates
+
+    recipes = RecipeService(db).list_recipes()
+    lines = []
+    for day in week_dates(week_start):
+        if day.isoformat() in skip_dates:
+            continue
+        counts: dict[str, int] = {}
+        for role in roles_per_day:
+            counts[role] = counts.get(role, 0) + 1
+            suffix = role if roles_per_day.count(role) == 1 else f"{role}_{counts[role]}"
+            fit = next(r for r in recipes if selector_matches_role(db, r, role))
+            lines.append(f"{day.isoformat()}|dinner_{suffix}|{fit.name}")
+    return lines
+
+
+@pytest.mark.asyncio
+async def test_plan_kaydet_accepts_one_meze_instead_of_two(db, settings, toolset):
+    """Kullanici "her gune tek meze" diyebilmeli; sablon dayatilmamali."""
+    lines = shaped_week(db, settings, WEEK, ["main", "meze", "side"])
+
+    out = await call(toolset, "plan_kaydet", ogunler=lines)
+
+    assert "kaydedildi" in out
+    session = MealPlannerService(db, settings).current_session(WEEK)
+    assert len(session.meal_plan.items) == 7 * 3
+    monday = [i for i in session.meal_plan.items if i.date == WEEK]
+    assert sorted(course_role(i.meal_slot) for i in monday) == ["main", "meze", "side"]
+
+
+@pytest.mark.asyncio
+async def test_plan_kaydet_accepts_a_day_with_only_a_main(db, settings, toolset):
+    lines = shaped_week(db, settings, WEEK, ["main", "meze", "side"])
+    saturday = (WEEK + timedelta(days=5)).isoformat()
+    lines = [l for l in lines if not l.startswith(saturday)]
+    lines.append(f"{saturday}|dinner_main|{RecipeService(db).find_recipe('Fırında Tavuk').name}")
+
+    out = await call(toolset, "plan_kaydet", ogunler=lines)
+
+    assert "kaydedildi" in out
+    session = MealPlannerService(db, settings).current_session(WEEK)
+    assert len([i for i in session.meal_plan.items if i.date.isoformat() == saturday]) == 1
+
+
+@pytest.mark.asyncio
+async def test_plan_kaydet_accepts_an_empty_day(db, settings, toolset):
+    """"Pazar dışarıdayız" -> o gun hic ogun olmayabilir."""
+    sunday = (WEEK + timedelta(days=6)).isoformat()
+    lines = shaped_week(db, settings, WEEK, ["main", "meze"], skip_dates=(sunday,))
+
+    out = await call(toolset, "plan_kaydet", ogunler=lines)
+
+    assert "kaydedildi" in out
+    assert "Öğün yazılmayan günler" in out and sunday in out
+    session = MealPlannerService(db, settings).current_session(WEEK)
+    assert not [i for i in session.meal_plan.items if i.date.isoformat() == sunday]
+
+
+@pytest.mark.asyncio
+async def test_plan_kaydet_reports_per_day_counts(db, settings, toolset):
+    out = await call(toolset, "plan_kaydet", ogunler=shaped_week(db, settings, WEEK, ["main", "soup"]))
+
+    assert "Gün başına:" in out
+    assert f"{WEEK.isoformat()}=2" in out
+
+
+@pytest.mark.asyncio
+async def test_plan_kaydet_still_rejects_unknown_roles_and_dates(db, settings, toolset):
+    lines = shaped_week(db, settings, WEEK, ["main"])
+    lines.append(f"{WEEK.isoformat()}|dinner_tatli|Fırında Tavuk")
+    lines.append(f"{(WEEK + timedelta(weeks=9)).isoformat()}|dinner_main|Fırında Tavuk")
+    lines.append(f"{WEEK.isoformat()}|kahvalti_main|Fırında Tavuk")
+
+    out = await call(toolset, "plan_kaydet", ogunler=lines)
+
+    assert "rolü tanınmıyor" in out
+    assert "haftanın dışında" in out
+    assert "tanınmıyor; slot adı" in out
+    assert MealPlannerService(db, settings).current_session(WEEK) is None
+
+
+@pytest.mark.asyncio
+async def test_plan_kaydet_rejects_an_entirely_empty_week(db, settings, toolset):
+    out = await call(toolset, "plan_kaydet", ogunler=[])
+
+    assert "Hiç geçerli öğün verilmedi" in out
+
+
+@pytest.mark.asyncio
+async def test_plan_hazirla_offers_roles_and_calls_the_shape_a_suggestion(db, settings, toolset):
+    out = await call(toolset, "plan_hazirla", hafta="gelecek_hafta")
+
+    assert "ZORUNLU DEĞİL" in out
+    assert "Önerilen gün şekli" in out
+    for role in ("main", "meze", "salad", "side", "soup"):
+        assert f"\n{role} (uygun kategoriler" in out
+    assert "dinner_meze_1" in out
