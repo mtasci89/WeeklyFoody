@@ -15,8 +15,41 @@ The app uses persistent application-level memory. It does not rely on fine-tunin
 - Sends final menu and shopping list to `TELEGRAM_RECIPIENT_CHAT_IDS`.
 - Learns through recipe library, meal history, feedback history, hard preferences, and soft preferences.
 
+## Konusma Ajani (Claude tool-use)
+
+Sohbet katmani bir arac dongusu uzerinde calisir. Model mesaji sabit bir niyet
+listesine eslemek yerine su araclari kendisi secip sirayla cagirir:
+
+| Arac | Ne yapar |
+| --- | --- |
+| `plani_getir` | Aktif / bu hafta / gelecek hafta planini dondurur |
+| `tarif_ara` | Tarif kutuphanesinde ada ve malzemeye gore arar |
+| `tarif_detay` | Bir tarifin malzeme ve hazirlanisini dondurur |
+| `ogun_degistir` | Plandaki bir ogunu gerekcesiyle degistirir |
+| `alisveris_listesi` | Bir haftanin toplu listesini cikarir |
+| `gecmis_getir` | Son haftalarda yapilanlari dondurur (tekrar onleme) |
+| `tercih_kaydet` | Kalici tercihi hard/soft olarak yazar |
+
+Boylece tek mesajda birden fazla adim atilabiliyor. Ornek:
+`Salı balık olmasın, yerine geçen ay beğendiğimiz tavuklu şeyi koy` -> model
+once `plani_getir`, sonra `gecmis_getir`, sonra `tarif_ara`, en son
+`ogun_degistir` cagirir ve degisikligin gerekcesini yazar.
+
+Anlama isini model, yazma isini deterministik arac fonksiyonlari yapar: model
+uydurdugu bir tarifi menuye koyamaz, `tarif_ara` ile kutuphanede dogrulamak
+zorundadir. Onaylanmis ve yayinlanmis planlar araclar tarafindan reddedilir;
+onaylama yetkisi ajanda degildir (`/approve` ya da onay dugmesi).
+
+Calistirmak icin `ANTHROPIC_API_KEY` yeterli. Anahtar yoksa ya da
+`AGENT_ENABLED=false` ise bot eski niyet yonlendiricisine geri duser, boylece
+ikisini yan yana karsilastirabilirsin.
+
+Maliyet: tarif kutuphanesi ve arac semalari sabit on-ek olarak onbellege
+alindigi icin tipik bir aile kullaniminda aylik maliyet birkac dolari gecmez.
+
 ## Architecture
 
+- `app/agent`: Claude arac dongusu, arac tanimlari, sistem istemi, sohbet gecmisi.
 - `app/db`: SQLAlchemy models and database setup.
 - `app/recipes`: YAML/JSON import, Telegram plain-text recipe parsing, future importer/discovery interfaces.
 - `app/memory`: hard/soft preferences and feedback history.

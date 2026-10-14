@@ -32,6 +32,13 @@ def next_week_start(today: date | None = None, timezone: str = "Europe/Istanbul"
     return current_monday + timedelta(days=7)
 
 
+def this_week_start(today: date | None = None, timezone: str = "Europe/Istanbul") -> date:
+    """Icinde bulundugumuz haftanin pazartesisi."""
+    if today is None:
+        today = datetime.now(ZoneInfo(timezone)).date()
+    return today - timedelta(days=today.weekday())
+
+
 def week_dates(week_start: date) -> list[date]:
     return [week_start + timedelta(days=i) for i in range(7)]
 

@@ -13,7 +13,7 @@ from app.llm.base import WeeklyPlanOutput
 from app.llm import build_llm_provider
 from app.memory.preferences import PreferenceService
 from app.planner.candidate_selector import CandidateSelector
-from app.planner.dates import next_week_start, week_dates, week_end
+from app.planner.dates import next_week_start, this_week_start, week_dates, week_end
 from app.planner.scorer import CandidateScorer
 from app.planner.validator import PlanValidator
 
@@ -125,6 +125,21 @@ class MealPlannerService:
     def current_session(self, week_start: date | None = None) -> WeeklyPlanningSession | None:
         week_start = week_start or next_week_start(timezone=self.settings.timezone)
         return self.db.scalar(select(WeeklyPlanningSession).where(WeeklyPlanningSession.week_start == week_start))
+
+    def this_week_session(self) -> WeeklyPlanningSession | None:
+        """Icinde bulundugumuz haftayi kapsayan oturum (pazartesi-pazar)."""
+        return self.current_session(this_week_start(timezone=self.settings.timezone))
+
+    def active_session(self) -> WeeklyPlanningSession | None:
+        """Kullanicinin "menu" dedigi zaman kastettigi oturum.
+
+        Onay bekleyen bir gelecek hafta taslagi varsa o one gecer; yoksa
+        icinde bulundugumuz hafta, o da yoksa gelecek hafta dondurulur.
+        """
+        upcoming = self.current_session()
+        if upcoming and upcoming.state not in (SessionState.APPROVED, SessionState.PUBLISHED):
+            return upcoming
+        return self.this_week_session() or upcoming
 
     def _recipe_context(self, recipe: Recipe) -> dict:
         return {

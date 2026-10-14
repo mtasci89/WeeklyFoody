@@ -115,3 +115,42 @@ def test_excluded_inactive_recipes_are_not_candidates(db):
     RecipeService(db).disable_recipe("Makarna")
     selected = CandidateSelector(db).select("dinner", [], date(2026, 8, 31), recent_weeks=3)
     assert "Makarna" not in {recipe.name for recipe in selected}
+
+
+def test_this_week_session_is_reachable_mid_week(db, settings):
+    """UX-01: hafta ici boyunca o haftanin planina erisilebilmeli.
+
+    Eski `current_session()` her zaman GELECEK haftaya bakiyordu; pazartesi
+    olur olmaz o haftanin menusu "yok" gorunuyordu.
+    """
+    from app.planner.dates import this_week_start
+
+    monday = this_week_start(timezone=settings.timezone)
+    current = WeeklyPlanningSession(
+        week_start=monday, week_end=monday + timedelta(days=6), state=SessionState.PUBLISHED
+    )
+    db.add(current)
+    db.commit()
+    service = MealPlannerService(db, settings)
+
+    assert service.current_session() is None  # gelecek hafta henuz planlanmadi
+    assert service.this_week_session().id == current.id
+    assert service.active_session().id == current.id
+
+
+@pytest.mark.asyncio
+async def test_active_session_prefers_a_draft_awaiting_review(db, settings):
+    from app.planner.dates import next_week_start, this_week_start
+
+    monday = this_week_start(timezone=settings.timezone)
+    published = WeeklyPlanningSession(
+        week_start=monday, week_end=monday + timedelta(days=6), state=SessionState.PUBLISHED
+    )
+    db.add(published)
+    db.commit()
+    draft = await MealPlannerService(db, settings).create_or_get_weekly_session(
+        next_week_start(timezone=settings.timezone)
+    )
+
+    # Onay bekleyen taslak varsa konusma onun uzerinden gitmeli
+    assert MealPlannerService(db, settings).active_session().id == draft.id

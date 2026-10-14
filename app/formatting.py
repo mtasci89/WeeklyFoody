@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections import defaultdict
 from datetime import date
 
-from app.db.models import MealPlan, WeeklyPlanningSession
+from app.db.models import WeeklyPlanningSession
 from app.config import course_role
 from app.planner.dates import TR_DAY_NAMES
 
@@ -85,3 +85,34 @@ def format_candidate_recipes(recipes) -> str:
     lines.append("")
     lines.append("Kalıcı yapmak için: `/approverecipe Tarif Adı`")
     return "\n".join(lines)
+
+
+TELEGRAM_LIMIT = 4096
+
+
+def split_for_telegram(text: str, limit: int = TELEGRAM_LIMIT) -> list[str]:
+    """Metni Telegram'in 4096 karakter sinirina gore boler.
+
+    Mumkun oldugunca bos satir, sonra satir sonu, en kotu durumda bosluk
+    sinirindan boler; hicbiri yoksa sert keser. Bos metin icin bos liste
+    doner, boylece cagiran taraf bos mesaj gondermeye calismaz.
+    """
+    if not text.strip():
+        return []
+    chunks: list[str] = []
+    remaining = text.strip()
+    while len(remaining) > limit:
+        window = remaining[:limit]
+        cut = -1
+        for separator in ("\n\n", "\n", " "):
+            cut = window.rfind(separator)
+            if cut > limit // 2:
+                break
+            cut = -1
+        if cut == -1:
+            cut = limit
+        chunks.append(remaining[:cut].strip())
+        remaining = remaining[cut:].strip()
+    if remaining:
+        chunks.append(remaining)
+    return [chunk for chunk in chunks if chunk]

@@ -1,22 +1,27 @@
 from __future__ import annotations
 
 import logging
-from datetime import date
 
 from sqlalchemy import select
 from telegram import Update
+from telegram.constants import ChatAction
 from telegram.ext import ContextTypes
 
+from app.agent.runner import MealPlannerAgent
 from app.bot.intents import NaturalLanguageRouter
 from app.bot.keyboards import approval_keyboard
 from app.bot.security import TelegramSecurity
 from app.config import Settings
 from app.db.models import PantryItem, PreferenceType, SessionState, WeeklyPlanningSession
 from app.db.session import SessionLocal
-from app.formatting import format_candidate_recipes, format_meal_plan, format_recipe_detail
+from app.formatting import (
+    format_candidate_recipes,
+    format_meal_plan,
+    format_recipe_detail,
+    split_for_telegram,
+)
 from app.llm.base import Intent
 from app.memory.preferences import PreferenceService
-from app.planner.dates import next_week_start
 from app.planner.revision import RevisionService
 from app.planner.service import MealPlannerService
 from app.recipes.service import RecipeService, normalize_name
@@ -40,6 +45,11 @@ class TelegramHandlers:
         self.security = TelegramSecurity(settings)
         self.router = NaturalLanguageRouter(settings)
         self.notifier = _TelegramBotNotifier(bot)
+        self.agent = MealPlannerAgent(settings, SessionLocal) if MealPlannerAgent.available(settings) else None
+        if self.agent:
+            logger.info("agent_enabled model=%s effort=%s", settings.anthropic_model, settings.agent_effort)
+        else:
+            logger.info("agent_disabled reason=no_api_key_or_disabled fallback=intent_router")
 
     async def start(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await update.effective_message.reply_text("Merhaba. Haftalık yemek planı ajanı hazırım. /help yazabilirsin.")
@@ -263,6 +273,9 @@ class TelegramHandlers:
             await update.effective_message.reply_text("Bu botta değişiklik yapma yetkisi sadece adminde.")
             return
         message = update.effective_message.text or ""
+        if self.agent and not context.user_data.get("awaiting_recipe_text"):
+            await self._agent_turn(update, message)
+            return
         with SessionLocal() as db:
             if context.user_data.get("awaiting_recipe_text"):
                 if message.casefold().strip() in {"iptal", "vazgeç", "vazgec"}:
@@ -356,6 +369,18 @@ class TelegramHandlers:
                 answer = await self.router.answer_general_question(message, router_context)
                 await update.effective_message.reply_text(answer)
                 return
+
+    async def _agent_turn(self, update: Update, message: str) -> None:
+        chat = update.effective_chat
+        chat_id = chat.id if chat else (update.effective_user.id if update.effective_user else 0)
+        try:
+            # Yalnizca "yazıyor..." gostergesi; basarisiz olursa turu dusurmemeli.
+            await self.notifier.bot.send_chat_action(chat_id=chat_id, action=ChatAction.TYPING)
+        except Exception:
+            logger.debug("chat_action_failed chat_id=%s", chat_id)
+        reply = await self.agent.reply(chat_id, message)
+        for chunk in split_for_telegram(reply.text):
+            await update.effective_message.reply_text(chunk)
 
     def _router_context(self, db) -> dict:
         session = MealPlannerService(db, self.settings).current_session()

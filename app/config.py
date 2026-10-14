@@ -25,6 +25,16 @@ class Settings(BaseSettings):
     gemini_api_key: str = ""
     gemini_model: str = "gemini-2.5-flash"
 
+    # Konusma ajani (Claude tool-use dongusu). Anahtar yoksa eski niyet
+    # yonlendiricisine geri dusulur, boylece ikisi yan yana denenebilir.
+    agent_enabled: bool = True
+    anthropic_api_key: str = ""
+    anthropic_model: str = "claude-opus-5-5"
+    agent_effort: Literal["low", "medium", "high", "xhigh", "max"] = "medium"
+    agent_max_tokens: int = 8000
+    agent_max_iterations: int = 12
+    agent_history_turns: int = 12
+
     default_servings: int = 4
     meal_slots: Annotated[list[str], NoDecode] = Field(default_factory=lambda: ["dinner"])
     meal_course_roles: Annotated[list[str], NoDecode] = Field(default_factory=lambda: ["main", "meze", "meze", "side"])
