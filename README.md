@@ -1,4 +1,4 @@
-# Telegram Weekly Meal Planner Agent
+# WeeklyFoody
 
 Personal/family weekly meal-planning bot for Telegram. Every configured week it creates a draft menu, discusses revisions with one admin user in Turkish natural language, and publishes the approved final menu plus a consolidated shopping list to configured recipients.
 
