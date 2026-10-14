@@ -34,6 +34,12 @@ class Settings(BaseSettings):
     agent_max_tokens: int = 8000
     agent_max_iterations: int = 12
     agent_history_turns: int = 12
+    # Web arama sunucu araci: ajan kutuphanede olmayan tarifi kendisi arar.
+    agent_web_search_enabled: bool = True
+    agent_web_search_max_uses: int = 5
+    # Sunucu araci uzun surerse tur `pause_turn` ile durur; Python runner
+    # bunu kendiliginden devam ettirmiyor, dongu disaridan yeniden baslatilir.
+    agent_max_pause_restarts: int = 3
 
     default_servings: int = 4
     meal_slots: Annotated[list[str], NoDecode] = Field(default_factory=lambda: ["dinner"])

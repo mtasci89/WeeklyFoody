@@ -24,6 +24,7 @@ from app.memory.feedback import FeedbackService
 from app.memory.preferences import PreferenceService
 from app.planner.dates import TR_DAY_NAMES, this_week_start
 from app.planner.service import MealPlannerService
+from app.recipes.importer import IngredientInput, RecipeInput
 from app.recipes.service import RecipeService
 from app.shopping.service import ShoppingListService
 
@@ -56,6 +57,38 @@ def render_plan(session: WeeklyPlanningSession | None) -> str:
             f"{item.recipe.name} [kategori={item.recipe.category}{servings}]{changed}"
         )
     return "\n".join(lines)
+
+
+UNITS = {
+    "gr", "g", "gram", "kg", "ml", "l", "lt", "litre", "adet", "paket", "demet",
+    "diş", "dis", "dal", "tutam", "su bardağı", "çay bardağı", "yemek kaşığı",
+    "çay kaşığı", "tatlı kaşığı",
+}
+
+
+def parse_ingredient(line: str) -> IngredientInput:
+    """"600 gr tavuk" -> (600, "gr", "tavuk").
+
+    Modele tek tek malzeme satiri yazdirdigimiz icin burada talimat metni
+    beklemiyoruz; eski duz metin ayristiricinin "rakam gecen her satir
+    malzemedir" varsayimi burada yok.
+    """
+    tokens = line.strip().split()
+    if not tokens:
+        return IngredientInput(name=line.strip() or "bilinmeyen")
+    try:
+        quantity = float(tokens[0].replace(",", "."))
+    except ValueError:
+        return IngredientInput(name=" ".join(tokens).casefold())
+    rest = tokens[1:]
+    unit = None
+    # Iki kelimelik birimler ("yemek kaşığı") tek kelimelilerden once denenir.
+    if len(rest) >= 2 and " ".join(rest[:2]).casefold() in UNITS:
+        unit, rest = " ".join(rest[:2]).casefold(), rest[2:]
+    elif rest and rest[0].casefold() in UNITS:
+        unit, rest = rest[0].casefold(), rest[1:]
+    name = " ".join(rest).casefold().strip()
+    return IngredientInput(name=name or line.strip().casefold(), quantity=quantity, unit=unit)
 
 
 def _describe(recipe: Recipe) -> str:
@@ -330,6 +363,120 @@ class MealAgentToolset:
                 logger.info("agent_preference_saved tip=%s", tip)
                 return f"Kaydedildi ({tip}): {cleaned}"
 
+        @beta_async_tool
+        async def tarif_ekle(
+            ad: str,
+            kategori: Literal["main", "meze", "salad", "side", "soup"],
+            malzemeler: list[str],
+            hazirlanis: str = "",
+            porsiyon: int = 4,
+            hazirlik_dakika: int = 0,
+            pisirme_dakika: int = 0,
+            protein: str = "",
+            vejetaryen: bool = False,
+            kaynak: str = "",
+        ) -> str:
+            """Kütüphaneye yeni tarif ekler. ADAY olarak kaydedilir: menülere
+            kendiliğinden girmez, kullanıcı `tarif_onayla` ile onaylayana kadar
+            bekler. Web'de bulduğun tarifleri de böyle kaydet.
+
+            Args:
+                ad: Tarifin adı.
+                kategori: main (ana yemek), meze, salad, side (pilav/makarna/
+                    yan), soup (çorba).
+                malzemeler: Her biri "miktar birim ad" biçiminde tek satır.
+                    Örn: ["600 gr tavuk göğsü", "2 adet kırmızı biber",
+                    "1 yemek kaşığı zeytinyağı", "tuz"].
+                hazirlanis: Hazırlama adımları, tek metin.
+                porsiyon: Malzemelerin kaç kişilik olduğu.
+                hazirlik_dakika: Hazırlık süresi.
+                pisirme_dakika: Pişirme süresi.
+                protein: chicken, beef, fish, legumes, dairy, vegetable gibi.
+                vejetaryen: Et içermiyorsa true.
+                kaynak: Web'de bulduysan kaynak URL'si veya site adı.
+            """
+            toolset.calls.append(f"tarif_ekle({ad!r}, kategori={kategori})")
+            cleaned = ad.strip()
+            if not cleaned:
+                return "Tarif adı boş, kaydetmedim."
+            if not malzemeler:
+                return "Malzeme listesi boş. En az bir malzeme olmadan tarif kaydetmem."
+            with toolset.session_factory() as db:
+                service = RecipeService(db)
+                existing = service.find_recipe(cleaned, include_inactive=True)
+                if existing and existing.status == RecipeStatus.APPROVED:
+                    return f"'{existing.name}' zaten onaylı tariflerde var, tekrar eklemedim."
+                recipe = service.upsert_recipe(
+                    RecipeInput(
+                        name=cleaned,
+                        category=kategori,
+                        meal_type="dinner",
+                        ingredients=[parse_ingredient(line) for line in malzemeler],
+                        instructions=hazirlanis.strip() or None,
+                        servings=max(1, porsiyon),
+                        prep_minutes=hazirlik_dakika or None,
+                        cook_minutes=pisirme_dakika or None,
+                        protein_type=protein.strip().casefold() or None,
+                        vegetarian=vejetaryen,
+                        source=kaynak.strip() or "agent",
+                        tags=["agent-eklendi"],
+                        status="candidate",
+                    )
+                )
+                logger.info("agent_recipe_added recipe_id=%s", recipe.id)
+                return (
+                    f"'{recipe.name}' aday tariflere eklendi ({len(recipe.ingredients)} malzeme). "
+                    "Menülerde kullanılabilmesi için kullanıcının onaylaması gerekiyor; "
+                    "onaylamak isteyip istemediğini sor."
+                )
+
+        @beta_async_tool
+        async def aday_tarifler() -> str:
+            """Onay bekleyen aday tarifleri listeler. Bunlar menülere girmez."""
+            toolset.calls.append("aday_tarifler()")
+            with toolset.session_factory() as db:
+                candidates = RecipeService(db).list_candidates()
+                if not candidates:
+                    return "Onay bekleyen aday tarif yok."
+                lines = [f"{len(candidates)} aday tarif (menülere girmezler):"]
+                for recipe in candidates:
+                    source = f" · kaynak: {recipe.source}" if recipe.source else ""
+                    lines.append(f"  - {_describe(recipe)}{source}")
+                return "\n".join(lines)
+
+        @beta_async_tool
+        async def tarif_onayla(tarif_adi: str) -> str:
+            """Aday tarifi onaylar; bundan sonra menülerde kullanılabilir.
+            Sadece kullanıcı açıkça istediğinde çağır.
+
+            Args:
+                tarif_adi: Onaylanacak aday tarifin tam adı.
+            """
+            toolset.calls.append(f"tarif_onayla({tarif_adi!r})")
+            with toolset.session_factory() as db:
+                if RecipeService(db).approve_candidate(tarif_adi.strip()):
+                    logger.info("agent_candidate_approved")
+                    return f"'{tarif_adi.strip()}' onaylandı, artık menülerde kullanabilirim."
+                return (
+                    f"'{tarif_adi}' adında aday tarif bulamadım. "
+                    "aday_tarifler ile listeyi görüp adı doğrulayabilirsin."
+                )
+
+        @beta_async_tool
+        async def tarif_cikar(tarif_adi: str) -> str:
+            """Bir tarifi pasifleştirir: artık menülere girmez ve aday
+            listesinde görünmez. Sadece kullanıcı istediğinde çağır.
+
+            Args:
+                tarif_adi: Çıkarılacak tarifin tam adı.
+            """
+            toolset.calls.append(f"tarif_cikar({tarif_adi!r})")
+            with toolset.session_factory() as db:
+                if RecipeService(db).disable_recipe(tarif_adi.strip()):
+                    logger.info("agent_recipe_disabled")
+                    return f"'{tarif_adi.strip()}' pasifleştirildi."
+                return f"'{tarif_adi}' bulunamadı."
+
         return [
             plani_getir,
             tarif_ara,
@@ -338,4 +485,8 @@ class MealAgentToolset:
             alisveris_listesi,
             gecmis_getir,
             tercih_kaydet,
+            tarif_ekle,
+            aday_tarifler,
+            tarif_onayla,
+            tarif_cikar,
         ]

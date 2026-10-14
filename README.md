@@ -29,6 +29,11 @@ listesine eslemek yerine su araclari kendisi secip sirayla cagirir:
 | `alisveris_listesi` | Bir haftanin toplu listesini cikarir |
 | `gecmis_getir` | Son haftalarda yapilanlari dondurur (tekrar onleme) |
 | `tercih_kaydet` | Kalici tercihi hard/soft olarak yazar |
+| `tarif_ekle` | Yeni tarifi ADAY olarak kutuphaneye yazar |
+| `aday_tarifler` | Onay bekleyen adaylari listeler |
+| `tarif_onayla` | Adayi onaylar, menulerde kullanilabilir olur |
+| `tarif_cikar` | Tarifi pasiflestirir |
+| `web_search` | Anthropic sunucu araci: internette tarif arar |
 
 Boylece tek mesajda birden fazla adim atilabiliyor. Ornek:
 `Salı balık olmasın, yerine geçen ay beğendiğimiz tavuklu şeyi koy` -> model

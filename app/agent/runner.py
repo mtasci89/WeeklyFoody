@@ -54,6 +54,23 @@ class MealPlannerAgent:
     def available(cls, settings: Settings) -> bool:
         return bool(settings.agent_enabled and settings.anthropic_api_key)
 
+    def _tools(self, toolset: MealAgentToolset) -> list:
+        """Kendi araclarimiz + Anthropic'in sunucu tarafi web arama araci.
+
+        Sunucu araclarinin calistiracak bir fonksiyonu yoktur; ham tanim
+        olarak gecilir ve Anthropic tarafinda kosar.
+        """
+        tools = toolset.build()
+        if self.settings.agent_web_search_enabled:
+            tools.append(
+                {
+                    "type": "web_search_20260209",
+                    "name": "web_search",
+                    "max_uses": self.settings.agent_web_search_max_uses,
+                }
+            )
+        return tools
+
     def _system(self, toolset: MealAgentToolset) -> list[dict]:
         hard, soft, pantry = toolset.ambient_context()
         today = datetime.now(ZoneInfo(self.settings.timezone)).date()
@@ -70,20 +87,42 @@ class MealPlannerAgent:
     async def reply(self, chat_id: int, message: str) -> AgentReply:
         toolset = MealAgentToolset(self.settings, self.session_factory)
         history = self.store.history(chat_id)
-        messages = [*history, {"role": "user", "content": message}]
+        messages: list = [*history, {"role": "user", "content": message}]
+        system = self._system(toolset)
+        tools = self._tools(toolset)
         try:
-            runner = self.client.beta.messages.tool_runner(
-                model=self.settings.anthropic_model,
-                max_tokens=self.settings.agent_max_tokens,
-                max_iterations=self.settings.agent_max_iterations,
-                system=self._system(toolset),
-                tools=toolset.build(),
-                messages=messages,
-                output_config={"effort": self.settings.agent_effort},
-            )
             final = None
-            async for response in runner:
-                final = response
+            restarts = 0
+            while True:
+                runner = self.client.beta.messages.tool_runner(
+                    model=self.settings.anthropic_model,
+                    max_tokens=self.settings.agent_max_tokens,
+                    max_iterations=self.settings.agent_max_iterations,
+                    system=system,
+                    tools=tools,
+                    # Kopya: asagida `messages` aynalama icin buyuyor, verilen
+                    # istek o buyumeden geriye donuk etkilenmemeli.
+                    messages=list(messages),
+                    output_config={"effort": self.settings.agent_effort},
+                )
+                last = None
+                async for response in runner:
+                    last = response
+                    # Runner kendi kopyasini tutar ve disari vermez; tur
+                    # `pause_turn` ile durursa kaldigi yerden devam
+                    # edebilmek icin gecmisi burada aynaliyoruz.
+                    messages.append({"role": "assistant", "content": response.content})
+                    tool_response = await runner.generate_tool_call_response()
+                    if tool_response is not None:
+                        messages.append(tool_response)
+                final = last or final
+                if last is None or getattr(last, "stop_reason", None) != "pause_turn":
+                    break
+                restarts += 1
+                if restarts > self.settings.agent_max_pause_restarts:
+                    logger.warning("agent_pause_turn_giving_up chat_id=%s restarts=%s", chat_id, restarts)
+                    break
+                logger.info("agent_pause_turn_resumed chat_id=%s restart=%s", chat_id, restarts)
             text = _text_of(final)
         except Exception:
             logger.exception("agent_turn_failed chat_id=%s", chat_id)

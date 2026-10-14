@@ -36,19 +36,35 @@ class FakeMessage:
 
 
 class FakeRunner:
-    def __init__(self, tools, script, reply_text):
-        self.tools = {tool.name: tool for tool in tools}
+    def __init__(self, tools, script, reply_text, stop_reason="end_turn"):
+        # Sunucu araclari (web_search gibi) ham dict olarak gelir ve
+        # Anthropic tarafinda kosar; burada cagrilacak bir fonksiyon yok.
+        self.tools = {tool.name: tool for tool in tools if not isinstance(tool, dict)}
+        self.server_tools = [tool for tool in tools if isinstance(tool, dict)]
         self.script = script
         self.reply_text = reply_text
+        self.stop_reason = stop_reason
         self.executed: list[tuple[str, dict]] = []
+        self._pending_result = None
 
     async def __aiter__(self):
         for name, payload in self.script:
             tool = self.tools[name]
-            await tool.call(payload)
+            result = await tool.call(payload)
             self.executed.append((name, payload))
+            self._pending_result = {
+                "role": "user",
+                "content": [{"type": "tool_result", "tool_use_id": name, "content": str(result)}],
+            }
             yield FakeMessage(content=[FakeBlock("tool_use")], stop_reason="tool_use")
-        yield FakeMessage(content=[FakeBlock("text", self.reply_text)])
+        self._pending_result = None
+        yield FakeMessage(content=[FakeBlock("text", self.reply_text)], stop_reason=self.stop_reason)
+
+    async def generate_tool_call_response(self):
+        """Gercek runner'da bu bir coroutine; arac kostuysa tool_result mesaji
+        doner, kosmadiysa None."""
+        result, self._pending_result = self._pending_result, None
+        return result
 
 
 class FakeMessages:
@@ -56,10 +72,13 @@ class FakeMessages:
         self.owner = owner
 
     def tool_runner(self, **kwargs):
-        self.owner.calls.append(kwargs)
+        # Cagri anindaki mesajlarin kopyasini sakla: runner bitince ajan
+        # kendi listesini buyutuyor, kayit ondan etkilenmemeli.
+        self.owner.calls.append({**kwargs, "messages": list(kwargs["messages"])})
         if self.owner.raises:
             raise RuntimeError("api down")
-        runner = FakeRunner(kwargs["tools"], self.owner.script, self.owner.reply_text)
+        stop_reason = self.owner.stop_reasons.pop(0) if self.owner.stop_reasons else "end_turn"
+        runner = FakeRunner(kwargs["tools"], self.owner.script, self.owner.reply_text, stop_reason)
         self.owner.runners.append(runner)
         return runner
 
@@ -67,10 +86,12 @@ class FakeMessages:
 class FakeClient:
     """`client.beta.messages.tool_runner(...)` yuzeyini taklit eder."""
 
-    def __init__(self, script=(), reply_text="Tamamdır.", raises=False):
+    def __init__(self, script=(), reply_text="Tamamdır.", raises=False, stop_reasons=()):
         self.script = list(script)
         self.reply_text = reply_text
         self.raises = raises
+        # Sirayla her tool_runner cagrisinin son mesajinin stop_reason'i.
+        self.stop_reasons = list(stop_reasons)
         self.calls: list[dict] = []
         self.runners: list[FakeRunner] = []
         self.beta = type("Beta", (), {})()
@@ -212,7 +233,8 @@ async def test_all_tools_are_offered_to_the_model(db, settings, session_factory)
 
     await agent.reply(chat_id=1, message="selam")
 
-    assert {tool.name for tool in client.last["tools"]} == {
+    client_tools = {t.name for t in client.last["tools"] if not isinstance(t, dict)}
+    assert client_tools == {
         "plani_getir",
         "tarif_ara",
         "tarif_detay",
@@ -220,6 +242,10 @@ async def test_all_tools_are_offered_to_the_model(db, settings, session_factory)
         "alisveris_listesi",
         "gecmis_getir",
         "tercih_kaydet",
+        "tarif_ekle",
+        "aday_tarifler",
+        "tarif_onayla",
+        "tarif_cikar",
     }
 
 
@@ -332,3 +358,81 @@ def test_agent_can_be_disabled_explicitly(settings):
     disabled = settings.model_copy(update={"anthropic_api_key": "k", "agent_enabled": False})
 
     assert MealPlannerAgent.available(disabled) is False
+
+
+# --- web arama ve pause_turn -------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_web_search_server_tool_is_offered(db, settings, session_factory):
+    client = FakeClient()
+    agent = make_agent(settings, session_factory, client)
+
+    await agent.reply(chat_id=1, message="selam")
+
+    server = [t for t in client.last["tools"] if isinstance(t, dict)]
+    assert server == [
+        {"type": "web_search_20260209", "name": "web_search", "max_uses": settings.agent_web_search_max_uses}
+    ]
+
+
+@pytest.mark.asyncio
+async def test_web_search_can_be_turned_off(db, settings, session_factory):
+    off = settings.model_copy(update={"agent_web_search_enabled": False})
+    client = FakeClient()
+    agent = make_agent(off, session_factory, client)
+
+    await agent.reply(chat_id=1, message="selam")
+
+    assert [t for t in client.last["tools"] if isinstance(t, dict)] == []
+
+
+@pytest.mark.asyncio
+async def test_paused_turn_is_resumed_instead_of_truncating(db, settings, session_factory):
+    """Python runner `pause_turn`da kendiliginden devam etmiyor; devam
+    ettirmezsek cevap sessizce yarim kalir."""
+    client = FakeClient(reply_text="Aramayı bitirdim.", stop_reasons=["pause_turn", "end_turn"])
+    agent = make_agent(settings, session_factory, client)
+
+    reply = await agent.reply(chat_id=1, message="yeni bir tarif bul")
+
+    assert reply.ok
+    assert reply.text == "Aramayı bitirdim."
+    # Iki kez calistirildi: ilki duraklad, ikincisi tamamladi
+    assert len(client.calls) == 2
+    # Ikinci cagri duraklayan turu da tasiyor
+    assert len(client.calls[1]["messages"]) > len(client.calls[0]["messages"])
+
+
+@pytest.mark.asyncio
+async def test_pause_restarts_are_capped(db, settings, session_factory):
+    """Surekli duraklayan bir tur sonsuz donguye girmemeli."""
+    capped = settings.model_copy(update={"agent_max_pause_restarts": 2})
+    client = FakeClient(reply_text="yarım", stop_reasons=["pause_turn"] * 10)
+    agent = make_agent(capped, session_factory, client)
+
+    reply = await agent.reply(chat_id=1, message="ara")
+
+    assert len(client.calls) == 3  # ilk cagri + 2 yeniden baslatma
+    assert reply.text == "yarım"
+
+
+@pytest.mark.asyncio
+async def test_tool_results_are_mirrored_for_resume(db, settings, session_factory):
+    """Duraklamadan sonra devam edebilmek icin arac sonuclari gecmise
+    yansitilmali, yoksa model ne yaptigini unutur."""
+    client = FakeClient(
+        script=[("aday_tarifler", {})],
+        reply_text="Aday yok.",
+        stop_reasons=["pause_turn", "end_turn"],
+    )
+    agent = make_agent(settings, session_factory, client)
+
+    await agent.reply(chat_id=1, message="adaylar ne durumda")
+
+    resumed = client.calls[1]["messages"]
+    assert any(
+        isinstance(m.get("content"), list)
+        and any(b.get("type") == "tool_result" for b in m["content"] if isinstance(b, dict))
+        for m in resumed
+    )

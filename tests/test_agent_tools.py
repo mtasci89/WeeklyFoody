@@ -6,7 +6,14 @@ import pytest
 from sqlalchemy import select
 
 from app.agent.tools import MealAgentToolset
-from app.db.models import Feedback, MealPlan, MealPlanItem, SessionState, WeeklyPlanningSession
+from app.db.models import (
+    Feedback,
+    MealPlan,
+    MealPlanItem,
+    RecipeStatus,
+    SessionState,
+    WeeklyPlanningSession,
+)
 from app.formatting import split_for_telegram
 from app.planner.dates import next_week_start, this_week_start
 from app.planner.service import MealPlannerService
@@ -274,6 +281,10 @@ def test_every_tool_has_a_described_schema(toolset):
         "alisveris_listesi",
         "gecmis_getir",
         "tercih_kaydet",
+        "tarif_ekle",
+        "aday_tarifler",
+        "tarif_onayla",
+        "tarif_cikar",
     }
     for t in tools:
         schema = t.input_schema
@@ -308,3 +319,109 @@ def test_split_for_telegram_keeps_short_text_whole():
 
 def test_split_for_telegram_drops_empty():
     assert split_for_telegram("\n  \n") == []
+
+
+# --- malzeme satiri ayristirici ----------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("line", "quantity", "unit", "name"),
+    [
+        ("600 gr tavuk göğsü", 600.0, "gr", "tavuk göğsü"),
+        ("2 adet kırmızı biber", 2.0, "adet", "kırmızı biber"),
+        ("1 yemek kaşığı zeytinyağı", 1.0, "yemek kaşığı", "zeytinyağı"),
+        ("1,5 su bardağı pirinç", 1.5, "su bardağı", "pirinç"),
+        ("3 diş sarımsak", 3.0, "diş", "sarımsak"),
+        ("tuz", None, None, "tuz"),
+        ("2 soğan", 2.0, None, "soğan"),
+    ],
+)
+def test_parse_ingredient(line, quantity, unit, name):
+    from app.agent.tools import parse_ingredient
+
+    parsed = parse_ingredient(line)
+
+    assert (parsed.quantity, parsed.unit, parsed.name) == (quantity, unit, name)
+
+
+# --- tarif_ekle / aday_tarifler / tarif_onayla / tarif_cikar ----------
+
+
+@pytest.mark.asyncio
+async def test_tarif_ekle_saves_as_candidate_not_approved(db, toolset):
+    out = await call(
+        toolset,
+        "tarif_ekle",
+        ad="Fıstık Ezmeli Noodle",
+        kategori="main",
+        malzemeler=["250 gr noodle", "2 yemek kaşığı fıstık ezmesi", "1 diş sarımsak"],
+        hazirlanis="Noodle'ı haşla, sosu karıştır.",
+        kaynak="https://ornek.com/noodle",
+    )
+
+    assert "aday tariflere eklendi" in out
+    recipe = RecipeService(db).find_recipe("Fıstık Ezmeli Noodle")
+    assert recipe.status == RecipeStatus.CANDIDATE
+    assert recipe.source == "https://ornek.com/noodle"
+    assert recipe.instructions == "Noodle'ı haşla, sosu karıştır."
+    # Malzemeler ayristi, talimat malzemeye karismadi
+    assert {i.ingredient.name for i in recipe.ingredients} == {"noodle", "fıstık ezmesi", "sarımsak"}
+    # Aday oldugu icin planlamaya girmez
+    assert "Fıstık Ezmeli Noodle" not in {r.name for r in RecipeService(db).list_recipes()}
+
+
+@pytest.mark.asyncio
+async def test_tarif_ekle_refuses_without_ingredients(db, toolset):
+    out = await call(toolset, "tarif_ekle", ad="Boş Tarif", kategori="main", malzemeler=[])
+
+    assert "Malzeme listesi boş" in out
+    assert RecipeService(db).find_recipe("Boş Tarif", include_inactive=True) is None
+
+
+@pytest.mark.asyncio
+async def test_tarif_ekle_does_not_overwrite_an_approved_recipe(db, toolset):
+    out = await call(
+        toolset, "tarif_ekle", ad="Fırında Tavuk", kategori="main", malzemeler=["1 adet tavuk"]
+    )
+
+    assert "zaten onaylı" in out
+    recipe = RecipeService(db).find_recipe("Fırında Tavuk")
+    assert recipe.status == RecipeStatus.APPROVED
+    assert len(recipe.ingredients) == 2  # orijinal malzemeler korundu
+
+
+@pytest.mark.asyncio
+async def test_candidate_lifecycle_through_tools(db, toolset):
+    await call(toolset, "tarif_ekle", ad="Fellah Köftesi", kategori="meze", malzemeler=["2 su bardağı ince bulgur"])
+
+    listed = await call(toolset, "aday_tarifler")
+    assert "Fellah Köftesi" in listed
+    assert "menülere girmezler" in listed
+
+    approved = await call(toolset, "tarif_onayla", tarif_adi="Fellah Köftesi")
+    assert "onaylandı" in approved
+    assert RecipeService(db).find_recipe("Fellah Köftesi").status == RecipeStatus.APPROVED
+    # Onaylaninca aday listesinden cikar, planlamaya girer
+    assert "Fellah Köftesi" not in await call(toolset, "aday_tarifler")
+    assert "Fellah Köftesi" in {r.name for r in RecipeService(db).list_recipes()}
+
+
+@pytest.mark.asyncio
+async def test_tarif_onayla_reports_unknown_name(toolset):
+    out = await call(toolset, "tarif_onayla", tarif_adi="Olmayan Tarif")
+
+    assert "bulamadım" in out
+    assert "aday_tarifler" in out
+
+
+@pytest.mark.asyncio
+async def test_aday_tarifler_empty_is_explicit(toolset):
+    assert "aday tarif yok" in await call(toolset, "aday_tarifler")
+
+
+@pytest.mark.asyncio
+async def test_tarif_cikar_removes_from_planning(db, toolset):
+    out = await call(toolset, "tarif_cikar", tarif_adi="Makarna")
+
+    assert "pasifleştirildi" in out
+    assert "Makarna" not in {r.name for r in RecipeService(db).list_recipes()}
