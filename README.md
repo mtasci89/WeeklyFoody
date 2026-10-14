@@ -22,6 +22,8 @@ listesine eslemek yerine su araclari kendisi secip sirayla cagirir:
 
 | Arac | Ne yapar |
 | --- | --- |
+| `plan_hazirla` | Slotlari ve PUANLANMIS aday havuzunu dondurur |
+| `plan_kaydet` | Kurulan haftalik plani tumuyle yazar |
 | `plani_getir` | Aktif / bu hafta / gelecek hafta planini dondurur |
 | `tarif_ara` | Tarif kutuphanesinde ada ve malzemeye gore arar |
 | `tarif_detay` | Bir tarifin malzeme ve hazirlanisini dondurur |
@@ -34,6 +36,16 @@ listesine eslemek yerine su araclari kendisi secip sirayla cagirir:
 | `tarif_onayla` | Adayi onaylar, menulerde kullanilabilir olur |
 | `tarif_cikar` | Tarifi pasiflestirir |
 | `web_search` | Anthropic sunucu araci: internette tarif arar |
+
+Haftalik plani ajan kendisi kurar: `plan_hazirla` her slot icin puanlanmis
+aday havuzunu verir (puan; son yapilma tarihi, red sayisi, protein tekrari ve
+hafta ici/sonu hazirlik suresinden olusur), model haftayi kurar, `plan_kaydet`
+tumunu dogrulayip yazar. Eksik slot, aday tarif, kategori uyusmazligi ya da
+tekrarlanan satir varsa kaydetmez ve neyin yanlis oldugunu soyler.
+
+Deterministik katmanin hesapladigi skorlar ilk kez modele ulasiyor: onceden
+yalnizca liste SIRASI olarak gidiyordu, puanin kendisi ve gecmis bilgisi
+atiliyordu.
 
 Boylece tek mesajda birden fazla adim atilabiliyor. Ornek:
 `Salı balık olmasın, yerine geçen ay beğendiğimiz tavuklu şeyi koy` -> model

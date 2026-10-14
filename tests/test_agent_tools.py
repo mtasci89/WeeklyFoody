@@ -14,7 +14,9 @@ from app.db.models import (
     SessionState,
     WeeklyPlanningSession,
 )
+from app.config import course_role
 from app.formatting import split_for_telegram
+from app.recipes.importer import IngredientInput, RecipeInput
 from app.planner.dates import next_week_start, this_week_start
 from app.planner.service import MealPlannerService
 from app.recipes.service import RecipeService
@@ -285,6 +287,8 @@ def test_every_tool_has_a_described_schema(toolset):
         "aday_tarifler",
         "tarif_onayla",
         "tarif_cikar",
+        "plan_hazirla",
+        "plan_kaydet",
     }
     for t in tools:
         schema = t.input_schema
@@ -425,3 +429,142 @@ async def test_tarif_cikar_removes_from_planning(db, toolset):
 
     assert "pasifleştirildi" in out
     assert "Makarna" not in {r.name for r in RecipeService(db).list_recipes()}
+
+
+# --- plan_hazirla / plan_kaydet ---------------------------------------
+
+
+def week_slots(settings, week_start):
+    from app.planner.dates import week_dates
+
+    return [(d.isoformat(), slot) for d in week_dates(week_start) for slot in settings.planning_slots]
+
+
+def full_week(db, settings, week_start):
+    """Her slota rolune uyan bir tarif koyan gecerli bir hafta uretir."""
+    from app.agent.tools import selector_matches_role
+
+    recipes = RecipeService(db).list_recipes()
+    lines = []
+    for iso, slot in week_slots(settings, week_start):
+        role = course_role(slot)
+        fit = next(r for r in recipes if selector_matches_role(db, r, role))
+        lines.append(f"{iso}|{slot}|{fit.name}")
+    return lines
+
+
+@pytest.mark.asyncio
+async def test_plan_hazirla_exposes_scores_and_history(db, settings, toolset):
+    """MEM-01: puan, son yapilma ve red sayisi modele ulasmali."""
+    out = await call(toolset, "plan_hazirla", hafta="gelecek_hafta")
+
+    assert f"Hafta: {WEEK.isoformat()}" in out
+    for slot in settings.planning_slots:
+        assert f"{slot} (rol=" in out
+    assert "puan " in out
+    assert "hiç yapılmadı" in out
+    assert "Aday havuzu (puan sırasına göre)" in out
+
+
+@pytest.mark.asyncio
+async def test_plan_hazirla_refuses_an_approved_week(db, settings, toolset):
+    planner = MealPlannerService(db, settings)
+    session = await planner.create_or_get_weekly_session(WEEK)
+    planner.approve(session)
+
+    out = await call(toolset, "plan_hazirla", hafta="gelecek_hafta")
+
+    assert "onaylanmış" in out
+
+
+@pytest.mark.asyncio
+async def test_plan_kaydet_writes_a_whole_week(db, settings, toolset):
+    out = await call(
+        toolset,
+        "plan_kaydet",
+        ogunler=full_week(db, settings, WEEK),
+        notlar="Haftaya protein çeşitliliği gözeterek dağıttım.",
+    )
+
+    assert "kaydedildi" in out
+    session = MealPlannerService(db, settings).current_session(WEEK)
+    assert session is not None
+    assert len(session.meal_plan.items) == 7 * len(settings.planning_slots)
+    assert session.state == SessionState.AWAITING_APPROVAL
+    assert session.context["agent_notes"].startswith("Haftaya protein")
+
+
+@pytest.mark.asyncio
+async def test_plan_kaydet_rejects_a_partial_week(db, settings, toolset):
+    partial = full_week(db, settings, WEEK)[:5]
+
+    out = await call(toolset, "plan_kaydet", ogunler=partial)
+
+    assert "Plan kaydedilmedi" in out
+    assert "Doldurulmayan" in out
+    assert MealPlannerService(db, settings).current_session(WEEK) is None
+
+
+@pytest.mark.asyncio
+async def test_plan_kaydet_rejects_unknown_and_candidate_recipes(db, settings, toolset):
+    RecipeService(db).upsert_recipe(
+        RecipeInput(name="Aday Yemek", category="main", status="candidate",
+                    ingredients=[IngredientInput(name="x", quantity=1, unit="adet")])
+    )
+    lines = full_week(db, settings, WEEK)
+    lines[0] = lines[0].rsplit("|", 1)[0] + "|Olmayan Yemek"
+    lines[1] = lines[1].rsplit("|", 1)[0] + "|Aday Yemek"
+
+    out = await call(toolset, "plan_kaydet", ogunler=lines)
+
+    assert "Olmayan Yemek" in out and "kütüphanede yok" in out
+    assert "aday durumda" in out
+    assert MealPlannerService(db, settings).current_session(WEEK) is None
+
+
+@pytest.mark.asyncio
+async def test_plan_kaydet_rejects_a_category_mismatch(db, settings, toolset):
+    lines = full_week(db, settings, WEEK)
+    main_slot = next(i for i, line in enumerate(lines) if "dinner_main" in line)
+    lines[main_slot] = lines[main_slot].rsplit("|", 1)[0] + "|Haydari"
+
+    out = await call(toolset, "plan_kaydet", ogunler=lines)
+
+    assert "rolüne uymuyor" in out
+    assert MealPlannerService(db, settings).current_session(WEEK) is None
+
+
+@pytest.mark.asyncio
+async def test_plan_kaydet_rejects_malformed_and_duplicate_lines(db, settings, toolset):
+    lines = full_week(db, settings, WEEK)
+    lines.append("bozuk satır")
+    lines.append(lines[0])
+
+    out = await call(toolset, "plan_kaydet", ogunler=lines)
+
+    assert "üç alan değil" in out
+    assert "iki kez verilmiş" in out
+
+
+@pytest.mark.asyncio
+async def test_plan_kaydet_replaces_an_existing_draft(db, settings, toolset):
+    await call(toolset, "plan_kaydet", ogunler=full_week(db, settings, WEEK))
+    first = MealPlannerService(db, settings).current_session(WEEK)
+    version = first.draft_version
+
+    await call(toolset, "plan_kaydet", ogunler=full_week(db, settings, WEEK))
+
+    session = MealPlannerService(db, settings).current_session(WEEK)
+    assert len(session.meal_plan.items) == 7 * len(settings.planning_slots)
+    assert session.draft_version == version + 1
+
+
+@pytest.mark.asyncio
+async def test_plan_kaydet_refuses_to_overwrite_an_approved_week(db, settings, toolset):
+    planner = MealPlannerService(db, settings)
+    session = await planner.create_or_get_weekly_session(WEEK)
+    planner.approve(session)
+
+    out = await call(toolset, "plan_kaydet", ogunler=full_week(db, settings, WEEK))
+
+    assert "üzerine yazamam" in out

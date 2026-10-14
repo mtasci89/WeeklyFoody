@@ -246,6 +246,8 @@ async def test_all_tools_are_offered_to_the_model(db, settings, session_factory)
         "aday_tarifler",
         "tarif_onayla",
         "tarif_cikar",
+        "plan_hazirla",
+        "plan_kaydet",
     }
 
 

@@ -6,7 +6,7 @@ from datetime import date
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.db.models import MealPlanItem, Recipe
+from app.db.models import MealPlanItem, Recipe, SessionState, WeeklyPlanningSession
 from app.memory.feedback import FeedbackService
 
 
@@ -15,6 +15,17 @@ class CandidateScorer:
         self.db = db
 
     def score(self, candidates: list[Recipe], target_date: date, used_proteins: Counter[str]) -> list[Recipe]:
+        return [recipe for _, recipe in self.score_with_values(candidates, target_date, used_proteins)]
+
+    def score_with_values(
+        self, candidates: list[Recipe], target_date: date, used_proteins: Counter[str]
+    ) -> list[tuple[float, Recipe]]:
+        """Skorlari da dondurur.
+
+        `score()` yalnizca siralamayi veriyordu; skorun kendisi, son yapilma
+        tarihi ve red sayisi disari hic cikmiyordu. Plan kuran tarafin bu
+        sayilari gorebilmesi gerekiyor, yoksa hesaplanan her sey bosa gidiyor.
+        """
         rejected = FeedbackService(self.db).rejected_counts()
         accepted = FeedbackService(self.db).accepted_counts()
         last_seen = self._last_seen()
@@ -39,10 +50,19 @@ class CandidateScorer:
                 score -= used_proteins[recipe.protein_type] * 18
             scored.append((score, recipe))
         scored.sort(key=lambda item: (-item[0], item[1].name))
-        return [recipe for _, recipe in scored]
+        return scored
+
+    def last_seen(self) -> dict[str, date]:
+        return self._last_seen()
 
     def _last_seen(self) -> dict[str, date]:
-        rows = self.db.scalars(select(MealPlanItem).order_by(MealPlanItem.date.desc()))
+        rows = self.db.scalars(
+            select(MealPlanItem)
+            .join(MealPlanItem.plan)
+            .join(WeeklyPlanningSession)
+            .where(WeeklyPlanningSession.state.in_([SessionState.APPROVED, SessionState.PUBLISHED]))
+            .order_by(MealPlanItem.date.desc())
+        )
         last: dict[str, date] = {}
         for row in rows:
             last.setdefault(row.recipe_id, row.date)
