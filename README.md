@@ -15,9 +15,30 @@ The app uses persistent application-level memory. It does not rely on fine-tunin
 - Sends final menu and shopping list to `TELEGRAM_RECIPIENT_CHAT_IDS`.
 - Learns through recipe library, meal history, feedback history, hard preferences, and soft preferences.
 
-## Konusma Ajani (Claude tool-use)
+## Konusma Ajani (tool-use)
 
-Sohbet katmani bir arac dongusu uzerinde calisir. Model mesaji sabit bir niyet
+Sohbet katmani bir arac dongusu uzerinde calisir. Donguyu kimin kosturacagi
+`AGENT_PROVIDER` ile secilir:
+
+- `gemini` (varsayilan): Google AI Studio'nun ucretsiz katmani. `GEMINI_API_KEY`
+  ve `GEMINI_MODEL` kullanir; planlayici da ayni anahtarla calistigi icin tek
+  anahtar yeter. Web aramasi Google Search grounding ile yapilir.
+- `anthropic`: Claude. Ucretli; `ANTHROPIC_API_KEY` ve `ANTHROPIC_MODEL` ister.
+
+Araclar saglayicidan bagimsizdir; ayni araclar iki yolda da kosar.
+
+Kurulumu botu acmadan dogrulamak icin:
+
+```bash
+python -m app.cli check-agent
+```
+
+Saglayiciya tek bir istek atar ve sonucu yazar: calisiyor mu, anahtar mi
+gecersiz, kota mi dolmus, model mi bulunamiyor.
+
+Ucretsiz katmanda dakikalik istek siniri dusuktur ve tek bir kullanici mesaji
+2-4 istek uretir. 429 alininca istemci kisa bekleyip tekrar dener; yine de
+dolarsa bot "ucretsiz kota doldu" der. Model mesaji sabit bir niyet
 listesine eslemek yerine su araclari kendisi secip sirayla cagirir:
 
 | Arac | Ne yapar |
@@ -35,7 +56,7 @@ listesine eslemek yerine su araclari kendisi secip sirayla cagirir:
 | `aday_tarifler` | Onay bekleyen adaylari listeler |
 | `tarif_onayla` | Adayi onaylar, menulerde kullanilabilir olur |
 | `tarif_cikar` | Tarifi pasiflestirir |
-| `web_search` | Anthropic sunucu araci: internette tarif arar |
+| `web_ara` / `web_search` | Internette tarif arar (Gemini: Google Search grounding, Claude: sunucu araci) |
 
 Haftalik plani ajan kendisi kurar: `plan_hazirla` her slot icin puanlanmis
 aday havuzunu verir (puan; son yapilma tarihi, red sayisi, protein tekrari ve

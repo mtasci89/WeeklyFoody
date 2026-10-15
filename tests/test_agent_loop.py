@@ -118,7 +118,10 @@ def session_factory(db):
 
 
 def make_agent(settings, session_factory, client):
-    agent_settings = settings.model_copy(update={"anthropic_api_key": "test-key"})
+    # Bu dosya Claude dongusunu test ediyor; Gemini yolu test_agent_gemini.py'de.
+    agent_settings = settings.model_copy(
+        update={"anthropic_api_key": "test-key", "agent_provider": "anthropic"}
+    )
     return MealPlannerAgent(
         agent_settings,
         session_factory,
@@ -355,12 +358,23 @@ def test_agent_is_off_without_api_key(settings):
     assert MealPlannerAgent.available(settings) is False
 
 
-def test_agent_is_on_with_api_key(settings):
-    assert MealPlannerAgent.available(settings.model_copy(update={"anthropic_api_key": "k"})) is True
+def test_agent_needs_the_key_of_the_selected_provider(settings):
+    claude = settings.model_copy(update={"agent_provider": "anthropic"})
+    gemini = settings.model_copy(update={"agent_provider": "gemini"})
+
+    assert MealPlannerAgent.available(claude.model_copy(update={"anthropic_api_key": "k"})) is True
+    assert MealPlannerAgent.available(gemini.model_copy(update={"gemini_api_key": "k"})) is True
+    # Yanlis saglayicinin anahtari yetmez
+    assert MealPlannerAgent.available(gemini.model_copy(update={"anthropic_api_key": "k"})) is False
+    assert MealPlannerAgent.available(claude.model_copy(update={"gemini_api_key": "k"})) is False
+
+
+def test_gemini_is_the_default_provider(settings):
+    assert settings.agent_provider == "gemini"
 
 
 def test_agent_can_be_disabled_explicitly(settings):
-    disabled = settings.model_copy(update={"anthropic_api_key": "k", "agent_enabled": False})
+    disabled = settings.model_copy(update={"gemini_api_key": "k", "agent_enabled": False})
 
     assert MealPlannerAgent.available(disabled) is False
 

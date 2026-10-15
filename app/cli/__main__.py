@@ -22,6 +22,7 @@ def main() -> None:
     excel_parser.add_argument("path", type=Path)
     sub.add_parser("plan-now")
     sub.add_parser("discover-now")
+    sub.add_parser("check-agent", help="Ajanin saglayicisina tek bir deneme istegi atar")
     sub.add_parser("run")
     args = parser.parse_args()
 
@@ -59,8 +60,33 @@ def main() -> None:
                     print(f"- {recipe.name} ({recipe.category})")
 
         asyncio.run(_discover())
+    elif args.command == "check-agent":
+        raise SystemExit(asyncio.run(_check_agent(settings)))
     elif args.command == "run":
         asyncio.run(async_main())
+
+
+async def _check_agent(settings) -> int:
+    """Anahtar, model ve kota sorunlarini botu acmadan gosterir."""
+    from app.agent.runner import MealPlannerAgent, explain_failure
+
+    print(f"Saglayici : {settings.agent_provider}")
+    if not MealPlannerAgent.available(settings):
+        key = "GEMINI_API_KEY" if settings.agent_provider == "gemini" else "ANTHROPIC_API_KEY"
+        print(f"SONUC     : KAPALI - .env icinde {key} yok ya da AGENT_ENABLED=false")
+        return 1
+    agent = MealPlannerAgent(settings, SessionLocal)
+    print(f"Model     : {agent.model}")
+    try:
+        answer = await agent.ping()
+    except Exception as error:
+        print(f"SONUC     : HATA - {explain_failure(error)}")
+        print(f"Ayrinti   : {type(error).__name__}: {str(error)[:300]}")
+        return 1
+    finally:
+        await agent.aclose()
+    print(f"SONUC     : CALISIYOR - model cevap verdi: {answer[:60]!r}")
+    return 0
 
 
 if __name__ == "__main__":

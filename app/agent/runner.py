@@ -27,6 +27,12 @@ def explain_failure(error: Exception) -> str:
     kredi, yanlis anahtar ve gecici kesinti arasinda fark yoktu, kullanici
     neyi duzeltecegini bilemiyordu.
     """
+    from app.agent.gemini_backend import explain_gemini_failure
+
+    gemini = explain_gemini_failure(error)
+    if gemini is not None:
+        return gemini
+
     import anthropic
 
     if isinstance(error, anthropic.AuthenticationError):
@@ -64,11 +70,14 @@ class AgentReply:
 
 
 class MealPlannerAgent:
-    """Claude tool-use dongusu uzerine kurulu konusma ajani.
+    """Tool-use dongusu uzerine kurulu konusma ajani.
 
     Eski `NaturalLanguageRouter`in yerini alir: orada model mesaji 18 degerli
     bir enuma esliyordu ve isi sabit bir `if` zinciri yapiyordu. Burada model
     araclari kendisi secip sirayla cagiriyor, sonra cevabini kendisi yaziyor.
+
+    Araclar saglayicidan bagimsiz; `AGENT_PROVIDER` yalnizca donguyu kimin
+    kosturacagini secer (Gemini ya da Claude).
     """
 
     def __init__(
@@ -80,8 +89,14 @@ class MealPlannerAgent:
     ):
         self.settings = settings
         self.session_factory = session_factory
+        self.provider = settings.agent_provider
         self.store = store or ConversationStore(max_turns=settings.agent_history_turns)
-        if client is not None:
+        if self.provider == "gemini":
+            from app.agent.gemini_backend import GeminiBackend
+
+            self.gemini = GeminiBackend(settings, client=client)
+            self.client = self.gemini.client
+        elif client is not None:
             self.client = client
         else:
             from anthropic import AsyncAnthropic
@@ -90,7 +105,40 @@ class MealPlannerAgent:
 
     @classmethod
     def available(cls, settings: Settings) -> bool:
-        return bool(settings.agent_enabled and settings.anthropic_api_key)
+        if not settings.agent_enabled:
+            return False
+        if settings.agent_provider == "gemini":
+            return bool(settings.gemini_api_key)
+        return bool(settings.anthropic_api_key)
+
+    @property
+    def model(self) -> str:
+        return self.settings.gemini_model if self.provider == "gemini" else self.settings.anthropic_model
+
+    def _context(self, toolset: MealAgentToolset) -> str:
+        hard, soft, pantry = toolset.ambient_context()
+        today = datetime.now(ZoneInfo(self.settings.timezone)).date()
+        return context_block(today, toolset.plan_summary(), hard, soft, pantry)
+
+    async def aclose(self) -> None:
+        """Istemcinin ag oturumunu kapatir (kisa omurlu kullanim icin: CLI)."""
+        closer = getattr(getattr(self.client, "aio", None), "aclose", None) or getattr(self.client, "close", None)
+        if closer is None:
+            return
+        result = closer()
+        if hasattr(result, "__await__"):
+            await result
+
+    async def ping(self) -> str:
+        """Saglayiciya tek, kucuk bir istek atar. Kurulumu dogrulamak icin."""
+        if self.provider == "gemini":
+            return await self.gemini.ping()
+        response = await self.client.messages.create(
+            model=self.settings.anthropic_model,
+            max_tokens=64,
+            messages=[{"role": "user", "content": "Sadece 'tamam' yaz."}],
+        )
+        return _text_of(response)
 
     def _betas(self) -> list[str]:
         """1 saatlik onbellek TTL'i beta basligi ister; 5 dakikalik istemez."""
@@ -114,8 +162,6 @@ class MealPlannerAgent:
         return tools
 
     def _system(self, toolset: MealAgentToolset) -> list[dict]:
-        hard, soft, pantry = toolset.ambient_context()
-        today = datetime.now(ZoneInfo(self.settings.timezone)).date()
         return [
             # Sabit kisim onbellege alinir; arac semalari da bu on-ekin
             # parcasi oldugu icin her istekte yeniden faturalanmaz.
@@ -127,15 +173,14 @@ class MealPlannerAgent:
                 "text": SYSTEM_PROMPT,
                 "cache_control": {"type": "ephemeral", "ttl": self.settings.agent_cache_ttl},
             },
-            {
-                "type": "text",
-                "text": context_block(today, toolset.plan_summary(), hard, soft, pantry),
-            },
+            {"type": "text", "text": self._context(toolset)},
         ]
 
     async def reply(self, chat_id: int, message: str) -> AgentReply:
         toolset = MealAgentToolset(self.settings, self.session_factory)
         history = self.store.history(chat_id)
+        if self.provider == "gemini":
+            return await self._reply_gemini(chat_id, message, toolset, history)
         messages: list = [*history, {"role": "user", "content": message}]
         system = self._system(toolset)
         tools = self._tools(toolset)
@@ -183,12 +228,33 @@ class MealPlannerAgent:
                 ok=False,
             )
 
+        return self._finish(chat_id, message, text, toolset, getattr(final, "stop_reason", None))
+
+    async def _reply_gemini(
+        self, chat_id: int, message: str, toolset: MealAgentToolset, history: list[dict]
+    ) -> AgentReply:
+        from app.agent.prompts import for_provider
+
+        system_text = for_provider(SYSTEM_PROMPT, "gemini") + "\n\n" + self._context(toolset)
+        try:
+            text, problem = await self.gemini.run_turn(
+                system_text, toolset.build(), history, message, toolset.calls
+            )
+        except Exception as error:
+            logger.exception("agent_turn_failed chat_id=%s", chat_id)
+            return AgentReply(
+                text=explain_failure(error) + FALLBACK_SUFFIX,
+                tool_calls=toolset.calls,
+                ok=False,
+            )
+        return self._finish(chat_id, message, text, toolset, problem)
+
+    def _finish(
+        self, chat_id: int, message: str, text: str, toolset: MealAgentToolset, stop: object
+    ) -> AgentReply:
         if not text:
             logger.warning(
-                "agent_empty_reply chat_id=%s stop_reason=%s tools=%s",
-                chat_id,
-                getattr(final, "stop_reason", None),
-                toolset.calls,
+                "agent_empty_reply chat_id=%s stop=%s tools=%s", chat_id, stop, toolset.calls
             )
             return AgentReply(
                 text="Bunu anlayamadım, biraz daha açar mısın?",

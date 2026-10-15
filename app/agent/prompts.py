@@ -92,6 +92,14 @@ Menü ya da liste gösterirken satır satır yazarsın.
 Türkçe yemek adlarını olduğu gibi korursun."""
 
 
+def for_provider(prompt: str, provider: str) -> str:
+    """Web arama aracinin adi saglayiciya gore degisiyor: Claude'da sunucu
+    tarafi `web_search`, Gemini'de istemci araci `web_ara`."""
+    if provider == "gemini":
+        return prompt.replace("`web_search`", "`web_ara`")
+    return prompt
+
+
 def context_block(
     today: date,
     plan_summary: str,

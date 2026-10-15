@@ -25,9 +25,12 @@ class Settings(BaseSettings):
     gemini_api_key: str = ""
     gemini_model: str = "gemini-2.5-flash"
 
-    # Konusma ajani (Claude tool-use dongusu). Anahtar yoksa eski niyet
+    # Konusma ajani (tool-use dongusu). Saglayicinin anahtari yoksa eski niyet
     # yonlendiricisine geri dusulur, boylece ikisi yan yana denenebilir.
+    # "gemini" ucretsiz katmanla calisir (GEMINI_API_KEY + GEMINI_MODEL);
+    # "anthropic" ANTHROPIC_API_KEY + ANTHROPIC_MODEL kullanir.
     agent_enabled: bool = True
+    agent_provider: Literal["gemini", "anthropic"] = "gemini"
     anthropic_api_key: str = ""
     anthropic_model: str = "claude-opus-5-5"
     agent_effort: Literal["low", "medium", "high", "xhigh", "max"] = "medium"

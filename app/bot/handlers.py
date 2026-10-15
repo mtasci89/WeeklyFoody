@@ -47,7 +47,7 @@ class TelegramHandlers:
         self.notifier = _TelegramBotNotifier(bot)
         self.agent = MealPlannerAgent(settings, SessionLocal) if MealPlannerAgent.available(settings) else None
         if self.agent:
-            logger.info("agent_enabled model=%s effort=%s", settings.anthropic_model, settings.agent_effort)
+            logger.info("agent_enabled provider=%s model=%s", settings.agent_provider, self.agent.model)
         else:
             logger.info("agent_disabled reason=no_api_key_or_disabled fallback=intent_router")
 
