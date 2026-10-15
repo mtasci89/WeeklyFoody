@@ -85,6 +85,7 @@ class Settings(BaseSettings):
     web_panel_token: str = ""
 
     data_dir: Path = Path("data")
+    # Ev kurallari (CLAUDE.md gibi): ajan her mesajda okur ve uyar.
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 

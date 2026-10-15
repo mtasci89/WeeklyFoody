@@ -61,7 +61,7 @@ async def test_plani_getir_lists_every_course(db, settings, toolset):
 
     out = await call(toolset, "plani_getir", hafta="gelecek_hafta")
 
-    assert f"{WEEK.isoformat()} {WEEK_DAY_NAME}:" in out
+    assert f"{WEEK.isoformat()} {WEEK_DAY_NAME} (" in out
     assert out.count("slot=") == 7 * len(settings.planning_slots)
     assert f"Hafta: {WEEK.isoformat()}" in out
 
@@ -235,7 +235,7 @@ async def test_gecmis_getir_without_history_is_explicit(toolset):
     assert "kaydı yok" in await call(toolset, "gecmis_getir", hafta_sayisi=4)
 
 
-# --- alisveris_listesi / tercih_kaydet ---------------------------------
+# --- alisveris_listesi / ev kurallari ---------------------------------
 
 
 @pytest.mark.asyncio
@@ -251,22 +251,99 @@ async def test_alisveris_listesi_is_categorised(db, settings, toolset):
 
 
 @pytest.mark.asyncio
-async def test_tercih_kaydet_stores_typed_rule(db, toolset):
-    from app.memory.preferences import PreferenceService
+async def test_kural_ekle_stores_rule(toolset):
+    out = await call(toolset, "kural_ekle", kural="Balık kullanma.")
 
-    out = await call(toolset, "tercih_kaydet", kural="Kırmızı et haftada en fazla bir kez", tip="soft")
-
-    assert "Kaydedildi (soft)" in out
-    assert PreferenceService(db).soft_rules() == ["Kırmızı et haftada en fazla bir kez"]
-    assert PreferenceService(db).hard_rules() == []
+    assert "Kural eklendi" in out
+    assert "- Balık kullanma." in toolset.rules.read_raw()
+    assert toolset.rules.active() == ["Balık kullanma."]
 
 
 @pytest.mark.asyncio
-async def test_tercih_kaydet_ignores_empty(db, toolset):
-    from app.memory.preferences import PreferenceService
+async def test_kural_ekle_ignores_empty_and_duplicates(toolset):
+    assert "boş" in await call(toolset, "kural_ekle", kural="   ")
+    await call(toolset, "kural_ekle", kural="Protein ağırlıklı olsun")
+    assert "zaten var" in await call(toolset, "kural_ekle", kural="protein ağırlıklı olsun")
+    assert toolset.rules.active() == ["Protein ağırlıklı olsun"]
 
-    assert "boş" in await call(toolset, "tercih_kaydet", kural="   ")
-    assert PreferenceService(db).active() == []
+
+@pytest.mark.asyncio
+async def test_kural_sil_removes_single_match_and_asks_on_ambiguity(toolset):
+    await call(toolset, "kural_ekle", kural="Balık kullanma")
+    await call(toolset, "kural_ekle", kural="Öğün başı 1000 kaloriyi geçmesin")
+    await call(toolset, "kural_ekle", kural="Akşamları kalori yaz")
+
+    assert "hangisini" in await call(toolset, "kural_sil", ifade="kalori")
+    assert "geçen bir kural yok" in await call(toolset, "kural_sil", ifade="domates")
+    assert "Kural silindi: Balık kullanma" in await call(toolset, "kural_sil", ifade="balık")
+    assert toolset.rules.active() == ["Öğün başı 1000 kaloriyi geçmesin", "Akşamları kalori yaz"]
+
+
+@pytest.mark.asyncio
+async def test_kurallari_goster_lists_rules(toolset):
+    assert "Henüz ev kuralı yok" in await call(toolset, "kurallari_goster")
+    await call(toolset, "kural_ekle", kural="Her akşam 3 farklı yemek olsun")
+
+    out = await call(toolset, "kurallari_goster")
+
+    assert "1 ev kuralı" in out
+    assert "Her akşam 3 farklı yemek olsun" in out
+
+
+# --- besin_degeri_kaydet ------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_besin_degeri_kaydet_stores_per_serving_values(db, toolset):
+    out = await call(toolset, "besin_degeri_kaydet", degerler=["Izgara Köfte|540|38", "Mercimek Çorbası|210"])
+
+    assert "2 tarifin besin değeri kaydedildi" in out
+    service = RecipeService(db)
+    kofte = service.find_recipe("Izgara Köfte")
+    corba = service.find_recipe("Mercimek Çorbası")
+    assert (kofte.calories_per_serving, kofte.protein_g_per_serving) == (540, 38)
+    assert (corba.calories_per_serving, corba.protein_g_per_serving) == (210, None)
+
+
+@pytest.mark.asyncio
+async def test_besin_degeri_kaydet_rejects_bad_rows(db, toolset):
+    out = await call(
+        toolset,
+        "besin_degeri_kaydet",
+        degerler=["Olmayan Yemek|300|10", "Izgara Köfte|9000|38", "Izgara Köfte|abc", "sadece ad"],
+    )
+
+    assert "Kaydedilemeyenler" in out
+    assert "kütüphanede yok" in out
+    assert "makul aralıkta değil" in out
+    assert "sayı okunamadı" in out
+    assert "biçimi yanlış" in out
+    assert RecipeService(db).find_recipe("Izgara Köfte").calories_per_serving is None
+
+
+@pytest.mark.asyncio
+async def test_plani_getir_shows_nutrition_and_day_totals(db, settings, toolset):
+    session = await MealPlannerService(db, settings).create_or_get_weekly_session(WEEK)
+    for item in session.meal_plan.items:
+        item.recipe.calories_per_serving = 300
+        item.recipe.protein_g_per_serving = 20
+    db.commit()
+
+    out = await call(toolset, "plani_getir", hafta="gelecek_hafta")
+
+    per_day = 300 * len(settings.planning_slots)
+    assert f"kişi başı toplam: ~{per_day} kcal, {20 * len(settings.planning_slots)} g protein" in out
+    assert "~300 kcal, 20 g protein" in out
+
+
+@pytest.mark.asyncio
+async def test_plani_getir_says_when_calories_are_unknown(db, settings, toolset):
+    await MealPlannerService(db, settings).create_or_get_weekly_session(WEEK)
+
+    out = await call(toolset, "plani_getir", hafta="gelecek_hafta")
+
+    assert "kişi başı toplam: bilinmiyor" in out
+    assert "besin değeri yok" in out
 
 
 # --- arac semalari -----------------------------------------------------
@@ -282,7 +359,10 @@ def test_every_tool_has_a_described_schema(toolset):
         "ogun_degistir",
         "alisveris_listesi",
         "gecmis_getir",
-        "tercih_kaydet",
+        "kurallari_goster",
+        "kural_ekle",
+        "kural_sil",
+        "besin_degeri_kaydet",
         "tarif_ekle",
         "aday_tarifler",
         "tarif_onayla",

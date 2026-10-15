@@ -59,6 +59,7 @@ class TelegramHandlers:
         await update.effective_message.reply_text(
             "/menu /approve /regenerate /recipes /recipe <ad> /addrecipe /deleterecipe <ad>\n"
             "/discover <istek> /candidates /approverecipe <ad>\n"
+            "/kurallar /kural_ekle <kural> /kural_sil <no|ifade> /kurallari_yaz\n"
             "/preferences /addpreference <kural> /deletepreference <kural>\n"
             "/shopping /history /pantry /pantryadd <malzeme> /pantryremove <malzeme>"
         )
@@ -221,6 +222,73 @@ class TelegramHandlers:
                 return
             service = ShoppingListService(db, self.settings)
             await update.effective_message.reply_text(service.format(service.generate(session.meal_plan)), parse_mode="Markdown")
+
+    def _house_rules(self):
+        from app.agent.rules import HouseRules
+
+        return HouseRules(SessionLocal)
+
+    async def _require_admin(self, update: Update) -> bool:
+        if self.security.require_admin(update.effective_user.id if update.effective_user else None):
+            return True
+        await update.effective_message.reply_text("Bu komut yalnızca admin tarafından kullanılabilir.")
+        return False
+
+    async def rules(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        if not await self._require_admin(update):
+            return
+        await update.effective_message.reply_text(rules_text(self._house_rules().active()))
+
+    async def rule_add(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        if not await self._require_admin(update):
+            return
+        rule = command_body(update.effective_message.text)
+        if not rule:
+            await update.effective_message.reply_text("Kullanım: /kural_ekle Balık kullanma")
+            return
+        added = self._house_rules().add(rule)
+        logger.info("house_rule_added added=%s", added)
+        await update.effective_message.reply_text(
+            "Kural eklendi, bundan sonra her planlamada uygulanacak." if added else "Bu kural zaten var."
+        )
+
+    async def rule_delete(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        if not await self._require_admin(update):
+            return
+        house = self._house_rules()
+        phrase = command_body(update.effective_message.text)
+        active = house.active()
+        if phrase.isdigit() and 1 <= int(phrase) <= len(active):
+            matches = [active[int(phrase) - 1]]
+        else:
+            matches = house.matching(phrase) if phrase else []
+        if not phrase:
+            text = "Kullanım: /kural_sil 2 (numara /kurallar listesinden) ya da /kural_sil balık"
+        elif not matches:
+            text = f"'{phrase}' geçen bir kural yok. /kurallar ile listeye bakabilirsin."
+        elif len(matches) > 1:
+            listed = "\n".join(f"- {rule}" for rule in matches)
+            text = f"Birden fazla kural eşleşti, numarasıyla sil:\n{listed}"
+        else:
+            house.remove(matches[0])
+            logger.info("house_rule_deleted")
+            text = f"Kural silindi: {matches[0]}"
+        await update.effective_message.reply_text(text)
+
+    async def rules_replace(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        if not await self._require_admin(update):
+            return
+        body = command_body(update.effective_message.text)
+        if not body:
+            await update.effective_message.reply_text(
+                "Tüm listeyi tek mesajda yeniden yazmak için komutun altına her satıra bir kural yaz:\n\n"
+                "/kurallari_yaz\nBalık kullanma\nHer akşam 3 farklı yemek olsun\n\n"
+                "Mevcut listenin yerine geçer. Hepsini silmek için: /kurallari_yaz sil"
+            )
+            return
+        rules = self._house_rules().replace("" if body.casefold() == "sil" else body)
+        logger.info("house_rules_replaced count=%s", len(rules))
+        await update.effective_message.reply_text(rules_text(rules))
 
     async def pantry(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         if not self.security.require_admin(update.effective_user.id if update.effective_user else None):
@@ -457,3 +525,23 @@ def _has_recipe_details(text: str) -> bool:
         if any(char.isdigit() for char in line) or words.intersection(units):
             return True
     return False
+
+
+def command_body(text: str | None) -> str:
+    """Komuttan sonraki metin, satir sonlari korunarak ("/kural_ekle@Bot x" -> "x")."""
+    parts = (text or "").split(maxsplit=1)
+    return parts[1].strip() if len(parts) == 2 else ""
+
+
+def rules_text(rules: list[str]) -> str:
+    if not rules:
+        return (
+            "Henüz ev kuralı yok.\n\n"
+            "Eklemek için: /kural_ekle Balık kullanma\n"
+            "ya da bana \"bundan sonra balık kullanma\" yazman yeter."
+        )
+    listed = "\n".join(f"{i}. {rule}" for i, rule in enumerate(rules, 1))
+    return (
+        f"Ev kuralları ({len(rules)}):\n{listed}\n\n"
+        "Ekle: /kural_ekle <kural> · Sil: /kural_sil <numara> · Hepsini yeniden yaz: /kurallari_yaz"
+    )

@@ -17,6 +17,28 @@ dendiğinde önce `plani_getir` ile Salı'da ne olduğunu görür, `gecmis_getir
 son haftalarda hangi tavuklu yemeklerin yapıldığına bakar, `tarif_ara` ile
 kütüphanedeki adı doğrular, sonra `ogun_degistir` ile değiştirirsin.
 
+## Ev kuralları
+
+Bağlamdaki "Ev kuralları" kullanıcının kalıcı kurallarıdır; her cevapta ve her
+planda uyarsın, kullanıcının tekrar söylemesini beklemezsin. Kuralları
+anlayarak uygularsın: "balık kullanma" somonu, levreği, hamsiyi ve içinde balık
+olan her tarifi kapsar; "protein ağırlıklı olsun" tercihlerine yön verir.
+Ev kuralları `plan_hazirla`nın önerdiği gün şeklinden önce gelir.
+
+Kullanıcı kalıcı bir şey söylediğinde ("bundan sonra", "hep", "asla", "her
+zaman", "artık") `kural_ekle` ile hemen eklersin, sormana gerek yok; eklediğini
+söylersin. Sadece bu haftaya ya da bu mesaja özel isteklerde ("bu hafta balık
+olmasın") kural eklemezsin. Kaldırmak isterse `kural_sil`, görmek isterse
+`kurallari_goster`.
+
+Kalori ya da protein içeren bir kural varsa (yemeklerin yanına kalori yaz,
+öğün başı şu kaloriyi geçmesin, protein ağırlıklı olsun) bu değerlere
+dayanırsın: `plan_hazirla` ve `plani_getir` kişi başı değerleri gösterir;
+bilinmeyenleri ("kcal?", "besin değeri yok") malzemelerden tahmin edip
+`besin_degeri_kaydet` ile kaydedersin. Kalori sınırını `plan_kaydet`in verdiği
+günlük kişi başı toplamla kontrol edersin; sınır aşıldıysa planı düzeltip
+tekrar kaydedersin. Kalori değerlerinin tahmin olduğunu "~" ile belirtirsin.
+
 ## Haftalık plan kurmak
 
 Kullanıcı yeni bir haftalık menü istediğinde planı SEN kurarsın. Sırası:
@@ -36,7 +58,7 @@ sistem buna izin veriyor. Şekille ilgili bir istek duyduğunda "sistem izin
 vermiyor" deme — denemeden böyle bir şey söyleme.
 
 Kullanıcı şekil için kalıcı bir şey söylediyse ("bundan sonra hep tek meze")
-`tercih_kaydet` ile kaydet ki gelecek haftalarda da uygulansın.
+`kural_ekle` ile ev kurallarına ekle ki gelecek haftalarda da uygulansın.
 4. Kullanıcıya planı gün gün yaz ve mantığını birkaç cümleyle anlat: neden bu
    dağılım, hangi günü neden hafif tuttun. Sonra değiştirmek istediği bir şey
    olup olmadığını sor.
@@ -106,17 +128,23 @@ def context_block(
     hard_preferences: list[str],
     soft_preferences: list[str],
     pantry: list[str],
+    house_rules: str = "",
 ) -> str:
     """Her istekte degisen baglam. Onbellek kirilmasin diye sistem isteminin
     sabit kismindan AYRI, son blok olarak gonderilir."""
-    lines = [
-        f"Bugün: {today.isoformat()} ({TR_DAY_NAMES[today.weekday()]})",
-        "",
+    lines = [f"Bugün: {today.isoformat()} ({TR_DAY_NAMES[today.weekday()]})", ""]
+    if house_rules:
+        lines += [
+            "## Ev kuralları (kullanıcının kalıcı kuralları; HER ZAMAN uy)",
+            house_rules,
+            "",
+        ]
+    lines += [
         "## Aktif plan",
         plan_summary or "Şu an aktif bir plan yok.",
     ]
     if hard_preferences:
-        lines += ["", "## Kesin kurallar (asla ihlal etme)"]
+        lines += ["", "## Eski kayıtlı kesin tercihler (asla ihlal etme)"]
         lines += [f"- {rule}" for rule in hard_preferences]
     if soft_preferences:
         lines += ["", "## Tercihler (mümkünse uy)"]

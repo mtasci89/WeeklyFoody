@@ -225,7 +225,8 @@ async def test_request_declares_every_tool_with_its_json_schema(db, settings, se
     decls = declarations(request)
     assert set(decls) == {
         "plan_hazirla", "plan_kaydet", "plani_getir", "tarif_ara", "tarif_detay", "ogun_degistir",
-        "alisveris_listesi", "gecmis_getir", "tercih_kaydet", "tarif_ekle", "aday_tarifler",
+        "alisveris_listesi", "gecmis_getir", "kurallari_goster", "kural_ekle", "kural_sil",
+        "besin_degeri_kaydet", "tarif_ekle", "aday_tarifler",
         "tarif_onayla", "tarif_cikar", WEB_TOOL_NAME,
     }
     # Araclarin urettigi JSON Schema oldugu gibi gidiyor

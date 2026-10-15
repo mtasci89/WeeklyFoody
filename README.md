@@ -51,7 +51,8 @@ listesine eslemek yerine su araclari kendisi secip sirayla cagirir:
 | `ogun_degistir` | Plandaki bir ogunu gerekcesiyle degistirir |
 | `alisveris_listesi` | Bir haftanin toplu listesini cikarir |
 | `gecmis_getir` | Son haftalarda yapilanlari dondurur (tekrar onleme) |
-| `tercih_kaydet` | Kalici tercihi hard/soft olarak yazar |
+| `kurallari_goster` / `kural_ekle` / `kural_sil` | Ev kurallarini okur / ekler / siler |
+| `besin_degeri_kaydet` | Tariflerin kisi basi tahmini kalori ve proteinini kaydeder |
 | `tarif_ekle` | Yeni tarifi ADAY olarak kutuphaneye yazar |
 | `aday_tarifler` | Onay bekleyen adaylari listeler |
 | `tarif_onayla` | Adayi onaylar, menulerde kullanilabilir olur |
@@ -352,6 +353,37 @@ https://www.instagram.com/reel/...
 ```
 
 The link is stored as the recipe source. The app does not scrape Instagram directly; pasted recipe text and ingredients are parsed into the database.
+
+## Ev Kurallari
+
+Her seferinde tekrar soylemek zorunda kalmamak icin kalici kurallar: CLAUDE.md
+gibi tek bir belge, ama veritabaninda durur (bot sunucudayken telefondan
+yonetilebilsin ve yeniden kurulumda kaybolmasin diye). Ajan her mesajda guncel
+listeyi okur ve kurallari anlayarak uygular: "Balik kullanma" somonu da, hamsiyi
+de kapsar; anahtar kelime filtresi degildir.
+
+```text
+/kurallar                         listeyi gosterir (numarali)
+/kural_ekle Balik kullanma        tek kural ekler
+/kural_sil 2                      numarayla ya da "/kural_sil balik" ile siler
+/kurallari_yaz                    komutun altina her satira bir kural: listeyi bastan yazar
+/kurallari_yaz sil                hepsini siler
+```
+
+Bu komutlar modele ugramaz; Gemini kotasi dolsa da calisir. Sohbetten de olur:
+"bundan sonra balik kullanma" dediginde ajan kurali kendisi ekler; "bu hafta
+balik olmasin" gibi tek seferlik isteklerde eklemez.
+
+Ornek kurallar: `Her aksam 3 farkli yemek olsun`, `Her yemegin yanina kisi
+basi kalorisini yaz`, `Bir kisi icin bir ogun 1000 kaloriyi gecmesin`,
+`Protein agirlikli olsun`.
+
+Kalori ve protein: tariflerde kisi basi `calories_per_serving` ve
+`protein_g_per_serving` alanlari var. Bilinmeyenleri ajan malzemelerden tahmin
+edip `besin_degeri_kaydet` ile bir kez kaydeder; sonraki planlarda ayni deger
+kullanilir. Plan ciktisi her gun icin kisi basi toplami verir, eksik deger varsa
+toplami uydurmaz, "bilinmiyor" der. Degerler tahmindir (`~` ile gosterilir).
+Eski veritabaninda bu kolonlar yoksa bot acilista kendisi ekler.
 
 ## Preferences
 

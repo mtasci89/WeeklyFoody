@@ -43,7 +43,8 @@ def format_meal_plan(session: WeeklyPlanningSession, final: bool = False) -> str
         for item in items:
             servings = f" ({item.servings} kişi)" if item.servings else ""
             label = course_label(item.meal_slot)
-            lines.append(f"• {label}: {item.recipe.name}{servings}")
+            kcal = f" · ~{item.recipe.calories_per_serving} kcal" if item.recipe.calories_per_serving else ""
+            lines.append(f"• {label}: {item.recipe.name}{servings}{kcal}")
         lines.append("")
     return "\n".join(lines).strip()
 

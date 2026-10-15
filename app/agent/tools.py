@@ -14,7 +14,6 @@ from app.config import Settings, base_meal_slot, course_role
 from app.db.models import (
     MealPlanItem,
     PantryItem,
-    PreferenceType,
     Recipe,
     RecipeStatus,
     SessionState,
@@ -28,6 +27,7 @@ from app.planner.candidate_selector import CandidateSelector
 from app.planner.dates import TR_DAY_NAMES, next_week_start, this_week_start, week_dates, week_end
 from app.planner.scorer import CandidateScorer
 from app.planner.service import MealPlannerService, allowed_categories_for_role
+from app.agent.rules import HouseRules
 from app.recipes.importer import IngredientInput, RecipeInput
 from app.recipes.service import RecipeService
 from app.shopping.service import ShoppingListService
@@ -40,6 +40,30 @@ logger = logging.getLogger(__name__)
 SessionFactory = Callable[[], Session]
 
 
+def nutrition_tag(recipe: Recipe) -> str:
+    """"~450 kcal, 32 g protein" ya da bilinmiyorsa "besin değeri yok"."""
+    parts = []
+    if recipe.calories_per_serving:
+        parts.append(f"~{recipe.calories_per_serving} kcal")
+    if recipe.protein_g_per_serving is not None:
+        parts.append(f"{recipe.protein_g_per_serving} g protein")
+    return ", ".join(parts) if parts else "besin değeri yok"
+
+
+def day_totals(recipes: list[Recipe]) -> str:
+    """Bir gunun kisi basi toplami. Eksik deger varsa bunu acikca soyler;
+    eksikken toplam vermek yaniltici olur."""
+    if not recipes:
+        return ""
+    missing = sum(1 for r in recipes if not r.calories_per_serving)
+    if missing:
+        return f"kişi başı toplam: bilinmiyor ({missing} yemeğin kalorisi yok)"
+    kcal = sum(r.calories_per_serving for r in recipes)
+    protein = [r.protein_g_per_serving for r in recipes]
+    protein_text = f", {sum(protein)} g protein" if all(p is not None for p in protein) else ""
+    return f"kişi başı toplam: ~{kcal} kcal{protein_text}"
+
+
 def render_plan(session: WeeklyPlanningSession | None) -> str:
     """Modele verilecek sade plan metni (kullaniciya giden bicim degil)."""
     if session is None:
@@ -49,17 +73,18 @@ def render_plan(session: WeeklyPlanningSession | None) -> str:
     lines = [
         f"Hafta: {session.week_start} - {session.week_end} (durum: {session.state.value}, versiyon: {session.draft_version})"
     ]
-    current_day: date | None = None
+    by_day: dict[date, list[MealPlanItem]] = {}
     for item in sorted(session.meal_plan.items, key=lambda i: (i.date, i.meal_slot)):
-        if item.date != current_day:
-            current_day = item.date
-            lines.append(f"\n{item.date.isoformat()} {TR_DAY_NAMES[item.date.weekday()]}:")
-        servings = f", {item.servings} kişi" if item.servings else ""
-        changed = " [admin değiştirdi]" if item.admin_changed else ""
-        lines.append(
-            f"  slot={item.meal_slot} ({course_label(item.meal_slot)}): "
-            f"{item.recipe.name} [kategori={item.recipe.category}{servings}]{changed}"
-        )
+        by_day.setdefault(item.date, []).append(item)
+    for day, items in by_day.items():
+        lines.append(f"\n{day.isoformat()} {TR_DAY_NAMES[day.weekday()]} ({day_totals([i.recipe for i in items])}):")
+        for item in items:
+            servings = f", {item.servings} kişi" if item.servings else ""
+            changed = " [admin değiştirdi]" if item.admin_changed else ""
+            lines.append(
+                f"  slot={item.meal_slot} ({course_label(item.meal_slot)}): "
+                f"{item.recipe.name} [kategori={item.recipe.category}{servings}; {nutrition_tag(item.recipe)}]{changed}"
+            )
     return "\n".join(lines)
 
 
@@ -113,6 +138,7 @@ def _describe(recipe: Recipe) -> str:
     if recipe.vegetarian:
         parts.append("vejetaryen")
     parts.append(f"{len(recipe.ingredients)} malzeme")
+    parts.append(nutrition_tag(recipe))
     return f"{recipe.name} ({', '.join(parts)})"
 
 
@@ -126,6 +152,7 @@ class MealAgentToolset:
     def __init__(self, settings: Settings, session_factory: SessionFactory):
         self.settings = settings
         self.session_factory = session_factory
+        self.rules = HouseRules(session_factory)
         self.calls: list[str] = []
 
     # --- yardimcilar -----------------------------------------------------
@@ -357,23 +384,101 @@ class MealAgentToolset:
                 return f"Son {weeks} haftada yapılanlar (yeniden eskiye):\n" + "\n".join(lines)
 
         @beta_async_tool
-        async def tercih_kaydet(kural: str, tip: Literal["hard", "soft"] = "hard") -> str:
-            """Kalıcı bir tercihi hafızaya yazar. Yazmadan ÖNCE kullanıcıya
-            kuralı nasıl anladığını söyle ve onayını al.
+        async def kurallari_goster() -> str:
+            """Ev kurallarını (kalıcı kurallar dosyası) listeler."""
+            toolset.calls.append("kurallari_goster()")
+            rules = toolset.rules.active()
+            if not rules:
+                return "Henüz ev kuralı yok."
+            listed = "\n".join(f"{i}. {rule}" for i, rule in enumerate(rules, 1))
+            return f"{len(rules)} ev kuralı:\n{listed}"
+
+        @beta_async_tool
+        async def kural_ekle(kural: str) -> str:
+            """Ev kurallarına kalıcı bir kural ekler; bundan sonraki her
+            planlamada uygulanır. Kullanıcı kalıcı bir şey söylediğinde
+            ("bundan sonra", "hep", "asla", "her zaman") sormadan ekle ve
+            eklediğini söyle. Sadece bu haftaya özel isteklerde ekleme.
 
             Args:
-                kural: Kuralın tek cümlelik, net hali. Örn: "Kırmızı et haftada
-                    en fazla bir kez".
-                tip: "hard" asla ihlal edilmemeli, "soft" mümkünse uyulsun.
+                kural: Kuralın tek cümlelik, net Türkçe hali. Örn: "Balık
+                    kullanma." ya da "Bir kişi için bir öğün 1000 kaloriyi
+                    geçmesin."
             """
-            toolset.calls.append(f"tercih_kaydet(kural={kural!r}, tip={tip})")
-            cleaned = kural.strip()
-            if not cleaned:
-                return "Kural metni boş, kaydetmedim."
+            toolset.calls.append(f"kural_ekle({kural!r})")
+            if not kural.strip():
+                return "Kural metni boş, eklemedim."
+            if not toolset.rules.add(kural):
+                return "Bu kural zaten var, tekrar eklemedim."
+            logger.info("agent_rule_added")
+            return f"Kural eklendi, bundan sonra her planlamada uygulanacak: {kural.strip()}"
+
+        @beta_async_tool
+        async def kural_sil(ifade: str) -> str:
+            """Ev kurallarından bir kuralı siler.
+
+            Args:
+                ifade: Silinecek kuralı tanımlayan kelime ya da kuralın kendisi,
+                    örn. "balık".
+            """
+            toolset.calls.append(f"kural_sil({ifade!r})")
+            matches = toolset.rules.matching(ifade)
+            if not matches:
+                return f"'{ifade}' geçen bir kural yok. kurallari_goster ile listeye bakabilirsin."
+            if len(matches) > 1:
+                listed = "\n".join(f"- {m}" for m in matches)
+                return f"'{ifade}' birden fazla kuralda geçiyor, hangisini sileyim?\n{listed}"
+            toolset.rules.remove(matches[0])
+            logger.info("agent_rule_removed")
+            return f"Kural silindi: {matches[0]}"
+
+        @beta_async_tool
+        async def besin_degeri_kaydet(degerler: list[str]) -> str:
+            """Tariflerin KİŞİ BAŞI (1 porsiyon) tahmini kalori ve proteinini
+            kaydeder; bir kez kaydedilen değer sonraki planlarda tekrar
+            kullanılır. Malzemelere ve porsiyon sayısına bakarak tahmin et
+            (gerekirse önce tarif_detay). Birden çok tarifi tek çağrıda ver.
+
+            Args:
+                degerler: Her satır "TARİF ADI|KALORİ|PROTEİN_GRAM". Örn:
+                    "Fırında Tavuk|520|42". Protein bilinmiyorsa
+                    "Fırında Tavuk|520" yazabilirsin.
+            """
+            toolset.calls.append(f"besin_degeri_kaydet({len(degerler)} tarif)")
+            saved, problems = [], []
             with toolset.session_factory() as db:
-                PreferenceService(db).add(cleaned, PreferenceType(tip), source="agent")
-                logger.info("agent_preference_saved tip=%s", tip)
-                return f"Kaydedildi ({tip}): {cleaned}"
+                service = RecipeService(db)
+                for raw in degerler:
+                    parts = [part.strip() for part in raw.split("|")]
+                    if len(parts) not in (2, 3):
+                        problems.append(f"'{raw}' biçimi yanlış (TARİF|KALORİ|PROTEİN)")
+                        continue
+                    recipe = service.find_recipe(parts[0], include_inactive=True)
+                    if recipe is None:
+                        problems.append(f"'{parts[0]}' kütüphanede yok")
+                        continue
+                    try:
+                        kcal = int(float(parts[1].replace(",", ".")))
+                        protein = int(float(parts[2].replace(",", "."))) if len(parts) == 3 and parts[2] else None
+                    except ValueError:
+                        problems.append(f"'{raw}' içinde sayı okunamadı")
+                        continue
+                    if not 20 <= kcal <= 3000 or (protein is not None and not 0 <= protein <= 250):
+                        problems.append(f"'{recipe.name}' için değerler makul aralıkta değil ({kcal} kcal, {protein} g)")
+                        continue
+                    recipe.calories_per_serving = kcal
+                    if protein is not None:
+                        recipe.protein_g_per_serving = protein
+                    saved.append(f"{recipe.name}: ~{kcal} kcal" + (f", {protein} g protein" if protein is not None else ""))
+                db.commit()
+            report = []
+            if saved:
+                report.append(f"{len(saved)} tarifin besin değeri kaydedildi:")
+                report += [f"  - {line}" for line in saved]
+            if problems:
+                report.append("Kaydedilemeyenler:")
+                report += [f"  - {line}" for line in problems]
+            return "\n".join(report) or "Hiçbir şey kaydedilmedi."
 
         @beta_async_tool
         async def plan_hazirla(
@@ -445,10 +550,20 @@ class MealAgentToolset:
                         red_text = f", {red}x çıkarıldı" if red else ""
                         effort = (recipe.prep_minutes or 0) + (recipe.cook_minutes or 0)
                         effort_text = f", {effort} dk" if effort else ""
+                        kcal = f"{recipe.calories_per_serving}kcal" if recipe.calories_per_serving else "kcal?"
+                        protein_g = (
+                            f"/{recipe.protein_g_per_serving}gP" if recipe.protein_g_per_serving is not None else ""
+                        )
                         lines.append(
                             f"  {recipe.name} | {score:.0f}p | {seen_text}{red_text}"
                             f"{', ' + recipe.protein_type if recipe.protein_type else ''}{effort_text}"
+                            f" | {kcal}{protein_g}"
                         )
+                lines.append(
+                    "\nkcal? = kişi başı kalorisi bilinmiyor. Ev kurallarında kalori ya da "
+                    "protein şartı varsa, kullanacağın tariflerin değerlerini önce "
+                    "besin_degeri_kaydet ile tahmin edip kaydet."
+                )
                 return "\n".join(lines)
 
         @beta_async_tool
@@ -573,6 +688,9 @@ class MealAgentToolset:
                     f"{week_start} - {week_end(week_start)} haftası kaydedildi ({len(parsed)} öğün).",
                     "Gün başına: " + ", ".join(f"{iso}={per_day[iso]}" for iso in sorted(per_day)),
                 ]
+                for iso in sorted(per_day):
+                    day_recipes = [recipe for (d, _), recipe in parsed.items() if d == iso]
+                    summary.append(f"  {iso}: {day_totals(day_recipes)}")
                 if empty:
                     summary.append("Öğün yazılmayan günler: " + ", ".join(empty))
                 summary.append(
@@ -701,7 +819,10 @@ class MealAgentToolset:
             ogun_degistir,
             alisveris_listesi,
             gecmis_getir,
-            tercih_kaydet,
+            kurallari_goster,
+            kural_ekle,
+            kural_sil,
+            besin_degeri_kaydet,
             tarif_ekle,
             aday_tarifler,
             tarif_onayla,

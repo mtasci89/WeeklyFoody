@@ -34,6 +34,15 @@ class TimestampMixin:
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 
 
+class HouseRulesDocument(TimestampMixin, Base):
+    """Kalici ev kurallari: tek satirlik markdown belge (bkz. app/agent/rules.py)."""
+
+    __tablename__ = "house_rules"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    text: Mapped[str] = mapped_column(Text, default="", nullable=False)
+
+
 class PreferenceType(str, enum.Enum):
     HARD = "hard"
     SOFT = "soft"
@@ -84,6 +93,10 @@ class Recipe(Base, TimestampMixin):
     source: Mapped[str | None] = mapped_column(String, nullable=True)
     status: Mapped[RecipeStatus] = mapped_column(Enum(RecipeStatus), default=RecipeStatus.APPROVED, nullable=False)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Kisi basi (1 porsiyon) tahmini besin degeri. Ajan malzemelerden tahmin
+    # edip bir kez kaydeder; kalori/protein kurallari buna dayanir.
+    calories_per_serving: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    protein_g_per_serving: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     ingredients: Mapped[list["RecipeIngredient"]] = relationship(
         back_populates="recipe", cascade="all, delete-orphan", order_by="RecipeIngredient.position"
