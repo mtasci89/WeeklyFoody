@@ -53,6 +53,22 @@ def main() -> None:
         init_db()
 
         async def _discover() -> None:
+            from app.agent.prompts import discovery_prompt
+            from app.agent.runner import MealPlannerAgent
+
+            if MealPlannerAgent.available(settings):
+                # Telegram'daki haftalik kesifle ayni yol: ajan web'de arar.
+                agent = MealPlannerAgent(settings, SessionLocal)
+                try:
+                    for query in settings.recipe_discovery_queries:
+                        reply = await agent.reply(
+                            settings.admin_telegram_user_id,
+                            discovery_prompt(query, settings.recipe_discovery_limit_per_category),
+                        )
+                        print(reply.text, end="\n\n")
+                finally:
+                    await agent.aclose()
+                return
             with SessionLocal() as db:
                 candidates = await WeeklyRecipeDiscoveryService(db, settings).discover_candidates()
                 print(f"Discovered {len(candidates)} candidate recipes")

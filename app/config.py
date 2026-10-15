@@ -57,7 +57,7 @@ class Settings(BaseSettings):
     agent_cache_ttl: Literal["5m", "1h"] = "5m"
     # Tek bir model isteginin ve bir kullanici mesajinin tamaminin ust siniri.
     # Asilirsa kullanici "cok uzun surdu" cevabi alir; sessizce asili kalmaz.
-    agent_request_timeout_seconds: int = 90
+    agent_request_timeout_seconds: int = 60
     agent_turn_timeout_seconds: int = 240
 
     default_servings: int = 4

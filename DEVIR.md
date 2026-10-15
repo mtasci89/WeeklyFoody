@@ -2,6 +2,24 @@
 
 Son güncelleme: **2026-10-15 — Claude**. Önce [PROJE.md](PROJE.md) dosyasını okuyun.
 
+## Son tamamlanan iş (Claude, 2026-10-15): zaman aşımı ve web'de tarif keşfi
+
+- **Sorun (kullanıcı logu):** "haftalık yemek listesi oluştur" turu
+  `gemini-3.8-flash`'ta 90 sn bekleyip `504 DEADLINE_EXCEEDED` aldı; SDK aynı
+  modeli 504'te tekrar denediği için bir 90 sn daha gidiyordu → tur zaman aşımı.
+- **Düzeltme (`app/agent/gemini_backend.py`, `app/config.py`):** SDK artık
+  yalnızca 500'ü tekrar dener (504 zincirde sonraki modele geçer); meşgul/zaman
+  aşımı/kota veren model `COOLDOWN_SECONDS` boyunca **sonraki turların başında**
+  atlanır (tur ortasında model değiştirilmez: `ModelCursor.started`); istek
+  zaman aşımı 90 → 60 sn.
+- **Keşif artık web'de:** `/discover <konu>`, haftalık zamanlanmış keşif ve
+  `python -m app.cli discover-now` ajan + web araması (`discovery_prompt`)
+  kullanıyor; bulunanlar kaynağıyla ADAY kaydedilir. Ajan yoksa eski
+  (modelden fikir isteyen) yol çalışır. Haftalık sonuç yöneticinin sohbet
+  geçmişine düşer, "şunu onayla" diye cevap verilebilir.
+- Testler: `pytest -q` → **218 geçti**; `pyflakes` temiz.
+  Canlı Gemini ile denenmedi.
+
 ## Son tamamlanan iş (Claude): iki kural çalışmasının birleştirilmesi
 
 Aynı istek ("kurallarımı bir yerde yazayım") Claude ve Codex tarafından paralel

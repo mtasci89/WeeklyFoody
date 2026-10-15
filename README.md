@@ -302,7 +302,11 @@ Commands: `/recipes`, `/recipe <name>`, `/addrecipe`, `/deleterecipe <name>`.
 
 ## Discovering New Recipes
 
-The admin can ask the bot to discover new recipe ideas with Gemini:
+The admin can ask the bot to discover new recipes. With the agent enabled
+(`GEMINI_API_KEY` set) the bot really searches the web (Google Search
+grounding), skips recipes already in the library, and saves what it read with
+its source as a candidate. Without the agent it falls back to asking the model
+for ideas from memory.
 
 ```text
 /discover pratik tavuk yemeği
@@ -323,6 +327,7 @@ Approve one into the permanent recipe library:
 ```
 
 This protects your library from filling up silently with recipes you have not approved.
+You can also just reply in chat: "ikincisini onayla", "fajitayı çıkar".
 
 The bot can also run weekly automatic discovery. By default it looks for current, healthy, unusual but home-cookable main dishes, side dishes, and meze/salad ideas every Saturday at 18:00 Europe/Istanbul. These are also saved as `candidate` and sent only to the admin for review:
 

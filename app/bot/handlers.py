@@ -147,6 +147,14 @@ class TelegramHandlers:
         if not query:
             await update.effective_message.reply_text("Ne tür tarif bulayım? Örn: `/discover pratik tavuk yemeği`", parse_mode="Markdown")
             return
+        if self.agent is not None:
+            from app.agent.prompts import discovery_prompt
+
+            await update.effective_message.reply_text(
+                "İnternette arıyorum; bulduklarımı aday olarak kaydedeceğim. Bir iki dakika sürebilir."
+            )
+            await self._agent_turn(update, discovery_prompt(query, limit=3))
+            return
         await update.effective_message.reply_text("Yeni tarif adayları arıyorum; birkaç saniye sürebilir.")
         with SessionLocal() as db:
             recipes = await RecipeService(db).discover_recipes(query, self.settings, limit=3)

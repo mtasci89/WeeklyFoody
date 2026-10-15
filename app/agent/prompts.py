@@ -129,6 +129,24 @@ Menü ya da liste gösterirken satır satır yazarsın.
 Türkçe yemek adlarını olduğu gibi korursun."""
 
 
+def discovery_prompt(query: str, limit: int = 3) -> str:
+    """/discover ve haftalik kesif icin ajana verilen gorev.
+
+    Eskiden kesif modelden tarif "uyduruyordu"; artik ajan web'de arar,
+    okudugunu kaynagiyla aday olarak kaydeder.
+    """
+    return (
+        f"Tarif keşfi görevi: internette şu konuda ev yemeğine uygun en fazla {limit} "
+        f"yeni tarif bul: {query}\n\n"
+        "Önce tarif_ara ile kütüphanede benzerinin olup olmadığına bak; olanları atla. "
+        "Sonra web'de ara ve gerçekten okuduğun tarifleri, malzemeleri miktarlarıyla, "
+        "hazırlanışı ve kaynağıyla tarif_ekle ile ADAY olarak kaydet. Ev kurallarına "
+        "aykırı tarif ekleme. Sonunda eklediklerini birer cümleyle listele ve "
+        "beğendiklerini onaylamak için bana yazabileceğimi ya da /approverecipe "
+        "Tarif Adı kullanabileceğimi söyle."
+    )
+
+
 def for_provider(prompt: str, provider: str) -> str:
     """Web arama aracinin adi saglayiciya gore degisiyor: Claude'da sunucu
     tarafi `web_search`, Gemini'de istemci araci `web_ara`."""

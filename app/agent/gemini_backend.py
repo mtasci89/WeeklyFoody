@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import re
+import time
 from dataclasses import dataclass
 
 from google import genai
@@ -44,6 +45,11 @@ def should_fall_back(error: Exception) -> bool:
     return isinstance(error, errors.APIError) and getattr(error, "code", None) in FALLBACK_CODES
 
 
+# Mesgul/zaman asimi veren model bir sonraki mesajda da buyuk ihtimalle mesgul.
+# Her turda once onu deneyip 60-90 saniye beklemek yerine bir sure atlanir.
+COOLDOWN_SECONDS = {404: 6 * 3600, 429: 15 * 60, 500: 5 * 60, 503: 10 * 60, 504: 10 * 60}
+
+
 @dataclass
 class ModelCursor:
     """Bir tur boyunca hangi modelde oldugumuz. Yapiskan: tur icinde bir kez
@@ -51,6 +57,9 @@ class ModelCursor:
     alanlari o modelin urettigi parcalarda duruyor."""
 
     index: int = 0
+    # Ilk basarili cevaptan sonra True: bekleme listesi yalnizca turun
+    # basindaki model secimini etkiler, yarida calisan modeli degistirmez.
+    started: bool = False
 
 
 def history_to_contents(history: list[dict]) -> list[types.Content]:
@@ -91,6 +100,8 @@ class GeminiBackend:
 
     def __init__(self, settings: Settings, client: genai.Client | None = None):
         self.settings = settings
+        # model -> time.monotonic() degeri; o zamana kadar zincirde atlanir.
+        self._cooldown_until: dict[str, float] = {}
         self.client = client or genai.Client(
             api_key=settings.gemini_api_key,
             # Ucretsiz katmanin dakikalik siniri dusuk ve bir kullanici mesaji
@@ -98,15 +109,15 @@ class GeminiBackend:
             http_options=types.HttpOptions(
                 # Milisaniye. Asili kalan bir istek turu sonsuza dek bekletmesin.
                 timeout=settings.agent_request_timeout_seconds * 1000,
-                # 503 (mesgul) ve 429 (kota) burada YOK: ucretsiz katmanda her
-                # modelin yuku ve kotasi ayri, ayni modeli beklemek yerine
-                # zincirdeki sonraki modele hemen gecmek daha hizli. SDK yalnizca
-                # gecici sunucu/ag hatalarini tekrar dener.
+                # 503 (mesgul), 429 (kota) ve 504 (zaman asimi) burada YOK:
+                # ucretsiz katmanda her modelin yuku ve kotasi ayri; ayni modeli
+                # beklemek yerine zincirdeki sonraki modele hemen gecmek daha
+                # hizli. 504'u tekrar denemek bir istek suresi daha kaybettiriyordu.
                 retry_options=types.HttpRetryOptions(
-                    attempts=3,
+                    attempts=2,
                     initial_delay=1.0,
                     max_delay=4.0,
-                    http_status_codes=[500, 504],
+                    http_status_codes=[500],
                 )
             ),
         )
@@ -124,25 +135,47 @@ class GeminiBackend:
                 chain.append(name)
         return chain
 
+    def _cooling(self, model: str) -> bool:
+        return self._cooldown_until.get(model, 0.0) > time.monotonic()
+
+    def _start_index(self, cursor: ModelCursor) -> int:
+        """Bekleme surecindeki modelleri atlar; hepsi bekliyorsa sirayla dener."""
+        models = self.models
+        if cursor.started:
+            return cursor.index
+        for index in range(cursor.index, len(models)):
+            if not self._cooling(models[index]):
+                if index != cursor.index:
+                    logger.info("agent_model_skipped_busy skipped=%s", ",".join(models[cursor.index:index]))
+                return index
+        return cursor.index
+
     async def _generate(self, cursor: ModelCursor, contents, config=None):
         """Zincirdeki ilk calisan modelle istek atar."""
         models = self.models
         last_error: Exception | None = None
-        for index in range(cursor.index, len(models)):
+        start = self._start_index(cursor)
+        for index in range(start, len(models)):
             model = models[index]
             try:
                 response = await self.client.aio.models.generate_content(
                     model=model, contents=contents, config=config
                 )
             except Exception as error:
-                if not should_fall_back(error) or index == len(models) - 1:
+                if not should_fall_back(error):
+                    raise
+                code = getattr(error, "code", None)
+                self._cooldown_until[model] = time.monotonic() + COOLDOWN_SECONDS.get(code, 300)
+                if index == len(models) - 1:
                     raise
                 logger.warning(
                     "agent_model_unavailable model=%s code=%s next=%s",
-                    model, getattr(error, "code", None), models[index + 1],
+                    model, code, models[index + 1],
                 )
                 last_error = error
                 continue
+            self._cooldown_until.pop(model, None)
+            cursor.started = True
             if index != cursor.index:
                 logger.warning("agent_model_fallback from=%s to=%s", models[cursor.index], model)
                 cursor.index = index

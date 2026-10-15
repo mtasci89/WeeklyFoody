@@ -411,6 +411,9 @@ async def test_real_client_retries_transient_errors_but_not_busy_or_quota(settin
         assert 500 in retry.http_status_codes
         assert 503 not in retry.http_status_codes
         assert 429 not in retry.http_status_codes
+        # Gercek log: 504 DEADLINE_EXCEEDED ayni modelde tekrar denenince bir
+        # istek suresi (90 sn) daha kaybediliyor, tur zaman asimina dusuyordu.
+        assert 504 not in retry.http_status_codes
     finally:
         await agent.aclose()
 
@@ -689,6 +692,44 @@ async def test_web_search_falls_back_without_moving_the_main_turn(db, settings, 
     assert [r["model"] for r in client.requests] == ["ana", "ana", "yedek1", "ana"]
     sent_back = client.requests[-1]["contents"][-1].parts[0].function_response.response["result"]
     assert "bulunan tarif" in sent_back
+
+
+def deadline():
+    return errors.ServerError(
+        504, {"error": {"code": 504, "status": "DEADLINE_EXCEEDED", "message": "Deadline expired before operation could complete."}}
+    )
+
+
+@pytest.mark.asyncio
+async def test_a_busy_model_is_skipped_on_the_next_turns(db, settings, session_factory):
+    """Bir model 504/503 verdiyse sonraki mesajlarda once onu deneyip yine
+    bir istek suresi beklemek yerine bir sure dogrudan yedege gidilir."""
+    client = ModelAwareClient(
+        {"ana": [deadline()], "yedek1": [text_response("bir"), text_response("iki")]}
+    )
+    agent = make_agent(settings, session_factory, client, **CHAIN)
+
+    assert (await agent.reply(chat_id=1, message="selam")).ok
+    assert (await agent.reply(chat_id=1, message="yine selam")).ok
+
+    assert [r["model"] for r in client.requests] == ["ana", "yedek1", "yedek1"]
+
+
+@pytest.mark.asyncio
+async def test_a_busy_model_is_tried_again_after_its_cooldown(db, settings, session_factory, monkeypatch):
+    import app.agent.gemini_backend as backend
+
+    now = [1000.0]
+    monkeypatch.setattr(backend.time, "monotonic", lambda: now[0])
+    client = ModelAwareClient({"ana": [overloaded(), text_response("döndüm")], "yedek1": [text_response("bir")]})
+    agent = make_agent(settings, session_factory, client, **CHAIN)
+
+    await agent.reply(chat_id=1, message="selam")
+    now[0] += backend.COOLDOWN_SECONDS[503] + 1
+    reply = await agent.reply(chat_id=1, message="yine")
+
+    assert reply.text == "döndüm"
+    assert [r["model"] for r in client.requests] == ["ana", "yedek1", "ana"]
 
 
 def test_fallback_chain_is_deduplicated_and_ordered(settings):

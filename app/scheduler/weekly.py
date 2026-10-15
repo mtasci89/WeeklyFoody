@@ -111,6 +111,13 @@ async def weekly_plan_job(**_legacy: object) -> None:
 async def weekly_recipe_discovery_job(**_legacy: object) -> None:
     settings = get_settings()
     logger.info("weekly_recipe_discovery_started")
+    if not settings.recipe_discovery_enabled:
+        return
+    from app.agent.runner import MealPlannerAgent
+
+    if MealPlannerAgent.available(settings):
+        await _agent_discovery(settings)
+        return
     with SessionLocal() as db:
         try:
             candidates = await WeeklyRecipeDiscoveryService(db, settings).discover_candidates()
@@ -133,3 +140,32 @@ async def weekly_recipe_discovery_job(**_legacy: object) -> None:
                 parse_mode="Markdown",
             )
             logger.info("weekly_recipe_discovery_sent candidates=%s", len(candidates))
+
+
+async def _agent_discovery(settings: Settings) -> None:
+    """Haftalik kesfi ajan yapar: her kategori icin ayri bir turda web'de arar
+    ve bulduklarini aday kaydeder. Sonuclar yoneticinin sohbetine gider; yonetici
+    "ikincisini onayla" diye cevap verebilsin diye ayni sohbet gecmisi kullanilir."""
+    from app.agent.prompts import discovery_prompt
+    from app.agent.runner import MealPlannerAgent
+
+    admin = settings.admin_telegram_user_id
+    agent = MealPlannerAgent(settings, SessionLocal)
+    replies: list[str] = []
+    try:
+        for query in settings.recipe_discovery_queries:
+            reply = await agent.reply(admin, discovery_prompt(query, settings.recipe_discovery_limit_per_category))
+            replies.append(reply.text)
+            if not reply.ok:
+                logger.warning("weekly_recipe_discovery_turn_failed query=%s", query[:60])
+    finally:
+        await agent.aclose()
+    logger.info("weekly_recipe_discovery_completed turns=%s", len(replies))
+    if _CURRENT_BOT and admin:
+        text = (
+            "🧪 Haftalık tarif keşfi: internette yeni tarifler aradım. Bulduklarım aday "
+            "olarak bekliyor, sen onaylamadan menüye girmez. /candidates ile hepsini "
+            "görebilir, \"şunu onayla\" diye yazabilirsin.\n\n" + "\n\n".join(replies)
+        )
+        for chunk in split_for_telegram(text):
+            await _CURRENT_BOT.send_message(chat_id=admin, text=chunk)
