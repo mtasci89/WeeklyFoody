@@ -13,6 +13,8 @@ class RuleBasedLLMProvider(LLMProvider):
         candidates_by_slot = context.get("candidate_recipes_by_slot", {})
         slots = context.get("meal_slots", ["dinner"])
         dates = context.get("dates", [])
+        if context.get("max_kcal_per_meal") is not None or context.get("distinct_dishes") or context.get("protein_priority"):
+            return constrained_plan(context)
         meals: list[PlannedMeal] = []
         slot_indexes = {slot: 0 for slot in slots}
         for date_value in dates:
@@ -185,3 +187,59 @@ def _looks_like_recipe_text(message: str) -> bool:
     return _has_recipe_details(message) and not text.startswith("/") and not any(
         phrase in text for phrase in ("menüyü", "menü", "alışveriş", "pantry", "tercih")
     )
+
+
+def constrained_plan(context: dict[str, Any]) -> WeeklyPlanOutput:
+    """Bounded per-meal search over the scored candidate pool."""
+    from collections import defaultdict
+    from app.config import base_meal_slot
+    from app.memory.rules import RuleViolation
+
+    cap = context.get("max_kcal_per_meal")
+    slots_by_meal = defaultdict(list)
+    for slot in context["meal_slots"]:
+        slots_by_meal[base_meal_slot(slot)].append(slot)
+    meals = []
+    for day_index, day in enumerate(context["dates"]):
+        for base, slots in slots_by_meal.items():
+            pools = []
+            for slot in slots:
+                choices = list(context["candidate_recipes_by_slot"].get(slot, []))
+                if cap is not None:
+                    choices = [r for r in choices if r.get("calories_kcal") is not None]
+                if not choices:
+                    raise RuleViolation(f"{day} {slot}: uygun tarif yok veya kalori verisi eksik. Tarif bilgilerini tamamlayın.")
+                if not context.get("protein_priority"):
+                    shift = day_index % len(choices)
+                    choices = choices[shift:] + choices[:shift]
+                pools.append(choices)
+            visited = 0
+
+            def search(index, selected, used, energy):
+                nonlocal visited
+                visited += 1
+                if visited > 20000:
+                    raise RuleViolation("Uygun öğün arama sınırına ulaşıldı; adayları veya kuralları gözden geçirin.")
+                if index == len(slots):
+                    return selected
+                if cap is not None:
+                    lower_bound = sum(min(r["calories_kcal"] for r in pool) for pool in pools[index:])
+                    if energy + lower_bound > cap:
+                        return None
+                for recipe in pools[index]:
+                    if recipe["id"] in used:
+                        continue
+                    kcal = recipe.get("calories_kcal") or 0
+                    if cap is not None and energy + kcal > cap:
+                        continue
+                    found = search(index + 1, selected + [recipe], used | {recipe["id"]}, energy + kcal)
+                    if found is not None:
+                        return found
+                return None
+
+            selected = search(0, [], set(), 0)
+            if selected is None:
+                raise RuleViolation(f"{day} {base}: aday havuzunda yemek sayısı/kalori kurallarına uygun bir öğün bulunamadı.")
+            for slot, recipe in zip(slots, selected):
+                meals.append(PlannedMeal(date=day, meal_slot=slot, recipe_id=recipe["id"], servings=context.get("serving_overrides", {}).get(day)))
+    return WeeklyPlanOutput(meals=meals, notes="Kalıcı kurallarla denetlenmiş kural tabanlı plan.")

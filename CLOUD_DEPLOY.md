@@ -63,7 +63,7 @@ WEB_PANEL_PORT=8000
 WEB_PANEL_TOKEN=
 ```
 
-The panel is read-only and off by default. If you enable it, `WEB_PANEL_TOKEN`
+The panel is off by default. It can edit meal rules and recipe nutrition as well as display recipes. Its token therefore grants write access; keep it private. If you enable it, `WEB_PANEL_TOKEN`
 is required: the app refuses to start without one rather than serving the
 recipe library, pantry, and preferences unauthenticated. Note that the token
 travels in the URL query string, so it appears in browser history.

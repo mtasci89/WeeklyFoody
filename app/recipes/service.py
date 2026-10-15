@@ -54,6 +54,9 @@ class RecipeService:
                     note=item.note,
                 )
             )
+        if "nutrition" in recipe_input.model_fields_set:
+            from app.recipes.nutrition import save_nutrition
+            save_nutrition(self.db, recipe, recipe_input.nutrition)
         self.db.commit()
         self.db.refresh(recipe)
         return recipe

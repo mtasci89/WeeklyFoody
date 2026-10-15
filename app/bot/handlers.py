@@ -23,6 +23,7 @@ from app.formatting import (
 )
 from app.llm.base import Intent
 from app.memory.preferences import PreferenceService
+from app.memory.rules import MealRules, RuleViolation
 from app.planner.revision import RevisionService
 from app.planner.service import MealPlannerService
 from app.recipes.service import RecipeService, normalize_name
@@ -69,7 +70,7 @@ class TelegramHandlers:
             return
         with SessionLocal() as db:
             session = MealPlannerService(db, self.settings).current_session()
-            await update.effective_message.reply_text(format_meal_plan(session) if session else "Bu hafta için menü yok.", parse_mode="Markdown")
+            await reply_menu(update.effective_message, format_meal_plan(session) if session else "Bu hafta için menü yok.")
 
     async def approve(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         if not self.security.require_admin(update.effective_user.id if update.effective_user else None):
@@ -91,7 +92,7 @@ class TelegramHandlers:
             return
         with SessionLocal() as db:
             session = await MealPlannerService(db, self.settings).create_or_get_weekly_session(regenerate=True)
-            await update.effective_message.reply_text(format_meal_plan(session), parse_mode="Markdown", reply_markup=approval_keyboard())
+            await reply_menu(update.effective_message, format_meal_plan(session), reply_markup=approval_keyboard())
 
     async def recipes(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         if not self.security.require_admin(update.effective_user.id if update.effective_user else None):
@@ -175,7 +176,11 @@ class TelegramHandlers:
             return
         with SessionLocal() as db:
             prefs = PreferenceService(db).active()
-            await update.effective_message.reply_text("\n".join(f"- {p.type.value}: {p.rule}" for p in prefs) or "Kayıtlı tercih yok.")
+            text = "\n".join(f"- {p.type.value}: {p.rule}" for p in prefs) or "Kayıtlı tercih yok."
+            text += "\n\n" + "\n".join(MealRules.from_db(db).summary())
+            text += "\nKurallar paneldeki Yemek Kurallarım alanından düzenlenebilir. /addpreference <kural> ile ekleyebilir, /deletepreference <kural> ile silebilirsin."
+            for chunk in split_for_telegram(text):
+                await update.effective_message.reply_text(chunk)
 
     async def add_preference(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         if not self.security.require_admin(update.effective_user.id if update.effective_user else None):
@@ -183,9 +188,14 @@ class TelegramHandlers:
             return
         rule = " ".join(context.args) or (update.effective_message.text or "").replace("/addpreference", "").strip()
         with SessionLocal() as db:
-            PreferenceService(db).add(rule, PreferenceType.HARD, source="telegram")
+            try:
+                PreferenceService(db).add(rule, PreferenceType.HARD, source="telegram")
+            except ValueError as error:
+                await update.effective_message.reply_text(f"Kural kaydedilmedi: {error}")
+                return
             logger.info("preference_added")
-            await update.effective_message.reply_text("Kalıcı tercih kaydedildi.")
+            for chunk in split_for_telegram("Kalıcı tercih kaydedildi.\n" + "\n".join(MealRules.from_db(db).summary())):
+                await update.effective_message.reply_text(chunk)
 
     async def delete_preference(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         if not self.security.require_admin(update.effective_user.id if update.effective_user else None):
@@ -346,7 +356,7 @@ class TelegramHandlers:
                 return
             if routed.intent == Intent.REGENERATE_PLAN:
                 session = await MealPlannerService(db, self.settings).create_or_get_weekly_session(regenerate=True)
-                await update.effective_message.reply_text(format_meal_plan(session), parse_mode="Markdown", reply_markup=approval_keyboard())
+                await reply_menu(update.effective_message, format_meal_plan(session), reply_markup=approval_keyboard())
                 return
             if routed.intent == Intent.SHOW_SHOPPING_LIST:
                 await self.shopping(update, context)
@@ -364,7 +374,7 @@ class TelegramHandlers:
                     await update.effective_message.reply_text("Aktif taslak yok. /regenerate ile yeni taslak oluşturabilirsin.")
                     return
                 revised = await RevisionService(db, self.settings).revise(session, message)
-                await update.effective_message.reply_text(format_meal_plan(revised), parse_mode="Markdown", reply_markup=approval_keyboard())
+                await reply_menu(update.effective_message, format_meal_plan(revised), reply_markup=approval_keyboard())
                 return
             if routed.intent in {Intent.GENERAL_QUESTION, Intent.UNKNOWN}:
                 answer = await self.router.answer_general_question(message, router_context)
@@ -378,6 +388,11 @@ class TelegramHandlers:
         loglayip geciyor, kullanici tarafinda hicbir sey olmuyordu. Her
         arizanin sessiz arizaya donusmesinin sebebi buydu (RUN-03).
         """
+        if isinstance(context.error, RuleViolation):
+            message = getattr(update, "effective_message", None)
+            if message is not None and self.security.require_admin(getattr(getattr(update, "effective_user", None), "id", None)):
+                await message.reply_text(f"İşlem tamamlanmadı: {context.error}\nKuralları /preferences ile görebilirsin.")
+            return
         logger.exception("handler_failed", exc_info=context.error)
         message = getattr(update, "effective_message", None)
         if message is not None:
@@ -457,3 +472,12 @@ def _has_recipe_details(text: str) -> bool:
         if any(char.isdigit() for char in line) or words.intersection(units):
             return True
     return False
+
+
+async def reply_menu(message, text: str, reply_markup=None) -> None:
+    chunks = split_for_telegram(text)
+    for index, chunk in enumerate(chunks):
+        kwargs = {"parse_mode": "Markdown"}
+        if reply_markup is not None and index == len(chunks) - 1:
+            kwargs["reply_markup"] = reply_markup
+        await message.reply_text(chunk, **kwargs)

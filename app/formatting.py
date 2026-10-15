@@ -35,6 +35,11 @@ def format_meal_plan(session: WeeklyPlanningSession, final: bool = False) -> str
     title = "KESİN MENÜ" if final else "Yemek Planı Taslağı"
     lines = [f"*🍽️ {format_date_range(session.week_start, session.week_end)} {title}*"]
     lines.append("")
+    from sqlalchemy.orm import object_session
+    from app.memory.rules import MealRules
+    from app.recipes.nutrition import nutrition_text
+    db = object_session(session)
+    rules = MealRules.from_db(db) if db is not None else MealRules()
     by_date = defaultdict(list)
     for item in sorted(session.meal_plan.items, key=lambda i: (i.date, i.meal_slot)):
         by_date[item.date].append(item)
@@ -43,8 +48,10 @@ def format_meal_plan(session: WeeklyPlanningSession, final: bool = False) -> str
         for item in items:
             servings = f" ({item.servings} kişi)" if item.servings else ""
             label = course_label(item.meal_slot)
-            lines.append(f"• {label}: {item.recipe.name}{servings}")
+            nutrition = f" — {nutrition_text(item.recipe)}" if rules.show_calories else ""
+            lines.append(f"• {label}: {item.recipe.name}{servings}{nutrition}")
         lines.append("")
+    lines.extend(nutrition_plan_lines(session, rules, details=False))
     return "\n".join(lines).strip()
 
 
@@ -116,3 +123,29 @@ def split_for_telegram(text: str, limit: int = TELEGRAM_LIMIT) -> list[str]:
     if remaining:
         chunks.append(remaining)
     return [chunk for chunk in chunks if chunk]
+
+
+def nutrition_plan_lines(session, rules=None, details=True) -> list[str]:
+    from sqlalchemy.orm import object_session
+    from app.memory.rules import MealRules
+    from app.config import base_meal_slot
+    from app.recipes.nutrition import nutrition_text
+    if rules is None:
+        db = object_session(session)
+        rules = MealRules.from_db(db) if db is not None else MealRules()
+    if not rules.show_calories or not session.meal_plan:
+        return []
+    groups = defaultdict(list)
+    for item in sorted(session.meal_plan.items, key=lambda i: (i.date, i.meal_slot)):
+        groups[item.date, base_meal_slot(item.meal_slot)].append(item.recipe)
+    lines = ["Kişi başı öğün besin değerleri (her yemekten bir porsiyon):"]
+    for (day, meal), recipes in groups.items():
+        known = all(r.nutrition and r.nutrition.calories_kcal is not None for r in recipes)
+        total = f"{sum(r.nutrition.calories_kcal for r in recipes):g} kcal" if known else "toplam kalori bilinmiyor (eksik veri)"
+        estimated = any(r.nutrition and r.nutrition.estimated for r in recipes)
+        if estimated:
+            total += " (tahmini)"
+        lines.append(f"{day} {meal}: {total}")
+        if details:
+            lines.extend(f"  {r.name}: {nutrition_text(r)}" for r in recipes)
+    return lines

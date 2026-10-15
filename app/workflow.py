@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.config import Settings
 from app.db.models import SessionState, WeeklyPlanningSession
-from app.formatting import format_meal_plan
+from app.formatting import format_meal_plan, split_for_telegram
 from app.shopping.service import ShoppingListService
 
 logger = logging.getLogger(__name__)
@@ -30,12 +30,15 @@ class WeeklyWorkflowService:
             return False
         if session.state != SessionState.APPROVED or not session.meal_plan:
             raise ValueError("Cannot publish before approval")
+        from app.memory.rules import validate_session
+        validate_session(self.db, session, self.settings)
         shopping_items = ShoppingListService(self.db, self.settings).generate(session.meal_plan)
         shopping_text = ShoppingListService(self.db, self.settings).format(shopping_items)
         final_text = f"{format_meal_plan(session, final=True)}\n\n{shopping_text}"
         for chat_id in self.settings.all_recipient_ids:
             try:
-                await self.notifier.send_message(chat_id, final_text, parse_mode="Markdown")
+                for chunk in split_for_telegram(final_text):
+                    await self.notifier.send_message(chat_id, chunk, parse_mode="Markdown")
             except Exception:
                 logger.exception("telegram_send_failed chat_id=%s", chat_id)
                 raise

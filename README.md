@@ -170,7 +170,7 @@ For an always-on setup, deploy the GitHub repo to Railway and use Railway Postgr
 
 ## Web Panel
 
-The app includes a small read-only web panel for browsing the recipe database, candidate recipes, pantry items, and preferences.
+The app includes a token-protected web panel for browsing recipes, candidates and pantry items, editing persistent meal rules, and entering per-serving nutrition values. The panel token now also grants permission to edit rules and nutrition; keep it private.
 
 By default it runs on localhost only:
 
@@ -353,17 +353,84 @@ https://www.instagram.com/reel/...
 
 The link is stored as the recipe source. The app does not scrape Instagram directly; pasted recipe text and ingredients are parsed into the database.
 
-## Preferences
+## Yemek Kurallarım — kalıcı kurallar
 
-Hard preferences are explicit permanent rules, for example:
+Panelde **Yemek Kurallarım** (`/preferences`) sayfasına her satırda bir kural
+yazıp kaydedin. Kurallar mevcut tercih veritabanında saklanır; yeni konuşmada
+ve bot yeniden başlatıldığında korunur. Satırı düzenlemek kuralı değiştirir,
+silmek devre dışı bırakır. Telegram'daki `/preferences`, `/addpreference <kural>`
+ve `/deletepreference <kural>` aynı kayıtları kullanır. Mevcut menü otomatik
+olarak yeniden yazılmaz; yeni bir taslak oluşturun.
+
+Örnekler (kendiliğinden etkinleştirilmez):
 
 ```text
-Bundan sonra kereviz önerme.
+Balık kullanma
+Her öğünde 3 farklı yemek olsun
+Kalorilerini de yaz yanına
+Kişi başı öğün en fazla 1000 kcal
+Protein ağırlıklı olsun
 ```
 
-Soft preferences come from repeated feedback and affect scoring without becoming permanent bans. Feedback such as `Bu yemeği geçen hafta yedik` is stored and lowers future repetition.
+- Yemek sayısı **her öğündeki farklı tarif sayısıdır**, 1–6 arasıdır. Üç
+  yemek için otomatik şablon ana yemek + meze/salata + yan yemektir.
+- Yasaklar, sayı ve kayıtlı kalori üst sınırı; otomatik planlama, ajanla
+  kaydetme/değiştirme, revizyon, onay ve yayınlama sırasında kontrol edilir.
+  Sonradan eklenen kuralla çelişen eski taslak onaylanamaz; önce düzeltin.
+- Kalori toplamı her yemekten **bir porsiyon / bir kişi** içindir. Ailenin kişi
+  sayısıyla çarpılmaz. Porsiyon büyüklüğü bu kayıtların dayandığı porsiyon olmalıdır.
+- Protein önceliği, kayıtlı gram değerleriyle aday puanını artırır. Değer yoksa
+  yalnızca protein kaynağı türüyle nitel bir tercih yapılır; gram uydurulmaz.
+- Kesin olmayan isteklere `Tercih:` ile başlayabilirsiniz. Diğer serbest
+  metinler de saklanıp ajana iletilir; otomatik denetimi olmayan kurallar
+  panelde açıkça işaretlenir. Her doğal dil ifadesi otomatik kısıta çevrilmez.
+- Boş satırlar ve `#` başlıkları atlanır; `-`/`*` liste işaretleri kabul edilir.
+  Çelişen yemek sayıları kaydedilmez. Birden fazla kalori sınırında en düşük
+  sınır geçerlidir. Eski bir düzenleme formu, sonradan değişmiş kayıtların
+  üzerine yazamaz; yazılan metin hata ekranında korunur.
 
-Commands: `/preferences`, `/addpreference <rule>`, `/deletepreference <rule>`.
+### Porsiyon başına kalori ve protein
+
+Tarifin panel sayfasında kalori (kcal), protein (g), kaynak/hesaplama notu ve
+“tahmini değer” işaretini düzenleyebilirsiniz. Alanlara bütün tencerenin değil,
+**bir porsiyonun** değerlerini girin. Sıfır ve bilinmeyen değer birbirinden
+ayrıdır. Kaynak gereklidir; bilinmeyen sayılar hesaplanmış gibi gösterilmez.
+İki sayı alanını boş bırakıp kaydetmek besin değerlerini kaldırır.
+
+Kalori sınırı etkinse, kalori bilgisi olmayan yemeklerden uygunluk garantisi
+verilemez; uygun ve bilgisi tamamlanmış bir öğün oluşturulamıyorsa işlem açık
+bir hata ile durur. Menü, kayıtlı değerlere göre denetlenir; tahmini değerler
+menüde ayrıca belirtilir. Kalorileri yalnızca gösterme kuralında eksik veriler
+“bilinmiyor” olarak görünür.
+
+YAML/JSON tarif içe aktarmada isteğe bağlı `nutrition` alanı da kullanılabilir:
+
+```yaml
+nutrition:
+  calories_kcal: 250  # Yalnızca biçimi gösteren örnek değer
+  protein_g: 20
+  source: "Kullandığınız etiket veya hesaplama kaynağı"
+  estimated: true
+```
+
+`nutrition` alanı bulunmayan eski tarif dosyaları mevcut besin değerini
+korur; açık `nutrition: null` değeri kaydı kaldırır. Örnek tariflere otomatik
+kalori tahminleri eklenmez.
+
+### Mevcut kurulumda güncelleme
+
+Yeni `recipe_nutrition` tablosu `init-db` veya normal uygulama başlangıcında
+`create_all` ile eklenir. Eski tarif/tercih tabloları değiştirilmez; veri
+silinmez. Güncelleme sırasında eski ve yeni botu aynı anda çalıştırmayın.
+Paneli kullanmak için mevcut Web Panel ayarları geçerlidir; bu özellik paneli
+kendiliğinden açmaz veya `.env` dosyanızı değiştirmez.
+
+```bash
+python -m app.cli init-db
+```
+
+Bu komut yapılandırılmış veritabanına yazar. Üretim veritabanında çalıştırmadan
+önce normal yedekleme/güncelleme sürecinizi uygulayın.
 
 ## Pantry
 

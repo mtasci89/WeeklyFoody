@@ -23,6 +23,8 @@ from app.db.models import (
 from app.formatting import course_label
 from app.memory.feedback import FeedbackService
 from app.memory.preferences import PreferenceService
+from app.memory.rules import MealRules, RuleViolation
+from app.recipes.nutrition import nutrition_text
 from app.db.models import MealPlan
 from app.planner.candidate_selector import CandidateSelector
 from app.planner.dates import TR_DAY_NAMES, next_week_start, this_week_start, week_dates, week_end
@@ -60,6 +62,8 @@ def render_plan(session: WeeklyPlanningSession | None) -> str:
             f"  slot={item.meal_slot} ({course_label(item.meal_slot)}): "
             f"{item.recipe.name} [kategori={item.recipe.category}{servings}]{changed}"
         )
+    from app.formatting import nutrition_plan_lines
+    lines.extend(nutrition_plan_lines(session))
     return "\n".join(lines)
 
 
@@ -113,6 +117,7 @@ def _describe(recipe: Recipe) -> str:
     if recipe.vegetarian:
         parts.append("vejetaryen")
     parts.append(f"{len(recipe.ingredients)} malzeme")
+    parts.append(nutrition_text(recipe))
     return f"{recipe.name} ({', '.join(parts)})"
 
 
@@ -146,7 +151,8 @@ class MealAgentToolset:
         with self.session_factory() as db:
             prefs = PreferenceService(db)
             pantry = [p.ingredient_name for p in db.scalars(select(PantryItem).order_by(PantryItem.ingredient_name))]
-            return prefs.hard_rules(), prefs.soft_rules(), pantry
+            status = MealRules.from_db(db).summary()
+            return prefs.hard_rules() + status, prefs.soft_rules(), pantry
 
     # --- araclar ---------------------------------------------------------
 
@@ -277,6 +283,13 @@ class MealAgentToolset:
                         )
                 if chosen.recipe_id == replacement.id:
                     return f"{tarih} {chosen.meal_slot} zaten {replacement.name}. Değişiklik gerekmedi."
+                if replacement.status != RecipeStatus.APPROVED:
+                    return "Aday veya pasif tarif menüye konamaz."
+                proposed = [(i.date, i.meal_slot, replacement if i is chosen else i.recipe) for i in session.meal_plan.items]
+                try:
+                    MealRules.from_db(db).validate(proposed)
+                except RuleViolation as error:
+                    return f"Değişiklik kaydedilmedi: {error}"
                 original_id = chosen.recipe_id
                 original_name = chosen.recipe.name
                 chosen.original_recipe_id = chosen.original_recipe_id or original_id
@@ -371,9 +384,13 @@ class MealAgentToolset:
             if not cleaned:
                 return "Kural metni boş, kaydetmedim."
             with toolset.session_factory() as db:
-                PreferenceService(db).add(cleaned, PreferenceType(tip), source="agent")
+                try:
+                    PreferenceService(db).add(cleaned, PreferenceType(tip), source="agent")
+                except ValueError as error:
+                    return f"Kural kaydedilmedi: {error}"
+                status = MealRules.from_db(db).summary()
                 logger.info("agent_preference_saved tip=%s", tip)
-                return f"Kaydedildi ({tip}): {cleaned}"
+                return f"Kaydedildi ({tip}): {cleaned}\n" + "\n".join(status)
 
         @beta_async_tool
         async def plan_hazirla(
@@ -416,7 +433,8 @@ class MealAgentToolset:
                 rejected = FeedbackService(db).rejected_counts()
                 dates = week_dates(week_start)
                 base = toolset.settings.meal_slots[0] if toolset.settings.meal_slots else "dinner"
-                suggested = Counter(course_role(slot) for slot in toolset.settings.planning_slots)
+                rules = MealRules.from_db(db)
+                suggested = Counter(course_role(slot) for slot in rules.settings_for_plan(toolset.settings).planning_slots)
                 lines = [
                     f"Hafta: {week_start} - {week_end(week_start)}",
                     "Günler: " + ", ".join(f"{d.isoformat()} {TR_DAY_NAMES[d.weekday()]}" for d in dates),
@@ -428,27 +446,30 @@ class MealAgentToolset:
                     "",
                     "Aday havuzu (rol başına, puan sırasına göre):",
                 ]
-                for role in ("main", "meze", "salad", "side", "soup"):
-                    candidates = selector.select(base, hard, week_start, course_role=role)
-                    scored = scorer.score_with_values(candidates, dates[0], Counter())
-                    lines.append(
-                        f"\n{role} (uygun kategoriler: "
-                        f"{', '.join(allowed_categories_for_role(role))}) - {len(scored)} aday:"
-                    )
-                    if not scored:
-                        lines.append("  (aday yok)")
-                        continue
-                    for score, recipe in scored[:10]:
-                        seen = last_seen.get(recipe.id)
-                        seen_text = f"son {seen.isoformat()}" if seen else "yeni"
-                        red = rejected.get(recipe.id, 0)
-                        red_text = f", {red}x çıkarıldı" if red else ""
-                        effort = (recipe.prep_minutes or 0) + (recipe.cook_minutes or 0)
-                        effort_text = f", {effort} dk" if effort else ""
+                lines.extend(["Kalıcı kurallar:", *rules.summary()])
+                for base in toolset.settings.meal_slots:
+                    lines.append(f"\nÖğün: {base}")
+                    for role in ("main", "meze", "salad", "side", "soup"):
+                        candidates = selector.select(base, hard, week_start, course_role=role)
+                        scored = scorer.score_with_values(candidates, dates[0], Counter())
                         lines.append(
-                            f"  {recipe.name} | {score:.0f}p | {seen_text}{red_text}"
-                            f"{', ' + recipe.protein_type if recipe.protein_type else ''}{effort_text}"
+                            f"\n{role} (uygun kategoriler: "
+                            f"{', '.join(allowed_categories_for_role(role))}) - {len(scored)} aday:"
                         )
+                        if not scored:
+                            lines.append("  (aday yok)")
+                            continue
+                        for score, recipe in scored[:10]:
+                            seen = last_seen.get(recipe.id)
+                            seen_text = f"son {seen.isoformat()}" if seen else "yeni"
+                            red = rejected.get(recipe.id, 0)
+                            red_text = f", {red}x çıkarıldı" if red else ""
+                            effort = (recipe.prep_minutes or 0) + (recipe.cook_minutes or 0)
+                            effort_text = f", {effort} dk" if effort else ""
+                            lines.append(
+                                f"  {recipe.name} | {score:.0f}p | {seen_text}{red_text}"
+                                f"{', ' + recipe.protein_type if recipe.protein_type else ''}{effort_text} | {nutrition_text(recipe)}"
+                            )
                 return "\n".join(lines)
 
         @beta_async_tool
@@ -536,6 +557,14 @@ class MealAgentToolset:
                 if not parsed:
                     return "Hiç geçerli öğün verilmedi, plan kaydedilmedi."
 
+                try:
+                    MealRules.from_db(db).validate(
+                        [(date.fromisoformat(iso), slot, recipe) for (iso, slot), recipe in parsed.items()],
+                        [(d, base) for d in week_dates(week_start) for base in toolset.settings.meal_slots],
+                    )
+                except RuleViolation as error:
+                    return f"Plan kaydedilmedi: {error}"
+
                 if session is None:
                     session = WeeklyPlanningSession(
                         week_start=week_start,
@@ -579,6 +608,7 @@ class MealAgentToolset:
                     "Kullanıcı onaylamak isterse /approve yazmalı; onaylanınca alıcılara "
                     "menü ve alışveriş listesi gider."
                 )
+                summary.append(render_plan(session))
                 return "\n".join(summary)
 
         @beta_async_tool

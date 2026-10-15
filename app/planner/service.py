@@ -33,6 +33,7 @@ class MealPlannerService:
             return session
         if session and session.state in (SessionState.APPROVED, SessionState.PUBLISHED):
             raise ValueError("Cannot regenerate an approved or published plan")
+        output = await self._generate_structured_plan(week_start)
         if session is None:
             session = WeeklyPlanningSession(
                 week_start=week_start,
@@ -42,7 +43,6 @@ class MealPlannerService:
             )
             self.db.add(session)
             self.db.flush()
-        output = await self._generate_structured_plan(week_start)
         self._persist_plan(session, output, status="draft")
         session.state = SessionState.AWAITING_ADMIN_FEEDBACK
         session.draft_version += 1 if regenerate else 0
@@ -51,6 +51,9 @@ class MealPlannerService:
         return session
 
     async def _generate_structured_plan(self, week_start: date) -> WeeklyPlanOutput:
+        from app.memory.rules import MealRules
+        rules = MealRules.from_db(self.db)
+        effective = rules.settings_for_plan(self.settings)
         hard = PreferenceService(self.db).hard_rules()
         selector = CandidateSelector(self.db)
         scorer = CandidateScorer(self.db)
@@ -59,7 +62,7 @@ class MealPlannerService:
         candidates_by_slot: dict[str, list[Recipe]] = {}
         used_proteins: Counter[str] = Counter()
         for target_date in dates:
-            for slot in self.settings.planning_slots:
+            for slot in effective.planning_slots:
                 role = course_role(slot)
                 candidates = selector.select(base_meal_slot(slot), hard, week_start, course_role=role)
                 if not candidates:
@@ -73,12 +76,16 @@ class MealPlannerService:
                     used_proteins[selected[0].protein_type or selected[0].category] += 1
         context = {
             "household": {"default_servings": self.settings.default_servings},
-            "meal_slots": self.settings.planning_slots,
+            "meal_slots": effective.planning_slots,
             "base_meal_slots": self.settings.meal_slots,
-            "meal_course_roles": self.settings.meal_course_roles,
-            "slot_requirements": {slot: {"role": course_role(slot), "allowed_categories": allowed_categories_for_role(course_role(slot))} for slot in self.settings.planning_slots},
+            "meal_course_roles": effective.meal_course_roles,
+            "slot_requirements": {slot: {"role": course_role(slot), "allowed_categories": allowed_categories_for_role(course_role(slot))} for slot in effective.planning_slots},
             "dates": [d.isoformat() for d in dates],
             "hard_preferences": hard,
+            "max_kcal_per_meal": rules.max_kcal,
+            "distinct_dishes": rules.dishes_per_meal is not None,
+            "protein_priority": rules.protein_priority,
+            "rule_status": rules.summary(),
             "soft_preferences": PreferenceService(self.db).soft_rules(),
             "candidate_recipes": [self._recipe_context(recipe) for recipe in candidate_pool[:60]],
             "candidate_recipes_by_slot": {
@@ -88,7 +95,14 @@ class MealPlannerService:
             "serving_overrides": {},
         }
         output = await self.llm.generate_plan(context)
-        PlanValidator(self.db).validate(output, dates, self.settings.planning_slots, hard)
+        try:
+            PlanValidator(self.db).validate(output, dates, effective.planning_slots, hard)
+        except ValueError:
+            # A model may ignore numeric constraints. The fallback searches a
+            # feasible meal and is validated by exactly the same rules.
+            from app.llm.rule_based import RuleBasedLLMProvider
+            output = await RuleBasedLLMProvider().generate_plan(context)
+            PlanValidator(self.db).validate(output, dates, effective.planning_slots, hard)
         return output
 
     def _persist_plan(self, session: WeeklyPlanningSession, output: WeeklyPlanOutput, status: str) -> MealPlan:
@@ -117,6 +131,8 @@ class MealPlannerService:
             raise ValueError("No meal plan exists")
         if session.state == SessionState.PUBLISHED:
             return
+        from app.memory.rules import validate_session
+        validate_session(self.db, session, self.settings)
         session.state = SessionState.APPROVED
         session.meal_plan.status = "final"
         self.db.commit()
@@ -152,6 +168,9 @@ class MealPlannerService:
             "prep_minutes": recipe.prep_minutes,
             "cook_minutes": recipe.cook_minutes,
             "tags": recipe.tags,
+            "calories_kcal": recipe.nutrition.calories_kcal if recipe.nutrition else None,
+            "protein_g": recipe.nutrition.protein_g if recipe.nutrition else None,
+            "nutrition_estimated": recipe.nutrition.estimated if recipe.nutrition else None,
         }
 
     def _recent_meals(self, limit: int) -> list[dict]:

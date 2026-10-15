@@ -21,7 +21,7 @@ class PlanValidator:
     def validate(self, plan: WeeklyPlanOutput, dates: list[date], meal_slots: list[str], hard_rules: list[str]) -> None:
         expected = {(d.isoformat(), slot) for d in dates for slot in meal_slots}
         actual = {(meal.date, meal.meal_slot) for meal in plan.meals}
-        if expected != actual:
+        if expected != actual or len(actual) != len(plan.meals):
             missing = expected - actual
             extra = actual - expected
             raise PlanValidationError(f"Invalid meal slots. Missing={missing} Extra={extra}")
@@ -31,12 +31,14 @@ class PlanValidator:
             recipe = recipes.get(recipe_id)
             if not recipe or recipe.status != RecipeStatus.APPROVED:
                 raise PlanValidationError(f"Recipe is unavailable: {recipe_id}")
-        excluded = self._excluded_terms(hard_rules)
+        from app.memory.rules import MealRules
+        from app.config import base_meal_slot
+        MealRules.parse(hard_rules).validate(
+            [(date.fromisoformat(m.date), m.meal_slot, recipes[m.recipe_id]) for m in plan.meals],
+            [(d, base_meal_slot(slot)) for d in dates for slot in meal_slots],
+        )
         for meal in plan.meals:
             recipe = recipes[meal.recipe_id]
-            text = " ".join([recipe.name, recipe.protein_type or "", " ".join(i.ingredient.name for i in recipe.ingredients)]).casefold()
-            if any(term in text for term in excluded):
-                raise PlanValidationError(f"Hard preference violation: {recipe.name}")
             role = course_role(meal.meal_slot)
             if not CandidateSelector(self.db)._matches_course_role(recipe, role):
                 raise PlanValidationError(f"Recipe category does not match {meal.meal_slot}: {recipe.name}")

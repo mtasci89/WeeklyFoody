@@ -18,19 +18,12 @@ class CandidateSelector:
                 select(Recipe).where(Recipe.status == RecipeStatus.APPROVED, Recipe.meal_type == meal_slot).order_by(Recipe.name)
             )
         )
-        excluded = self._excluded_terms(hard_rules)
+        from app.memory.rules import MealRules
+        rules = MealRules.parse(hard_rules)
         recent_ids = self._recent_recipe_ids(week_start, recent_weeks)
         filtered = []
         for recipe in recipes:
-            text = " ".join(
-                [
-                    recipe.name,
-                    recipe.protein_type or "",
-                    " ".join(recipe.tags or []),
-                    " ".join(ri.ingredient.name for ri in recipe.ingredients),
-                ]
-            ).casefold()
-            if any(term in text for term in excluded):
+            if rules.excludes(recipe):
                 continue
             if course_role and not self._matches_course_role(recipe, course_role):
                 continue
@@ -64,12 +57,5 @@ class CandidateSelector:
         return {row.recipe_id for row in rows}
 
     def _excluded_terms(self, hard_rules: list[str]) -> set[str]:
-        terms: set[str] = set()
-        markers = ("önerme", "olmasın", "yasak", "yeme", "avoid", "exclude", "do not suggest")
-        for rule in hard_rules:
-            lower = rule.casefold()
-            if any(marker in lower for marker in markers):
-                words = [w.strip(".,;:!?") for w in lower.split()]
-                stop = {"bundan", "sonra", "artık", "asla", "bir", "daha", "do", "not", "suggest", "avoid", "exclude", "önerme", "olmasın"}
-                terms.update(w for w in words if len(w) > 2 and w not in stop)
-        return terms
+        from app.memory.rules import MealRules
+        return MealRules.parse(hard_rules).excluded
