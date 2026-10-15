@@ -98,13 +98,15 @@ class GeminiBackend:
             http_options=types.HttpOptions(
                 # Milisaniye. Asili kalan bir istek turu sonsuza dek bekletmesin.
                 timeout=settings.agent_request_timeout_seconds * 1000,
-                # Kisa tutuldu: model mesgulse uzun beklemek yerine yedek
-                # modele gecmek daha hizli cevap getiriyor.
+                # 503 (mesgul) ve 429 (kota) burada YOK: ucretsiz katmanda her
+                # modelin yuku ve kotasi ayri, ayni modeli beklemek yerine
+                # zincirdeki sonraki modele hemen gecmek daha hizli. SDK yalnizca
+                # gecici sunucu/ag hatalarini tekrar dener.
                 retry_options=types.HttpRetryOptions(
                     attempts=3,
-                    initial_delay=2.0,
-                    max_delay=8.0,
-                    http_status_codes=[429, 500, 503, 504],
+                    initial_delay=1.0,
+                    max_delay=4.0,
+                    http_status_codes=[500, 504],
                 )
             ),
         )

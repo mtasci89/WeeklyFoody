@@ -399,15 +399,17 @@ async def test_endless_tool_calls_stop_at_the_iteration_limit(db, settings, sess
 
 
 @pytest.mark.asyncio
-async def test_real_client_is_built_with_quota_retries(settings, session_factory):
-    """Ag cagrisi olmadan kurulabilmeli; 429'da tekrar denemeli."""
+async def test_real_client_retries_transient_errors_but_not_busy_or_quota(settings, session_factory):
+    """Ag cagrisi olmadan kurulabilmeli. 503/429'da ayni modeli bekleyip
+    tekrar denemek yerine zincirdeki sonraki modele gecilir."""
     agent = MealPlannerAgent(
         settings.model_copy(update={"agent_provider": "gemini", "gemini_api_key": "test"}), session_factory
     )
     try:
         retry = agent.client._api_client._http_options.retry_options
-        assert 429 in retry.http_status_codes
-        assert retry.attempts >= 2
+        assert 500 in retry.http_status_codes
+        assert 503 not in retry.http_status_codes
+        assert 429 not in retry.http_status_codes
     finally:
         await agent.aclose()
 
@@ -721,3 +723,9 @@ async def test_check_models_reports_each_model(settings):
     assert [(m, ok) for m, ok, _ in results] == [("ana", False), ("yedek1", True), ("yedek2", False)]
     assert "MESGUL" in results[0][2]
     assert "BULUNAMADI" in results[2][2]
+
+
+def test_default_fallbacks_exclude_the_retired_model(settings):
+    """check-agent tablosu: gemini-2.5-flash-lite 404 donuyor."""
+    assert "gemini-2.5-flash-lite" not in settings.gemini_fallback_models
+    assert settings.gemini_fallback_models == ["gemini-3.5-flash-lite", "gemini-3.1-flash-lite"]

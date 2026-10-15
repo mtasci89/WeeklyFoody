@@ -29,7 +29,9 @@ class Settings(BaseSettings):
     # sirayla denenecek modeller. Ucretsiz katmanda her modelin kotasi ve yuku
     # ayri. Hangilerinin calistigini `python -m app.cli check-agent` gosterir.
     gemini_fallback_models: Annotated[list[str], NoDecode] = Field(
-        default_factory=lambda: ["gemini-3.5-flash-lite", "gemini-3.1-flash-lite", "gemini-2.5-flash-lite"]
+        # check-agent ile dogrulandi (2026-10-15): ikisi de ucretsiz katmanda
+        # cevap veriyor; gemini-2.5-flash-lite kapatilmis (404).
+        default_factory=lambda: ["gemini-3.5-flash-lite", "gemini-3.1-flash-lite"]
     )
 
     # Konusma ajani (tool-use dongusu). Saglayicinin anahtari yoksa eski niyet
