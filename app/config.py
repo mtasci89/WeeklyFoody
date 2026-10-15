@@ -47,6 +47,10 @@ class Settings(BaseSettings):
     # "1h" beta basligi (extended-cache-ttl) gerektirir; varsayilan "5m" her
     # zaman destekleniyor ve bir turun ardisik cagrilarini zaten kapsiyor.
     agent_cache_ttl: Literal["5m", "1h"] = "5m"
+    # Tek bir model isteginin ve bir kullanici mesajinin tamaminin ust siniri.
+    # Asilirsa kullanici "cok uzun surdu" cevabi alir; sessizce asili kalmaz.
+    agent_request_timeout_seconds: int = 90
+    agent_turn_timeout_seconds: int = 240
 
     default_servings: int = 4
     meal_slots: Annotated[list[str], NoDecode] = Field(default_factory=lambda: ["dinner"])

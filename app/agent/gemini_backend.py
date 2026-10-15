@@ -76,6 +76,8 @@ class GeminiBackend:
             # Ucretsiz katmanin dakikalik siniri dusuk ve bir kullanici mesaji
             # 2-4 istek uretiyor; 429'da kisa beklemeyle tekrar dene.
             http_options=types.HttpOptions(
+                # Milisaniye. Asili kalan bir istek turu sonsuza dek bekletmesin.
+                timeout=settings.agent_request_timeout_seconds * 1000,
                 retry_options=types.HttpRetryOptions(
                     attempts=4,
                     initial_delay=2.0,
@@ -119,7 +121,10 @@ class GeminiBackend:
         ]
         searches = 0
         last_finish = None
-        for _ in range(max(1, self.settings.agent_max_iterations)):
+        for step in range(1, max(1, self.settings.agent_max_iterations) + 1):
+            # Her adim terminalde gorunsun: uzun bir plan turu disaridan
+            # "bot oldu" gibi gorunmesin.
+            logger.info("agent_model_request step=%s model=%s", step, self.model)
             response = await self.client.aio.models.generate_content(
                 model=self.model, contents=contents, config=config
             )
@@ -144,6 +149,7 @@ class GeminiBackend:
             results: list[types.Part] = []
             for call in calls:
                 args = dict(call.args or {})
+                logger.info("agent_tool_call step=%s tool=%s", step, call.name)
                 if call.name == WEB_TOOL_NAME:
                     calls_log.append(f"web_ara({args.get('sorgu', '')!r})")
                     if searches >= self.settings.agent_web_search_max_uses:

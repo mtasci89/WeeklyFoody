@@ -488,3 +488,96 @@ def test_retired_model_error_points_at_googles_suggestion_not_the_failing_model(
 
 def test_default_model_is_not_the_retired_one(settings):
     assert settings.gemini_model != "gemini-2.5-flash"
+
+
+# --- sessiz bekleme olmasin -------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_a_hung_turn_answers_after_the_timeout(db, settings, session_factory):
+    """Asili kalan bir model istegi botu sonsuza dek sessiz birakmamali."""
+    import asyncio
+
+    class HangingClient(FakeGeminiClient):
+        async def _generate(self, *, model, contents, config=None):
+            await asyncio.sleep(3600)
+
+    agent = make_agent(settings, session_factory, HangingClient([]), agent_turn_timeout_seconds=1)
+
+    reply = await agent.reply(chat_id=1, message="menü oluştur")
+
+    assert reply.ok is False
+    assert "uzun sürdü" in reply.text
+    assert "/menu" in reply.text
+
+
+@pytest.mark.asyncio
+async def test_turn_progress_is_logged_as_it_happens(db, settings, session_factory, caplog):
+    """Terminal mesaj gelir gelmez hareket gostermeli, tur bitince degil."""
+    import logging
+
+    caplog.set_level(logging.INFO)
+    client = FakeGeminiClient([call_response(("aday_tarifler", {})), text_response("Aday yok.")])
+    agent = make_agent(settings, session_factory, client)
+
+    await agent.reply(chat_id=5, message="adaylar")
+
+    events = [r.getMessage().split()[0] for r in caplog.records if r.name.startswith("app.agent")]
+    assert events[0] == "agent_turn_started"
+    assert events.count("agent_model_request") == 2
+    assert "agent_tool_call" in events
+    assert events.index("agent_tool_call") < events.index("agent_turn")
+
+
+@pytest.mark.asyncio
+async def test_request_timeout_is_set_in_milliseconds(settings, session_factory):
+    agent = MealPlannerAgent(
+        settings.model_copy(
+            update={"agent_provider": "gemini", "gemini_api_key": "test", "agent_request_timeout_seconds": 45}
+        ),
+        session_factory,
+    )
+    try:
+        assert agent.client._api_client._http_options.timeout == 45_000
+    finally:
+        await agent.aclose()
+
+
+@pytest.mark.asyncio
+async def test_typing_indicator_stays_on_for_the_whole_turn(settings):
+    """Telegram gostergeyi 5 sn'de kaldiriyor; uzun turda yenilenmeli ve tur
+    bitince durmali."""
+    import asyncio
+
+    from app.agent.runner import AgentReply
+    from app.bot.handlers import TelegramHandlers
+
+    actions: list[int] = []
+    replies: list[str] = []
+
+    class FakeBot:
+        async def send_chat_action(self, chat_id, action):
+            actions.append(chat_id)
+
+    class SlowAgent:
+        async def reply(self, chat_id, message):
+            await asyncio.sleep(9)  # 4 sn araliklarla en az 3 gosterge
+            return AgentReply(text="Menü hazır.")
+
+    class FakeMessage:
+        async def reply_text(self, text, **kwargs):
+            replies.append(text)
+
+    update = SimpleNamespace(
+        effective_chat=SimpleNamespace(id=77), effective_user=SimpleNamespace(id=77), effective_message=FakeMessage()
+    )
+    handlers = TelegramHandlers(settings, FakeBot())
+    handlers.agent = SlowAgent()
+
+    await handlers._agent_turn(update, "menü oluştur")
+    sent_during_turn = len(actions)
+    await asyncio.sleep(5)
+
+    assert sent_during_turn >= 3
+    assert len(actions) == sent_during_turn  # tur bitince durdu
+    assert replies == ["Menü hazır."]

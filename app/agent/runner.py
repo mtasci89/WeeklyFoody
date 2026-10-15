@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -177,7 +178,29 @@ class MealPlannerAgent:
         ]
 
     async def reply(self, chat_id: int, message: str) -> AgentReply:
+        logger.info("agent_turn_started chat_id=%s provider=%s model=%s", chat_id, self.provider, self.model)
         toolset = MealAgentToolset(self.settings, self.session_factory)
+        try:
+            return await asyncio.wait_for(
+                self._reply(chat_id, message, toolset),
+                timeout=self.settings.agent_turn_timeout_seconds,
+            )
+        except asyncio.TimeoutError:
+            logger.warning(
+                "agent_turn_timeout chat_id=%s seconds=%s tools=%s",
+                chat_id, self.settings.agent_turn_timeout_seconds, toolset.calls,
+            )
+            return AgentReply(
+                text=(
+                    f"Bu istek {self.settings.agent_turn_timeout_seconds} saniyeden uzun sürdü, "
+                    "yarıda bıraktım. Daha kısa bir şey isteyerek tekrar dener misin?"
+                    + FALLBACK_SUFFIX
+                ),
+                tool_calls=toolset.calls,
+                ok=False,
+            )
+
+    async def _reply(self, chat_id: int, message: str, toolset: MealAgentToolset) -> AgentReply:
         history = self.store.history(chat_id)
         if self.provider == "gemini":
             return await self._reply_gemini(chat_id, message, toolset, history)

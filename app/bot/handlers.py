@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 
 from sqlalchemy import select
@@ -400,14 +401,27 @@ class TelegramHandlers:
     async def _agent_turn(self, update: Update, message: str) -> None:
         chat = update.effective_chat
         chat_id = chat.id if chat else (update.effective_user.id if update.effective_user else 0)
+        # Telegram "yazıyor..." gostergesini 5 saniye sonra kaldiriyor; bir plan
+        # turu dakika surebiliyor. Tur bitene kadar 4 saniyede bir yenile ki
+        # kullanici botun calistigini gorsun.
+        typing = asyncio.create_task(self._keep_typing(chat_id))
         try:
-            # Yalnizca "yazıyor..." gostergesi; basarisiz olursa turu dusurmemeli.
-            await self.notifier.bot.send_chat_action(chat_id=chat_id, action=ChatAction.TYPING)
-        except Exception:
-            logger.debug("chat_action_failed chat_id=%s", chat_id)
-        reply = await self.agent.reply(chat_id, message)
+            reply = await self.agent.reply(chat_id, message)
+        finally:
+            typing.cancel()
         for chunk in split_for_telegram(reply.text):
             await update.effective_message.reply_text(chunk)
+
+    async def _keep_typing(self, chat_id: int) -> None:
+        while True:
+            try:
+                await self.notifier.bot.send_chat_action(chat_id=chat_id, action=ChatAction.TYPING)
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                # Yalnizca gosterge; basarisiz olursa turu dusurmemeli.
+                logger.debug("chat_action_failed chat_id=%s", chat_id)
+            await asyncio.sleep(4)
 
     def _router_context(self, db) -> dict:
         session = MealPlannerService(db, self.settings).current_session()
