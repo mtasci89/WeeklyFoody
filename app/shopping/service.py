@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.config import Settings
 from app.db.models import MealPlan, MealPlanItem, PantryItem
+from app.recipes.service import categorize_ingredient
 from app.shopping.aggregator import ShoppingAggregator, ShoppingIngredient, ShoppingListItem
 
 CATEGORY_ORDER = [
@@ -49,7 +50,9 @@ class ShoppingListService:
                     name=name,
                     quantity=ingredient.quantity * scale if ingredient.quantity is not None else None,
                     unit=ingredient.unit,
-                    category=ingredient.ingredient.category or "Diğer",
+                    # Kayitli kategori eski (alt dize esleyen) kuralla atanmis
+                    # olabilir; liste her seferinde guncel kuralla siniflanir.
+                    category=categorize_ingredient(name),
                     pantry=name.casefold() in pantry,
                 )
             )

@@ -266,6 +266,19 @@ class GeminiBackend:
             contents.append(types.Content(role="user", parts=results))
         return "", f"adim_siniri:{last_finish}"
 
+    async def generate_json(self, prompt: str, schema: dict) -> str:
+        """Tek seferlik yapilandirilmis istek (arac yok); model zinciriyle."""
+        response = await self._generate(
+            ModelCursor(),
+            prompt,
+            types.GenerateContentConfig(
+                response_mime_type="application/json",
+                response_json_schema=schema,
+            ),
+        )
+        candidate = response.candidates[0] if response.candidates else None
+        return text_of(candidate.content) if candidate is not None else ""
+
     async def web_search(self, query: str) -> str:
         """Ayri bir Google Search grounded istegi; sonucu kaynaklariyla dondurur."""
         if not query.strip():

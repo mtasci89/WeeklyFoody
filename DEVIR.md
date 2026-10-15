@@ -2,6 +2,34 @@
 
 Son güncelleme: **2026-10-15 — Claude**. Önce [PROJE.md](PROJE.md) dosyasını okuyun.
 
+## Son tamamlanan iş (Claude, 2026-10-15): kalori, alışveriş listesi, yeni tarifler
+
+- **Sorun (kullanıcı ekran görüntüsü):** "kalorileri yaz, kural olarak ekle"
+  isteğine ajan (büyük ihtimalle yedek model) **ters** kural ekledi: "Her akşam
+  bir kişinin toplam kalorisi yazılmasın". Kalori hiç gösterilmedi; tariflerde
+  değer de yoktu. Kullanıcının DB'sinde bu yanlış kural duruyor; kullanıcı
+  `/kural_sil` ile silmeli.
+- **Kural tanıma (`app/memory/rules.py`):** serbest "kalori ... yaz/göster"
+  yazımları gösterim kuralı (olumsuzlar hariç); "Bir kişi için bir öğün 1000
+  kaloriyi geçmesin" ve "Her akşam 3 farklı yemek olsun" artık denetlenen kural.
+- **Otomatik tahmin (`app/agent/nutrition.py`):** `NutritionEstimator` eksik
+  kalori/proteini tek JSON istekle (`GeminiBackend.generate_json`, model
+  zinciriyle) tahmin eder, `estimated=True` kaydeder, elle girileni ezmez.
+  Ajan araçları (`plan_kaydet`, `ogun_degistir`, `plani_getir`), `/menu`,
+  `/regenerate` ve haftalık plan kural varsa bunu çağırır (`fill_for_rules`;
+  kalori sınırı varsa otomatik planlayıcı için tüm kütüphane).
+- **Özeti sistem ekler:** ajan turu planı okuduysa/değiştirdiyse
+  (`AgentReply.plan_session_id`) ve gösterim kuralı varsa `calorie_summary`
+  cevabın altına eklenir (`app/bot/handlers.py::_agent_turn`).
+- **Alışveriş listesi:** miktarlar alınabilir değere yukarı yuvarlanır (350 g,
+  1 adet, 1,5 yemek kaşığı; ondalık virgül), miktarsız tekrarlar düşer,
+  kategori kelime başında eşleşir (ketçap artık "Et" değil) ve her seferinde
+  güncel kuralla hesaplanır. `tarif_detay` kişi sayısına göre ölçekler.
+- **Yeni tarifler:** istem artık ajanın önerdiği her kütüphane dışı yemeği aynı
+  turda `tarif_ekle` ile aday kaydetmesini, kullanıcı beğenince
+  `tarif_onayla` ile onaylamasını ister; kuralı tersine çevirmeyi açıkça yasaklar.
+- Testler: `pytest -q` → **246 geçti**. Canlı Gemini ile denenmedi.
+
 ## Son tamamlanan iş (Claude, 2026-10-15): zaman aşımı ve web'de tarif keşfi
 
 - **Sorun (kullanıcı logu):** "haftalık yemek listesi oluştur" turu

@@ -89,7 +89,13 @@ async def weekly_plan_job(**_legacy: object) -> None:
     logger.info("weekly_plan_started")
     try:
         with SessionLocal() as db:
+            from app.agent.nutrition import fill_for_rules
+            from app.recipes.service import RecipeService
+
+            await fill_for_rules(db, settings, RecipeService(db).list_recipes(), library=True)
             session = await MealPlannerService(db, settings).create_or_get_weekly_session()
+            if session.meal_plan:
+                await fill_for_rules(db, settings, [i.recipe for i in session.meal_plan.items])
             if _CURRENT_BOT and settings.admin_telegram_user_id:
                 text = f"🍽️ Önümüzdeki haftanın yemek planını hazırladım.\n\n{format_meal_plan(session)}"
                 chunks = split_for_telegram(text)

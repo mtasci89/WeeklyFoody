@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from app.shopping.units import format_quantity, to_base
+from app.shopping.units import format_shopping_quantity, to_base
 
 
 @dataclass
@@ -23,7 +23,7 @@ class ShoppingListItem:
     pantry: bool = False
 
     def format(self) -> str:
-        qty = format_quantity(self.quantity, self.unit)
+        qty = format_shopping_quantity(self.quantity, self.unit)
         return f"{qty} {self.name}".strip()
 
 
@@ -42,5 +42,12 @@ class ShoppingAggregator:
                 buckets[key] = ShoppingListItem(item.name, normalized.quantity, normalized.unit, item.category, item.pantry)
             else:
                 existing.quantity = (existing.quantity or 0) + normalized.quantity
-        return sorted([*buckets.values(), *incompatible], key=lambda item: (item.category, item.name))
+        # Miktarsiz satir ("sarimsak"), ayni malzemenin miktarli satiri
+        # varsa listede ikinci kez gorunmesin; miktarsizlar da tekrarlanmasin.
+        measured = {item.name.casefold() for item in buckets.values()}
+        loose: dict[tuple[str, bool], ShoppingListItem] = {}
+        for item in incompatible:
+            if item.name.casefold() not in measured:
+                loose.setdefault((item.name.casefold(), item.pantry), item)
+        return sorted([*buckets.values(), *loose.values()], key=lambda item: (item.category, item.name))
 

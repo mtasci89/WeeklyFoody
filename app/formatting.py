@@ -149,3 +149,27 @@ def nutrition_plan_lines(session, rules=None, details=True) -> list[str]:
         if details:
             lines.extend(f"  {r.name}: {nutrition_text(r)}" for r in recipes)
     return lines
+
+
+def calorie_summary(session) -> str:
+    """Gun gun kisi basi kalori. Modelin yazdigi cevaba guvenmek yerine
+    sistem ekler: kullanici "kalorileri yaz" dedigi halde model atliyordu."""
+    from app.planner.dates import TR_DAY_NAMES
+
+    if session is None or not session.meal_plan or not session.meal_plan.items:
+        return ""
+    by_day = defaultdict(list)
+    for item in sorted(session.meal_plan.items, key=lambda i: (i.date, i.meal_slot)):
+        by_day[item.date].append(item.recipe)
+    lines = ["🔥 Kişi başı kalori (tahmini, her yemekten bir porsiyon):"]
+    for day, recipes in by_day.items():
+        known = [r for r in recipes if r.nutrition and r.nutrition.calories_kcal is not None]
+        parts = ", ".join(
+            f"{r.name} {r.nutrition.calories_kcal:g}" if r in known else f"{r.name} ?" for r in recipes
+        )
+        if len(known) == len(recipes):
+            total = f"~{sum(r.nutrition.calories_kcal for r in recipes):,.0f}".replace(",", ".")
+            lines.append(f"{TR_DAY_NAMES[day.weekday()]}: {total} kcal ({parts})")
+        else:
+            lines.append(f"{TR_DAY_NAMES[day.weekday()]}: toplam bilinmiyor ({parts})")
+    return "\n".join(lines)

@@ -113,6 +113,7 @@ class _FakeAgentReply:
     def __init__(self, text: str):
         self.text = text
         self.ok = True
+        self.plan_session_id = None
 
 
 class _FakeAgent:

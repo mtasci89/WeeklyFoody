@@ -100,7 +100,7 @@ async def test_tarif_ara_miss_suggests_adding(toolset):
 async def test_tarif_detay_returns_quantities(toolset):
     out = await call(toolset, "tarif_detay", tarif_adi="Fırında Tavuk")
 
-    assert "1000 g tavuk" in out
+    assert "1 kg tavuk" in out
 
 
 # --- ogun_degistir -----------------------------------------------------

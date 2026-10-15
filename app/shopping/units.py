@@ -17,6 +17,7 @@ UNIT_ALIASES = {
     "demet": "demet",
     "yemek kaşığı": "yemek kaşığı",
     "çay kaşığı": "çay kaşığı",
+    "tatlı kaşığı": "tatlı kaşığı",
     "tbsp": "yemek kaşığı",
     "tsp": "çay kaşığı",
 }
@@ -64,3 +65,37 @@ def format_quantity(quantity: float | None, unit: str | None) -> str:
     formatted = f"{value:.2f}".rstrip("0").rstrip(".")
     return f"{formatted} {display_unit}".strip() if display_unit else formatted
 
+
+COUNT_UNITS = {"adet", "demet", "paket", "diş", "dilim", "kutu", "kavanoz", "baş", "tutam"}
+SPOON_UNITS = {"yemek kaşığı", "çay kaşığı", "tatlı kaşığı", "su bardağı", "çay bardağı", "kase"}
+
+
+def _ceil_to(value: float, step: float) -> float:
+    import math
+
+    return math.ceil(round(value / step, 6)) * step
+
+
+def shopping_quantity(quantity: float | None, unit: str | None) -> float | None:
+    """Alisveriste alinabilir bir miktar: porsiyon olcekleme "333,33 g tavuk"
+    ya da "0,67 adet sarimsak" uretiyordu. Her zaman yukari yuvarlar: eksik
+    almak fazla almaktan kotudur."""
+    if quantity is None or quantity <= 0:
+        return quantity
+    if unit in ("g", "ml"):
+        step = 5 if quantity < 50 else 10 if quantity < 250 else 50
+        return _ceil_to(quantity, step)
+    if unit in COUNT_UNITS:
+        return _ceil_to(quantity, 1)
+    if unit in SPOON_UNITS:
+        return _ceil_to(quantity, 0.5)
+    return round(quantity, 1)
+
+
+def format_shopping_quantity(quantity: float | None, unit: str | None) -> str:
+    """Turkce ondalik virgulle: "1,5 kg", "350 g", "1 adet"."""
+    if quantity is None:
+        return ""
+    value, display_unit = display_quantity(shopping_quantity(quantity, unit), unit)
+    formatted = f"{value:.2f}".rstrip("0").rstrip(".").replace(".", ",")
+    return f"{formatted} {display_unit}".strip() if display_unit else formatted

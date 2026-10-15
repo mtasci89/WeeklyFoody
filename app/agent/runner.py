@@ -68,6 +68,8 @@ class AgentReply:
     text: str
     tool_calls: list[str] = field(default_factory=list)
     ok: bool = True
+    # Bu turda plani okunan/degistirilen hafta (WeeklyPlanningSession.id).
+    plan_session_id: str | None = None
 
 
 class MealPlannerAgent:
@@ -103,6 +105,14 @@ class MealPlannerAgent:
             from anthropic import AsyncAnthropic
 
             self.client = AsyncAnthropic(api_key=settings.anthropic_api_key)
+
+    def estimator(self):
+        """Eksik kalori/protein degerlerini tahmin eden yardimci (yalnizca Gemini)."""
+        if self.provider != "gemini":
+            return None
+        from app.agent.nutrition import NutritionEstimator
+
+        return NutritionEstimator(self.gemini.generate_json)
 
     @classmethod
     def available(cls, settings: Settings) -> bool:
@@ -179,7 +189,7 @@ class MealPlannerAgent:
 
     async def reply(self, chat_id: int, message: str) -> AgentReply:
         logger.info("agent_turn_started chat_id=%s provider=%s model=%s", chat_id, self.provider, self.model)
-        toolset = MealAgentToolset(self.settings, self.session_factory)
+        toolset = MealAgentToolset(self.settings, self.session_factory, estimator=self.estimator())
         try:
             return await asyncio.wait_for(
                 self._reply(chat_id, message, toolset),
@@ -290,7 +300,7 @@ class MealPlannerAgent:
         logger.info("agent_turn chat_id=%s tool_calls=%s", chat_id, len(toolset.calls))
         if toolset.calls:
             logger.info("agent_tools chat_id=%s calls=%s", chat_id, " | ".join(toolset.calls))
-        return AgentReply(text=text, tool_calls=toolset.calls)
+        return AgentReply(text=text, tool_calls=toolset.calls, plan_session_id=toolset.touched_session_id)
 
 
 def _text_of(response) -> str:

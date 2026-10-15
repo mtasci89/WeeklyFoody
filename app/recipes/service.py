@@ -135,21 +135,40 @@ class RecipeService:
         return True
 
 
+def _mentions(text: str, token: str) -> bool:
+    """Kelime basinda eslesme: eskiden "et" alt dizesi "ketçap"i ete sokuyordu.
+    Kisa kokler ("et", "un") yalnizca tek basina ya da iyelik ekiyle sayilir."""
+    import re
+
+    if " " in token:
+        return token in text
+    if len(token) <= 3:
+        return re.search(rf"(?<!\w){re.escape(token)}(?:[iıuü]|y[iıuü])?(?!\w)", text) is not None
+    return re.search(rf"(?<!\w){re.escape(token)}", text) is not None
+
+
 def categorize_ingredient(name: str) -> str:
     lower = normalize_name(name)
-    meat = ("et", "kıyma", "tavuk", "balık", "somon", "hamsi", "kuşbaşı")
-    veg = ("domates", "soğan", "biber", "patates", "havuç", "fasulye", "kabak", "maydanoz", "limon")
-    dairy = ("yoğurt", "süt", "peynir", "kaşar", "tereyağı")
-    legumes = ("mercimek", "nohut", "kuru fasulye", "bulgur")
-    dry = ("pirinç", "makarna", "un", "salça", "tuz", "karabiber", "zeytinyağı", "baharat")
-    if any(token in lower for token in meat):
+    meat = ("et", "kıyma", "tavuk", "balık", "somon", "hamsi", "kuşbaşı", "dana", "kuzu", "bonfile",
+            "antrikot", "hindi", "sucuk", "pastırma", "karides", "levrek", "çipura", "pirzola", "köfte")
+    veg = ("domates", "soğan", "biber", "patates", "havuç", "fasulye", "kabak", "maydanoz", "limon",
+           "sarımsak", "marul", "salatalık", "ıspanak", "mantar", "avokado", "dereotu", "nane", "roka",
+           "brokoli", "karnabahar", "patlıcan", "pırasa", "kereviz", "lahana", "elma", "portakal",
+           "nar", "zencefil", "taze soğan", "fesleğen", "turp", "bezelye", "enginar", "börülce", "semizotu")
+    dairy = ("yoğurt", "süt", "peynir", "kaşar", "tereyağı", "labne", "krema", "parmesan", "mozzarella",
+             "lor", "kefir", "ayran", "yumurta")
+    legumes = ("mercimek", "nohut", "kuru fasulye", "bulgur", "barbunya", "bakla", "kinoa")
+    dry = ("pirinç", "makarna", "un", "salça", "tuz", "karabiber", "zeytinyağı", "baharat", "sirke",
+           "soya sosu", "bal", "nişasta", "ketçap", "hardal", "susam", "pul biber", "kimyon", "kekik",
+           "ceviz", "badem", "fındık", "tahin", "yağ", "şeker", "erişte", "şehriye", "galeta")
+    if any(_mentions(lower, token) for token in meat):
         return "Et / Tavuk / Balık"
-    if any(token in lower for token in dairy):
+    if any(_mentions(lower, token) for token in dairy):
         return "Süt Ürünleri"
-    if any(token in lower for token in legumes):
+    if any(_mentions(lower, token) for token in legumes):
         return "Bakliyat"
-    if any(token in lower for token in veg):
+    if any(_mentions(lower, token) for token in veg):
         return "Sebze & Meyve"
-    if any(token in lower for token in dry):
+    if any(_mentions(lower, token) for token in dry):
         return "Kuru Gıda / Baharat"
     return "Diğer"

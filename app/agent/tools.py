@@ -33,6 +33,7 @@ from app.agent.rules import HouseRules
 from app.recipes.importer import IngredientInput, RecipeInput
 from app.recipes.service import RecipeService
 from app.shopping.service import ShoppingListService
+from app.shopping.units import format_shopping_quantity, to_base
 
 logger = logging.getLogger(__name__)
 
@@ -133,11 +134,24 @@ class MealAgentToolset:
     isini bu deterministik fonksiyonlar yapar.
     """
 
-    def __init__(self, settings: Settings, session_factory: SessionFactory):
+    def __init__(self, settings: Settings, session_factory: SessionFactory, estimator=None):
         self.settings = settings
         self.session_factory = session_factory
         self.rules = HouseRules(session_factory)
         self.calls: list[str] = []
+        # Kural kalori istiyorsa eksik degerleri tek istekte tahmin eder
+        # (app.agent.nutrition.NutritionEstimator); yoksa None.
+        self.estimator = estimator
+        # Bu turda plani okunan/degistirilen hafta: cevabin altina sistem
+        # kalori ozetini eklemek icin.
+        self.touched_session_id: str | None = None
+
+    async def _ensure_nutrition(self, db: Session, recipes) -> None:
+        if self.estimator is None:
+            return
+        rules = MealRules.from_db(db)
+        if rules.show_calories or rules.max_kcal is not None:
+            await self.estimator.fill_missing(db, recipes)
 
     # --- yardimcilar -----------------------------------------------------
 
@@ -176,7 +190,11 @@ class MealAgentToolset:
             """
             toolset.calls.append(f"plani_getir(hafta={hafta})")
             with toolset.session_factory() as db:
-                return render_plan(toolset._resolve_session(db, hafta))
+                session = toolset._resolve_session(db, hafta)
+                if session is not None and session.meal_plan is not None:
+                    await toolset._ensure_nutrition(db, [i.recipe for i in session.meal_plan.items])
+                    toolset.touched_session_id = session.id
+                return render_plan(session)
 
         @beta_async_tool
         async def tarif_ara(sorgu: str = "", kategori: str = "", limit: int = 8) -> str:
@@ -216,20 +234,29 @@ class MealAgentToolset:
                 return "\n".join(f"- {line}" for line in hits)
 
         @beta_async_tool
-        async def tarif_detay(tarif_adi: str) -> str:
-            """Bir tarifin malzemelerini ve hazırlanışını döndürür.
+        async def tarif_detay(tarif_adi: str, kisi: int = 0) -> str:
+            """Bir tarifin malzemelerini ve hazırlanışını döndürür. Kullanıcı
+            tarif istediğinde bunu çağır ve malzemeleri miktarlarıyla aynen ver.
 
             Args:
                 tarif_adi: Tarifin tam adı.
+                kisi: Kaç kişilik olsun; 0 ise menüdeki kişi sayısı (varsayılan
+                    porsiyon) kullanılır. Miktarlar buna göre ölçeklenir.
             """
-            toolset.calls.append(f"tarif_detay({tarif_adi!r})")
+            toolset.calls.append(f"tarif_detay({tarif_adi!r}, kisi={kisi})")
             with toolset.session_factory() as db:
                 recipe = RecipeService(db).find_recipe(tarif_adi)
                 if not recipe:
                     return f"'{tarif_adi}' adlı tarif bulunamadı. tarif_ara ile doğru adı arayabilirsin."
-                lines = [_describe(recipe), f"{recipe.servings} porsiyon için malzemeler:"]
+                people = kisi if kisi > 0 else toolset.settings.default_servings
+                scale = people / recipe.servings if recipe.servings else 1
+                lines = [_describe(recipe), f"{people} kişi için malzemeler (tarifin aslı {recipe.servings} porsiyon):"]
                 for ing in recipe.ingredients:
-                    qty = f"{ing.quantity:g} {ing.unit or ''}".strip() if ing.quantity is not None else "miktar yok"
+                    if ing.quantity is None:
+                        qty = "kararınca"
+                    else:
+                        base = to_base(ing.quantity * scale, ing.unit)
+                        qty = format_shopping_quantity(base.quantity, base.unit)
                     lines.append(f"  - {qty} {ing.ingredient.name}")
                 lines.append(f"Hazırlanış: {recipe.instructions or 'kayıtlı değil'}")
                 return "\n".join(lines)
@@ -292,6 +319,7 @@ class MealAgentToolset:
                 if replacement.status != RecipeStatus.APPROVED:
                     return "Aday veya pasif tarif menüye konamaz."
                 proposed = [(i.date, i.meal_slot, replacement if i is chosen else i.recipe) for i in session.meal_plan.items]
+                await toolset._ensure_nutrition(db, [recipe for _, _, recipe in proposed])
                 try:
                     MealRules.from_db(db).validate(proposed)
                 except RuleViolation as error:
@@ -313,6 +341,7 @@ class MealAgentToolset:
                 session.state = SessionState.AWAITING_APPROVAL
                 session.draft_version += 1
                 db.commit()
+                toolset.touched_session_id = session.id
                 logger.info(
                     "agent_meal_swapped session_id=%s date=%s slot=%s", session.id, target, chosen.meal_slot
                 )
@@ -655,6 +684,7 @@ class MealAgentToolset:
                 if not parsed:
                     return "Hiç geçerli öğün verilmedi, plan kaydedilmedi."
 
+                await toolset._ensure_nutrition(db, list(parsed.values()))
                 try:
                     # Yalnizca yazilan ogunler denetlenir: "pazar disaridayiz" gibi
                     # bos birakilan bir gun, yemek sayisi kuralini ihlal etmez.
@@ -691,6 +721,7 @@ class MealAgentToolset:
                 if notlar.strip():
                     session.context = {**(session.context or {}), "agent_notes": notlar.strip()}
                 db.commit()
+                toolset.touched_session_id = session.id
                 logger.info(
                     "agent_plan_saved session_id=%s week_start=%s items=%s",
                     session.id, week_start, len(parsed),

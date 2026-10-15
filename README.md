@@ -425,8 +425,13 @@ Tarifin panel sayfasında kalori (kcal), protein (g), kaynak/hesaplama notu ve
 ayrıdır. Kaynak gereklidir; bilinmeyen sayılar hesaplanmış gibi gösterilmez.
 İki sayı alanını boş bırakıp kaydetmek besin değerlerini kaldırır.
 
-Değeri olmayan tarifleri ajan, kalori/protein kuralı varsa malzemelerden tahmin
-edip `besin_degeri_kaydet` ile kaydeder. Bu kayıtlar `tahmini` işaretli ve
+Kalori isteyen bir kural varsa (gösterim ya da sınır) sistem, değeri olmayan
+tarifleri malzemelerinden tek bir model isteğiyle tahmin edip kaydeder: ajanın
+plan kaydetme/gösterme/değiştirme adımlarında, `/menu`, `/regenerate` ve
+haftalık otomatik planda. Ajan bir planı gösterdiğinde ya da değiştirdiğinde
+cevabın altına gün gün kişi başı kalori özetini sistem ekler; modelin
+yazmasına bırakılmaz. Ajan ayrıca `besin_degeri_kaydet` ile tek tek de
+kaydedebilir. Bu kayıtlar `tahmini` işaretli ve
 kaynağı "ajan tahmini" olarak tutulur; elle girilmiş (tahmini olmayan) bir
 değerin üzerine yazılmaz. Menüde tahmin oldukları belirtilir.
 

@@ -15,7 +15,9 @@ from app.bot.security import TelegramSecurity
 from app.config import Settings
 from app.db.models import PantryItem, PreferenceType, SessionState, WeeklyPlanningSession
 from app.db.session import SessionLocal
+from app.agent.nutrition import fill_for_rules
 from app.formatting import (
+    calorie_summary,
     format_candidate_recipes,
     format_meal_plan,
     format_recipe_detail,
@@ -71,6 +73,8 @@ class TelegramHandlers:
             return
         with SessionLocal() as db:
             session = MealPlannerService(db, self.settings).current_session()
+            if session and session.meal_plan:
+                await fill_for_rules(db, self.settings, [i.recipe for i in session.meal_plan.items])
             await reply_menu(update.effective_message, format_meal_plan(session) if session else "Bu hafta için menü yok.")
 
     async def approve(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -92,7 +96,9 @@ class TelegramHandlers:
             await update.effective_message.reply_text("Bu komut yalnızca admin tarafından kullanılabilir.")
             return
         with SessionLocal() as db:
+            await fill_for_rules(db, self.settings, RecipeService(db).list_recipes(), library=True)
             session = await MealPlannerService(db, self.settings).create_or_get_weekly_session(regenerate=True)
+            await fill_for_rules(db, self.settings, [i.recipe for i in session.meal_plan.items])
             await reply_menu(update.effective_message, format_meal_plan(session), reply_markup=approval_keyboard())
 
     async def recipes(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -512,7 +518,17 @@ class TelegramHandlers:
             reply = await self.agent.reply(chat_id, message)
         finally:
             typing.cancel()
-        for chunk in split_for_telegram(reply.text):
+        text = reply.text
+        if reply.plan_session_id:
+            # Kalori gosterme kurali varsa ozeti sistem ekler; modelin
+            # yazmasina guvenilmez (kullanici defalarca istedigi halde atliyordu).
+            with SessionLocal() as db:
+                session = db.get(WeeklyPlanningSession, reply.plan_session_id)
+                if session is not None and MealRules.from_db(db).show_calories:
+                    summary = calorie_summary(session)
+                    if summary:
+                        text = f"{text}\n\n{summary}"
+        for chunk in split_for_telegram(text):
             await update.effective_message.reply_text(chunk)
 
     async def _keep_typing(self, chat_id: int) -> None:

@@ -68,14 +68,14 @@ class MealRules:
             count_text = text
             for word, number in [('bir',1),('iki',2),('uc',3),('dort',4),('bes',5),('alti',6)]:
                 count_text = re.sub(r'\b'+word+r'\b', str(number), count_text)
-            count = re.fullmatch(r'(?:(?:her )?ogunde |ogun basi |her ogun )?(\d+)\s+(?:farkli )?(?:yemek|cesit)(?: olsun)?', count_text)
+            count = re.fullmatch(r'(?:(?:her )?ogunde |ogun basi |her ogun |(?:her )?aksam(?:lari)? )?(\d+)\s+(?:farkli )?(?:yemek|cesit)(?: olsun)?', count_text)
             if count and strict:
                 value = int(count[1])
                 if not 1 <= value <= 6:
                     raise RuleViolation('Öğün başına yemek sayısı 1 ile 6 arasında olmalı.')
                 counts.add(value)
                 continue
-            cap = re.fullmatch(r'(?:(?:bir |1 )?kisi (?:icin |basi(?:na)? )?)?(?:her )?ogun(?: basi| basina|de)?\s+(?:kalori(?:si)?\s+)?(?:en fazla\s+)?(\d+(?:[.,]\d+)?)\s*(?:kcal|kalori)?(?:[\s\x27’]*(?:yi|i|u|yu|nin|in))?\s*(?:gecmesin|asmasin|altinda olsun)?', text)
+            cap = re.fullmatch(r'(?:(?:bir |1 )?kisi (?:icin |basi(?:na)? )?)?(?:her )?(?:bir |1 )?ogun(?: basi| basina|de)?\s+(?:kalori(?:si)?\s+)?(?:en fazla\s+)?(\d+(?:[.,]\d+)?)\s*(?:kcal|kalori)?(?:[\s\x27’]*(?:yi|i|u|yu|nin|in))?\s*(?:gecmesin|asmasin|altinda olsun)?', text)
             if cap and strict:
                 value = float(cap[1].replace(',', '.'))
                 if value <= 0:
@@ -84,6 +84,12 @@ class MealRules:
                 result.show_calories = True
                 continue
             if re.fullmatch(r'(?:kalori(?:leri|lerini|sini|lerini de)?|kalorileri de)\s+(?:yaz(?: yanina)?|goster)(?: yanina)?', text):
+                result.show_calories = True
+                continue
+            # Serbest yazimlar: "her yemegin yanina kalorisini yaz", "gunluk
+            # kaloriyi de goster". Olumsuzu ("yazilmasin", "gosterme") sayilmaz.
+            if ('kalori' in text and re.search(r'\b(?:yaz|goster|belirt|ekle)', text)
+                    and not re.search(r'(?:yazma|yazilmasin|gosterme|gosterilmesin|belirtme|ekleme|istemiyorum)', text)):
                 result.show_calories = True
                 continue
             if re.fullmatch(r'protein (?:agirlikli|oncelikli|agirlikli olsun|oncelikli olsun)', text):
