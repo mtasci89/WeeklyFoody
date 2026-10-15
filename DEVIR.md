@@ -2,6 +2,40 @@
 
 Son güncelleme: **2026-10-15 — Claude**. Önce [PROJE.md](PROJE.md) dosyasını okuyun.
 
+## Son tamamlanan iş (Claude + kullanıcı, 2026-10-15): bot Oracle sunucusuna taşındı
+
+**Doğrulandı (kullanıcının çalıştırdığı komut çıktılarıyla):** `@weeklyfoodybot`
+artık Oracle sunucusunda çalışıyor; Mac'teki bot kapatıldı ve **bir daha
+başlatılmamalı** (aynı anahtarla iki polling çakışır).
+
+- Sunucu: Oracle Linux 9.8, 1 GB RAM, SELinux **Enforcing**. Kullanıcı `opc`,
+  bağlantı bilgisi README'deki SSH tüneli satırında. Kod
+  `/home/opc/WeeklyFoody`, dal `claude/weeklyfood-bot-review-08wbec` (upstream
+  izli), Python 3.11 sanal ortamı `.venv`.
+- Servis: `weeklyfoody.service`; ek ayar
+  `/etc/systemd/system/weeklyfoody.service.d/override.conf` →
+  `ExecStart=/home/opc/WeeklyFoody/.venv/bin/python -m app.cli run`,
+  `Restart=always`, `RestartSec=15`; `enable` edildi (sunucu açılınca başlar).
+- **SELinux tuzağı:** servis ev klasöründeki `.venv/bin/python`'u `203/EXEC
+  Permission denied` ile çalıştıramadı. Çözüm: `sudo chcon -R -h -t bin_t
+  .venv/bin`. `chcon` kalıcı değildir; `.venv` yeniden kurulursa ya da sistem
+  yeniden etiketlenirse tekrar gerekir (güncelleme betiği her seferinde yapar).
+- Veri: Mac'teki `.env` ve `data/mealplanner.db` kopyalandı. Sunucunun eski
+  verisi (eski bot `@lez_zet_bot`, 180 tarif) ve eski `.env`:
+  `~/yedek-20261015-1358/` (sunucuda). Eski `.venv` `.venv.eski-*` olarak duruyor.
+- `check-agent` (14:02): `gemini-3.8-flash` KOTA DOLU, `3.5-flash-lite` ve
+  `3.1-flash-lite` çalışıyor; bot yedekle cevap veriyor.
+- Web paneli açık ama yalnızca `127.0.0.1:8000`; erişim SSH tüneliyle (README).
+- İkinci "Scheduler started" satırı python-telegram-bot JobQueue'sunun boş
+  zamanlayıcısı; görevler tek kez çalışır.
+- **Güncelleme:** Mac'te `./deploy/sunucu-guncelle.sh` (DB yedeği →
+  `git pull --ff-only` → pip → `chcon` → restart → durum). Günlük:
+  `./deploy/sunucu-gunluk.sh [satır]`. Yedekler `~/yedekler/`, 30 günden eskisi silinir.
+
+**Açık işler:** dal `main`'e birleştirilince sunucu `main`'e geçirilmeli;
+düzenli (günlük) DB yedeği yok, yalnızca güncellemede alınıyor; Telegram ve
+Gemini anahtarlarının yenilendiği doğrulanmadı.
+
 ## Son tamamlanan iş (Claude, 2026-10-15): kalori, alışveriş listesi, yeni tarifler
 
 - **Sorun (kullanıcı ekran görüntüsü):** "kalorileri yaz, kural olarak ekle"

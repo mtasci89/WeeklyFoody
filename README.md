@@ -169,6 +169,18 @@ If your computer is off, the local bot is off too. GitHub stores the code but do
 
 For an always-on setup, deploy the GitHub repo to Railway and use Railway Postgres for persistent memory. See [CLOUD_DEPLOY.md](CLOUD_DEPLOY.md).
 
+## Oracle Sunucusu
+
+Bot Oracle sunucusunda systemd servisi (`weeklyfoody`) olarak çalışıyor. Mac'ten:
+
+```bash
+./deploy/sunucu-guncelle.sh      # GitHub'daki son kodu kur, yeniden başlat (önce DB yedeği)
+./deploy/sunucu-gunluk.sh 100    # son 100 günlük satırı (gizli değerler maskeli)
+```
+
+SELinux açık olduğu için sanal ortamın `bin` klasörü `bin_t` etiketi ister;
+güncelleme betiği bunu her seferinde yapar.
+
 ## Web Panel
 
 The app includes a token-protected web panel for browsing recipes, candidates and pantry items, editing persistent meal rules, and entering per-serving nutrition values. The panel token now also grants permission to edit rules and nutrition; keep it private.

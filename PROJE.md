@@ -97,3 +97,9 @@ README/CLOUD_DEPLOY içindeki operasyon ayrıntıları için güncel kod ve DEVI
 - İlgili regresyonlar `tests/test_meal_rules.py` içindedir. Şema ekleme, yeniden
   açılan oturum, form güvenliği, kuralların iki planlama yolunda uygulanması ve
   besin değeri düzenleme testlerini koruyun. Yeni bağımlılık eklenmedi.
+
+## Canlı ortam (2026-10-15)
+
+Bot Oracle sunucusunda `weeklyfoody.service` olarak çalışır; Mac'te
+`app.cli run` başlatmayın. Güncelleme ve günlük için `deploy/` altındaki
+betikler; ayrıntı ve SELinux notu DEVIR.md'de.
