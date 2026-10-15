@@ -67,8 +67,20 @@ Calistirmak icin `ANTHROPIC_API_KEY` yeterli. Anahtar yoksa ya da
 `AGENT_ENABLED=false` ise bot eski niyet yonlendiricisine geri duser, boylece
 ikisini yan yana karsilastirabilirsin.
 
-Maliyet: tarif kutuphanesi ve arac semalari sabit on-ek olarak onbellege
-alindigi icin tipik bir aile kullaniminda aylik maliyet birkac dolari gecmez.
+Maliyet. Her istekte sabit olarak ~2.600 token arac semasi + ~1.400 token
+sistem istemi gidiyor; bunlar 1 saatlik TTL ile onbellege alinir, cunku tek
+bir kullanici mesaji 2-4 API cagrisi uretir ve hepsi ayni on-eki paylasir.
+
+Asil degisken modeldir, saglayici degil. `ANTHROPIC_MODEL` ile ayarlanir:
+
+| Model | Plan kuran tur | Ayda ~30 tur |
+| --- | --- | --- |
+| `claude-opus-5-5` | ~$0.095 | ~$2.90 |
+| `claude-sonnet-5-5` | ~$0.048 | ~$1.45 |
+| `claude-haiku-5-5` | ~$0.002 | ~$0.07 |
+
+Pahali gelirse once modeli dusur; mimariye dokunmaya gerek yok. `AGENT_EFFORT`
+dusurmek ve `AGENT_WEB_SEARCH_ENABLED=false` yapmak da harcamayi azaltir.
 
 ## Guvenlik Notlari
 

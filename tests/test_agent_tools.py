@@ -461,8 +461,8 @@ async def test_plan_hazirla_exposes_scores_and_history(db, settings, toolset):
     assert f"Hafta: {WEEK.isoformat()}" in out
     for role in ("main", "meze", "side"):
         assert f"{role} (uygun kategoriler" in out
-    assert "puan " in out
-    assert "hiç yapılmadı" in out
+    assert "p | " in out
+    assert "yeni" in out
     assert "Aday havuzu (rol başına, puan sırasına göre)" in out
 
 

@@ -199,7 +199,7 @@ async def test_stable_prompt_is_cached_and_volatile_context_is_separate(db, sett
     system = client.last["system"]
     assert len(system) == 2
     # Sabit on-ek onbellege alinir, degisken baglam ALINMAZ
-    assert system[0]["cache_control"] == {"type": "ephemeral"}
+    assert system[0]["cache_control"] == {"type": "ephemeral", "ttl": "1h"}
     assert "cache_control" not in system[1]
     assert "araçları kullanarak" in system[0]["text"]
     # Degisken blok bugunu, plani ve tercihleri tasiyor

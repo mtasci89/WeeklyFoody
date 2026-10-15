@@ -77,7 +77,14 @@ class MealPlannerAgent:
         return [
             # Sabit kisim onbellege alinir; arac semalari da bu on-ekin
             # parcasi oldugu icin her istekte yeniden faturalanmaz.
-            {"type": "text", "text": SYSTEM_PROMPT, "cache_control": {"type": "ephemeral"}},
+            # 1 saatlik TTL: bir tur 2-4 istek atiyor ve planlama sohbeti
+            # dakikalara yayiliyor. Sabit on-ek (arac semalari + sistem
+            # istemi) ~4.200 token; onbellekten okumak tam fiyatin ~5'te 1'i.
+            {
+                "type": "text",
+                "text": SYSTEM_PROMPT,
+                "cache_control": {"type": "ephemeral", "ttl": "1h"},
+            },
             {
                 "type": "text",
                 "text": context_block(today, toolset.plan_summary(), hard, soft, pantry),

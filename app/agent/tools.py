@@ -438,16 +438,15 @@ class MealAgentToolset:
                     if not scored:
                         lines.append("  (aday yok)")
                         continue
-                    for score, recipe in scored[:15]:
+                    for score, recipe in scored[:10]:
                         seen = last_seen.get(recipe.id)
-                        seen_text = f"son: {seen.isoformat()}" if seen else "hiç yapılmadı"
+                        seen_text = f"son {seen.isoformat()}" if seen else "yeni"
                         red = rejected.get(recipe.id, 0)
-                        red_text = f", {red} kez çıkarıldı" if red else ""
+                        red_text = f", {red}x çıkarıldı" if red else ""
                         effort = (recipe.prep_minutes or 0) + (recipe.cook_minutes or 0)
                         effort_text = f", {effort} dk" if effort else ""
                         lines.append(
-                            f"  - {recipe.name} | puan {score:.0f} | {seen_text}{red_text}"
-                            f" | {recipe.category}"
+                            f"  {recipe.name} | {score:.0f}p | {seen_text}{red_text}"
                             f"{', ' + recipe.protein_type if recipe.protein_type else ''}{effort_text}"
                         )
                 return "\n".join(lines)
@@ -460,22 +459,16 @@ class MealAgentToolset:
         ) -> str:
             """Kurduğun haftalık planı kaydeder. Önce `plan_hazirla` çağır.
 
-            Haftanın şeklini SEN belirlersin: bir güne kaç öğün koyacağın,
-            hangi rollerden kaçar tane olacağı sabit değil. Kullanıcı "her gün
-            tek meze olsun" ya da "cumartesi sadece ana yemek" derse öyle
-            yazarsın. Bir günü tamamen boş bırakabilirsin (dışarıda
-            yiyeceklerse); o gün hiç satır yazma.
+            Günün şeklini sen belirlersin; bir güne tek öğün de koyabilirsin,
+            hiç koymayabilirsin de (o gün satır yazma).
 
             Args:
-                ogunler: Her biri "TARİH|SLOT|TARİF ADI" biçiminde satır.
-                    Örn: "2026-10-20|dinner_main|Fırında Tavuk". Slot adı
-                    "dinner_" ile başlar ve rolle biter: dinner_main,
-                    dinner_meze, dinner_salad, dinner_side, dinner_soup. Aynı
-                    rolden birden fazla varsa numara ekle: dinner_meze_1,
-                    dinner_meze_2. Tarif adı kütüphanedeki tam ad olmalı.
+                ogunler: Her satır "TARİH|SLOT|TARİF ADI". Örn:
+                    "2026-10-20|dinner_main|Fırında Tavuk". Slot: dinner_main,
+                    dinner_meze, dinner_salad, dinner_side, dinner_soup; aynı
+                    rolden iki tane varsa dinner_meze_1, dinner_meze_2.
                 hafta: Hangi hafta.
-                notlar: Planı kurarken izlediğin mantık, bir iki cümle.
-                    Kaydedilir.
+                notlar: İzlediğin mantık, bir iki cümle.
             """
             toolset.calls.append(f"plan_kaydet({len(ogunler)} öğün, hafta={hafta})")
             with toolset.session_factory() as db:
@@ -601,24 +594,21 @@ class MealAgentToolset:
             vejetaryen: bool = False,
             kaynak: str = "",
         ) -> str:
-            """Kütüphaneye yeni tarif ekler. ADAY olarak kaydedilir: menülere
-            kendiliğinden girmez, kullanıcı `tarif_onayla` ile onaylayana kadar
-            bekler. Web'de bulduğun tarifleri de böyle kaydet.
+            """Kütüphaneye yeni tarif ekler. ADAY kaydedilir; kullanıcı
+            `tarif_onayla` demeden menüye giremez.
 
             Args:
                 ad: Tarifin adı.
-                kategori: main (ana yemek), meze, salad, side (pilav/makarna/
-                    yan), soup (çorba).
-                malzemeler: Her biri "miktar birim ad" biçiminde tek satır.
-                    Örn: ["600 gr tavuk göğsü", "2 adet kırmızı biber",
-                    "1 yemek kaşığı zeytinyağı", "tuz"].
-                hazirlanis: Hazırlama adımları, tek metin.
-                porsiyon: Malzemelerin kaç kişilik olduğu.
+                kategori: Yemeğin rolü.
+                malzemeler: Her satır "miktar birim ad". Örn:
+                    ["600 gr tavuk göğsü", "1 yemek kaşığı zeytinyağı", "tuz"].
+                hazirlanis: Hazırlama adımları.
+                porsiyon: Malzemeler kaç kişilik.
                 hazirlik_dakika: Hazırlık süresi.
                 pisirme_dakika: Pişirme süresi.
-                protein: chicken, beef, fish, legumes, dairy, vegetable gibi.
+                protein: chicken, beef, fish, legumes, dairy, vegetable.
                 vejetaryen: Et içermiyorsa true.
-                kaynak: Web'de bulduysan kaynak URL'si veya site adı.
+                kaynak: Kaynak URL veya site adı.
             """
             toolset.calls.append(f"tarif_ekle({ad!r}, kategori={kategori})")
             cleaned = ad.strip()
