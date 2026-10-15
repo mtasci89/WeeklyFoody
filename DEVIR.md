@@ -51,6 +51,10 @@ Codex'in tasarımı oldu:
    Kullanıcının BotFather'da iki botu var: `@weeklyfoodybot` (WeeklyFoody) ve
    `@lez_zet_bot` (Lez). Sunucudaki eski kurulumun `@lez_zet_bot` olduğu
    kullanıcının tahmini — **doğrulanmadı** (sunucuda getMe ile kontrol edilmeli).
+   `@lez_zet_bot` 26 Ağustos'taki ve 15 Ekim'deki `/start`'a hiç cevap vermedi:
+   sunucudaki servis bu anahtarla çalışmıyor ya da hata veriyor. Sunucuda
+   servis durumu ve günlüğü incelenmeli; plan değişmez (sunucuya
+   `@weeklyfoodybot` anahtarı konacak).
    Açık karar: hangi veritabanı kalacak (Mac SQLite mi, sunucudaki 180 tarifli
    kayıt mı); iki tarafın tarif/kural sayıları karşılaştırılıp kullanıcıya
    sorulacak. Sunucu bot başladıktan sonra Mac'teki bot kalıcı kapatılmalı
