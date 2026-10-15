@@ -55,9 +55,10 @@ Codex'in tasarımı oldu:
    sunucudaki servis bu anahtarla çalışmıyor ya da hata veriyor. Sunucuda
    servis durumu ve günlüğü incelenmeli; plan değişmez (sunucuya
    `@weeklyfoodybot` anahtarı konacak).
-   Açık karar: hangi veritabanı kalacak (Mac SQLite mi, sunucudaki 180 tarifli
-   kayıt mı); iki tarafın tarif/kural sayıları karşılaştırılıp kullanıcıya
-   sorulacak. Sunucu bot başladıktan sonra Mac'teki bot kalıcı kapatılmalı
+   **Karar (kullanıcı):** Mac'teki bot ve verisi esas; sunucuya Mac'teki
+   veritabanı taşınacak. Sunucudaki 180 tarif yalnızca başlangıç yönelimi —
+   yedeklenip saklanacak, gerekirse sonra ayrıca içe aktarılır. Sıra: önce Mac
+   birleşik dalda denenir, sonra aynı kod + Mac `.env` + Mac veritabanı sunucuya. Sunucu bot başladıktan sonra Mac'teki bot kalıcı kapatılmalı
    (aynı anahtarla iki bot polling çakışması yapar).
 
 ---
