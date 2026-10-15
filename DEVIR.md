@@ -48,6 +48,9 @@ Codex'in tasarımı oldu:
    vermiyor). Oracle sunucusundaki eski kurulum başka bir bot anahtarı
    kullanıyor. Karar: `@weeklyfoodybot` sunucuya taşınacak; sunucu `.env`'deki
    Telegram anahtarı Mac'teki anahtarla değiştirilecek (değer gösterilmeden).
+   Kullanıcının BotFather'da iki botu var: `@weeklyfoodybot` (WeeklyFoody) ve
+   `@lez_zet_bot` (Lez). Sunucudaki eski kurulumun `@lez_zet_bot` olduğu
+   kullanıcının tahmini — **doğrulanmadı** (sunucuda getMe ile kontrol edilmeli).
    Açık karar: hangi veritabanı kalacak (Mac SQLite mi, sunucudaki 180 tarifli
    kayıt mı); iki tarafın tarif/kural sayıları karşılaştırılıp kullanıcıya
    sorulacak. Sunucu bot başladıktan sonra Mac'teki bot kalıcı kapatılmalı
