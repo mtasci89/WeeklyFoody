@@ -34,15 +34,6 @@ class TimestampMixin:
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 
 
-class HouseRulesDocument(TimestampMixin, Base):
-    """Kalici ev kurallari: tek satirlik markdown belge (bkz. app/agent/rules.py)."""
-
-    __tablename__ = "house_rules"
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    text: Mapped[str] = mapped_column(Text, default="", nullable=False)
-
-
 class PreferenceType(str, enum.Enum):
     HARD = "hard"
     SOFT = "soft"
@@ -95,8 +86,8 @@ class Recipe(Base, TimestampMixin):
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     # Kisi basi (1 porsiyon) tahmini besin degeri. Ajan malzemelerden tahmin
     # edip bir kez kaydeder; kalori/protein kurallari buna dayanir.
-    calories_per_serving: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    protein_g_per_serving: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+    nutrition: Mapped["RecipeNutrition | None"] = relationship(cascade="all, delete-orphan", uselist=False)
 
     ingredients: Mapped[list["RecipeIngredient"]] = relationship(
         back_populates="recipe", cascade="all, delete-orphan", order_by="RecipeIngredient.position"
@@ -208,3 +199,14 @@ class TelegramRecipient(Base, TimestampMixin):
     label: Mapped[str | None] = mapped_column(String, nullable=True)
     active: Mapped[bool] = mapped_column(Boolean, default=True)
 
+
+
+class RecipeNutrition(Base, TimestampMixin):
+    """Additive table: existing recipe tables and values remain untouched."""
+    __tablename__ = "recipe_nutrition"
+
+    recipe_id: Mapped[str] = mapped_column(ForeignKey("recipes.id"), primary_key=True)
+    calories_kcal: Mapped[float | None] = mapped_column(Float, nullable=True)
+    protein_g: Mapped[float | None] = mapped_column(Float, nullable=True)
+    source: Mapped[str] = mapped_column(String(500), nullable=False)
+    estimated: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)

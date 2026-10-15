@@ -20,6 +20,7 @@ class FeedbackService:
         replacement_recipe_id: str | None = None,
         permanent: bool = False,
         context: dict | None = None,
+        commit: bool = True,
     ) -> Feedback:
         feedback = Feedback(
             session_id=session_id,
@@ -30,7 +31,7 @@ class FeedbackService:
             context=context or {},
         )
         self.db.add(feedback)
-        self.db.commit()
+        self.db.commit() if commit else self.db.flush()
         self.db.refresh(feedback)
         return feedback
 

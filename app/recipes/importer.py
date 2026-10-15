@@ -8,6 +8,8 @@ from typing import Protocol
 import yaml
 from pydantic import BaseModel, Field
 
+from app.recipes.nutrition import NutritionInput
+
 
 class IngredientInput(BaseModel):
     name: str
@@ -35,6 +37,7 @@ class RecipeInput(BaseModel):
     source: str | None = None
     notes: str | None = None
     status: str = "approved"
+    nutrition: NutritionInput | None = None
 
 
 class RecipeImporter(Protocol):

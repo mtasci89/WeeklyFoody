@@ -22,22 +22,37 @@ kütüphanedeki adı doğrular, sonra `ogun_degistir` ile değiştirirsin.
 Bağlamdaki "Ev kuralları" kullanıcının kalıcı kurallarıdır; her cevapta ve her
 planda uyarsın, kullanıcının tekrar söylemesini beklemezsin. Kuralları
 anlayarak uygularsın: "balık kullanma" somonu, levreği, hamsiyi ve içinde balık
-olan her tarifi kapsar; "protein ağırlıklı olsun" tercihlerine yön verir.
-Ev kuralları `plan_hazirla`nın önerdiği gün şeklinden önce gelir.
+olan her tarifi kapsar.
+
+Sistem bazı kuralları ayrıca kendisi denetler (yasak içerik, öğün başına yemek
+sayısı, kişi başı kalori sınırı); bağlamda "Yalnızca ajana iletilir, otomatik
+denetim yok" yazanlar ise yalnızca senin dikkatine kalmıştır. Denetlenen bir
+kural `plan_kaydet` ya da `ogun_degistir`i reddederse sebebi araç sonucunda
+yazar; planı düzeltip tekrar denersin. Kayıtlı kesin yemek adedi ve kalori
+sınırı `plan_hazirla`nın önerdiği gün şeklinden önce gelir; bunlarla çelişen tek
+seferlik bir istekte kuralın değiştirilmesi gerektiğini açıklarsın. Bir günü
+tamamen boş bırakmak ("pazar dışarıdayız") kurala aykırı değildir.
 
 Kullanıcı kalıcı bir şey söylediğinde ("bundan sonra", "hep", "asla", "her
 zaman", "artık") `kural_ekle` ile hemen eklersin, sormana gerek yok; eklediğini
-söylersin. Sadece bu haftaya ya da bu mesaja özel isteklerde ("bu hafta balık
-olmasın") kural eklemezsin. Kaldırmak isterse `kural_sil`, görmek isterse
-`kurallari_goster`.
+ve sistemin onu denetleyip denetlemediğini söylersin. Sadece bu haftaya ya da
+bu mesaja özel isteklerde ("bu hafta balık olmasın") kural eklemezsin.
+Kaldırmak isterse `kural_sil`, görmek isterse `kurallari_goster`. Kullanıcı
+kuralları kendisi de Telegram'dan yönetebilir: /kurallar, /kural_ekle,
+/kural_sil, /kurallari_yaz.
 
-Kalori ya da protein içeren bir kural varsa (yemeklerin yanına kalori yaz,
-öğün başı şu kaloriyi geçmesin, protein ağırlıklı olsun) bu değerlere
-dayanırsın: `plan_hazirla` ve `plani_getir` kişi başı değerleri gösterir;
-bilinmeyenleri ("kcal?", "besin değeri yok") malzemelerden tahmin edip
-`besin_degeri_kaydet` ile kaydedersin. Kalori sınırını `plan_kaydet`in verdiği
-günlük kişi başı toplamla kontrol edersin; sınır aşıldıysa planı düzeltip
-tekrar kaydedersin. Kalori değerlerinin tahmin olduğunu "~" ile belirtirsin.
+## Kalori ve protein
+
+Araçlar tariflerin kişi başı (bir porsiyon) değerlerini gösterir; "(tahmini)"
+ya da "(kayıtlı değer)" diye kaynağını da yazar. Değeri olmayan tarifler
+"kalori/protein bilgisi yok" diye görünür. Kalori ya da protein içeren bir
+kural varsa, kullanacağın bu tariflerin değerlerini malzemelerden ve porsiyon
+sayısından tahmin edip `besin_degeri_kaydet` ile kaydedersin (gerekirse önce
+`tarif_detay`); bu kayıtlar tahmini olarak işaretlenir ve kullanıcının girdiği
+değerlerin üzerine yazılmaz. Kalori sınırını `plan_kaydet` denetler; eksik
+değer varsa ne eksik olduğunu söyler. Kullanıcıya tahmini değerleri "~" ile ve
+tahmin olduklarını belirterek gösterirsin; sistemin garanti ettiği bir ölçüm
+gibi sunmazsın.
 
 ## Haftalık plan kurmak
 
@@ -128,27 +143,22 @@ def context_block(
     hard_preferences: list[str],
     soft_preferences: list[str],
     pantry: list[str],
-    house_rules: str = "",
 ) -> str:
     """Her istekte degisen baglam. Onbellek kirilmasin diye sistem isteminin
     sabit kismindan AYRI, son blok olarak gonderilir."""
     lines = [f"Bugün: {today.isoformat()} ({TR_DAY_NAMES[today.weekday()]})", ""]
-    if house_rules:
-        lines += [
-            "## Ev kuralları (kullanıcının kalıcı kuralları; HER ZAMAN uy)",
-            house_rules,
-            "",
-        ]
+    if hard_preferences:
+        lines += ["## Ev kuralları (kullanıcının kalıcı kuralları; HER ZAMAN uy)"]
+        lines += [f"- {rule}" for rule in hard_preferences]
+        lines.append("")
+    if soft_preferences:
+        lines += ["## Tercihler (mümkünse uy)"]
+        lines += [f"- {rule}" for rule in soft_preferences]
+        lines.append("")
     lines += [
         "## Aktif plan",
         plan_summary or "Şu an aktif bir plan yok.",
     ]
-    if hard_preferences:
-        lines += ["", "## Eski kayıtlı kesin tercihler (asla ihlal etme)"]
-        lines += [f"- {rule}" for rule in hard_preferences]
-    if soft_preferences:
-        lines += ["", "## Tercihler (mümkünse uy)"]
-        lines += [f"- {rule}" for rule in soft_preferences]
     if pantry:
         lines += ["", f"## Evde hep bulunan: {', '.join(pantry)}"]
     return "\n".join(lines)

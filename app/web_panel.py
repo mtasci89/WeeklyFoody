@@ -1,17 +1,24 @@
 from __future__ import annotations
 
 import secrets
+import hashlib
+import hmac
+import json
+from urllib.parse import parse_qs, urlencode
 from collections import Counter
 from html import escape
 from typing import Callable
 
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.memory.preferences import PreferenceService, PreferenceConflict
+from app.memory.rules import MealRules
+from app.recipes.nutrition import NutritionInput, nutrition_text, save_nutrition
 from app.config import Settings
-from app.db.models import PantryItem, Preference, Recipe, RecipeStatus
+from app.db.models import PantryItem, Recipe, RecipeStatus
 from app.db.session import SessionLocal
 
 SessionFactory = Callable[[], Session]
@@ -36,6 +43,42 @@ def create_web_app(settings: Settings, session_factory: SessionFactory = Session
         ):
             raise HTTPException(status_code=401, detail="Unauthorized")
         return token
+
+    def csrf(purpose: str, revision: str) -> str:
+        return hmac.new(settings.web_panel_token.encode(), (purpose + ":" + revision).encode(), hashlib.sha256).hexdigest()
+
+    def write_fields(token: str, purpose: str, revision: str) -> str:
+        return (token_input(token) + f"<input type='hidden' name='revision' value='{escape(revision)}'>"
+                + f"<input type='hidden' name='csrf' value='{csrf(purpose, revision)}'>")
+
+    async def read_write_form(request: Request, purpose: str) -> dict[str, str]:
+        if request.headers.get('content-type', '').split(';')[0] != 'application/x-www-form-urlencoded':
+            raise HTTPException(status_code=415, detail="Form bekleniyor.")
+        body = await request.body()
+        if len(body) > 100000:
+            raise HTTPException(status_code=413, detail="Form çok büyük.")
+        try:
+            values = parse_qs(body.decode('utf-8'), keep_blank_values=True, max_num_fields=20)
+        except (ValueError, UnicodeError):
+            raise HTTPException(status_code=400, detail="Geçersiz form.")
+        if any(len(v) != 1 for v in values.values()):
+            raise HTTPException(status_code=400, detail="Tekrarlanan alan.")
+        form = {k: v[0] for k, v in values.items()}
+        token = form.get('token', '')
+        if not token or not secrets.compare_digest(token.encode(), settings.web_panel_token.encode()):
+            raise HTTPException(status_code=401, detail="Unauthorized")
+        supplied = form.get('csrf', '')
+        if not secrets.compare_digest(supplied.encode(), csrf(purpose, form.get('revision', '')).encode()):
+            raise HTTPException(status_code=403, detail="Form doğrulanamadı. Sayfayı yenileyin.")
+        return form
+
+    @app.middleware('http')
+    async def private_responses(request: Request, call_next):
+        response = await call_next(request)
+        response.headers['Cache-Control'] = 'no-store'
+        response.headers['Referrer-Policy'] = 'no-referrer'
+        response.headers['X-Frame-Options'] = 'DENY'
+        return response
 
     @app.get("/", response_class=HTMLResponse)
     def dashboard(request: Request) -> str:
@@ -67,7 +110,7 @@ def create_web_app(settings: Settings, session_factory: SessionFactory = Session
                 link_button("Yan yemekler", "/recipes?role=side", token),
                 link_button("Aday tarifler", "/candidates", token),
                 link_button("Pantry", "/pantry", token),
-                link_button("Tercihler", "/preferences", token),
+                link_button("Yemek Kurallarım", "/preferences", token),
                 "</section>",
             ]
             return page("WeeklyFoody Panel", "\n".join(body), token)
@@ -122,6 +165,18 @@ def create_web_app(settings: Settings, session_factory: SessionFactory = Session
                 <span>{recipe.servings} porsiyon</span>
                 <span>{(recipe.prep_minutes or 0) + (recipe.cook_minutes or 0)} dk</span>
               </div>
+              <h2>Bir porsiyonun besin değerleri</h2>
+              <p>{escape(nutrition_text(recipe))}</p>
+              <form method='post' action='/recipes/{escape(recipe.id)}/nutrition'>
+                {write_fields(token, 'nutrition:' + recipe.id, nutrition_revision(recipe))}
+                <label>Kalori (kcal / kişi)<input name='calories_kcal' type='number' min='0' step='any' value='{recipe.nutrition.calories_kcal if recipe.nutrition and recipe.nutrition.calories_kcal is not None else ""}'></label>
+                <label>Protein (g / kişi)<input name='protein_g' type='number' min='0' step='any' value='{recipe.nutrition.protein_g if recipe.nutrition and recipe.nutrition.protein_g is not None else ""}'></label>
+                <label>Kaynak / hesaplama notu<input name='source' maxlength='500' value='{escape(recipe.nutrition.source if recipe.nutrition else "")}' placeholder='Etiket veya kullandığın hesaplama kaynağı'></label>
+                <label><input type='checkbox' name='estimated' value='true' {'checked' if not recipe.nutrition or recipe.nutrition.estimated else ''}> Tahmini değer</label>
+                <p>Tüm tarifin toplamını değil, bir kişinin yediği bir porsiyonun değerini gir.
+                İki sayı alanını boş bırakıp kaydetmek besin değerlerini kaldırır.</p>
+                <button type='submit'>Besin değerlerini kaydet</button>
+              </form>
               <h2>Malzemeler</h2>
               <ul>{ingredients or '<li>Malzeme detayı yok.</li>'}</ul>
               <h2>Hazırlık</h2>
@@ -152,9 +207,73 @@ def create_web_app(settings: Settings, session_factory: SessionFactory = Session
     def preferences(request: Request) -> str:
         token = require_auth(request)
         with session_factory() as db:
-            items = db.scalars(select(Preference).where(Preference.active.is_(True)).order_by(Preference.created_at.desc())).all()
-            rows = "".join(f"<li><strong>{escape(item.type.value)}</strong>: {escape(item.rule)}</li>" for item in items) or "<li>Kayıtlı tercih yok.</li>"
-            return page("Tercihler", f"<h1>Tercihler</h1><ul class='list'>{rows}</ul>", token)
+            prefs = PreferenceService(db)
+            revision = prefs.revision()
+            try:
+                status = MealRules.from_db(db).summary()
+            except ValueError as error:
+                status = [str(error)]
+            feedback = "<p role='status'>Kurallar kaydedildi. Sonraki planlarda uygulanacak.</p>" if request.query_params.get("saved") else ""
+            body = f"""
+            <section class='detail'>
+              <h1>Yemek Kurallarım</h1>
+              <p>Her satıra bir kural yaz. Buraya kaydettiğin kurallar konuşma değişse
+              veya bot yeniden başlasa da hatırlanır. Bir kuralı değiştirmek için satırını düzenle,
+              kaldırmak için sil. Mevcut menü kendiliğinden değişmez.</p>
+              {feedback}
+              <form method='post' action='/preferences'>
+                {write_fields(token, 'preferences', revision)}
+                <label for='rules'>Kalıcı kurallar</label>
+                <textarea id='rules' name='rules' rows='12' maxlength='20000'
+                  placeholder='Balık kullanma&#10;Her öğünde 3 farklı yemek olsun&#10;Kalorilerini yaz yanına&#10;Kişi başı öğün en fazla 1000 kcal&#10;Protein ağırlıklı olsun'>{escape(prefs.document())}</textarea>
+                <p>Örnekler kendiliğinden kaydedilmez. Yemek sayısı her öğün içindir (1–6).
+                Kesin olmayan isteklere “Tercih:” ile başla. Başlık için # kullanabilirsin.</p>
+                <button type='submit'>Kuralları kaydet</button>
+              </form>
+            </section>
+            <section class='detail rule-status'>
+              <h2>Kurallar nasıl uygulanıyor?</h2>
+              <ul>{''.join('<li>' + escape(line) + '</li>' for line in status) or '<li>Henüz kural yok.</li>'}</ul>
+              <p>Kalori sınırı, yemeklerin birer porsiyonunun kişi başı toplamına uygulanır.
+              Değerler eksikse sınır doğrulanamaz ve plan kaydedilmez. Tarif sayfasından
+              kalori/protein değerlerini ve kaynağını girebilirsin. Tahmini değerler ayrıca belirtilir.</p>
+              <p>Serbest metinle yazılan diğer istekler ajana iletilir; otomatik kontrolü
+              olmayanlar yukarıda açıkça gösterilir.</p>
+            </section>
+            """
+            return page("Yemek Kurallarım", body, token)
+
+    @app.post("/preferences")
+    async def save_preferences(request: Request):
+        form = await read_write_form(request, "preferences")
+        with session_factory() as db:
+            try:
+                PreferenceService(db).replace_document(form.get("rules", ""), form.get("revision", ""))
+            except PreferenceConflict as error:
+                return form_error(str(error), form["token"], 409, form.get("rules", ""))
+            except ValueError as error:
+                return form_error(str(error), form["token"], 422, form.get("rules", ""))
+        return RedirectResponse('/preferences?' + urlencode({'token': form['token'], 'saved': '1'}), status_code=303)
+
+    @app.post("/recipes/{recipe_id}/nutrition")
+    async def update_nutrition(recipe_id: str, request: Request):
+        form = await read_write_form(request, "nutrition:" + recipe_id)
+        with session_factory() as db:
+            recipe = db.get(Recipe, recipe_id)
+            if not recipe:
+                raise HTTPException(status_code=404, detail="Tarif bulunamadı.")
+            if form.get("revision") != nutrition_revision(recipe):
+                return form_error("Besin değerleri değişti. Sayfayı yenileyip yeniden deneyin.", form["token"], 409)
+            try:
+                kcal = form.get("calories_kcal", "").strip().replace(",", ".")
+                protein = form.get("protein_g", "").strip().replace(",", ".")
+                values = NutritionInput(calories_kcal=kcal or None, protein_g=protein or None,
+                    source=form.get("source", ""), estimated=form.get("estimated") == "true") if kcal or protein else None
+                save_nutrition(db, recipe, values)
+                db.commit()
+            except ValueError:
+                return form_error("Değerler sıfır veya pozitif sayı olmalı; en az bir değer ve kaynak girin.", form["token"], 422)
+        return RedirectResponse('/recipes/' + recipe_id + '?' + urlencode({'token': form['token']}), status_code=303)
 
     @app.get("/api/recipes")
     def recipes_api(request: Request, status: str = "approved") -> JSONResponse:
@@ -206,7 +325,7 @@ def page(title: str, body: str, token: str) -> str:
         <a href='{href('/recipes', token)}'>Tarifler</a>
         <a href='{href('/candidates', token)}'>Adaylar</a>
         <a href='{href('/pantry', token)}'>Pantry</a>
-        <a href='{href('/preferences', token)}'>Tercihler</a>
+        <a href='{href('/preferences', token)}'>Yemek Kurallarım</a>
       </nav>
       <main>{body}</main>
     </body>
@@ -235,7 +354,7 @@ def link_button(label: str, path: str, token: str) -> str:
 
 def href(path: str, token: str) -> str:
     separator = "&" if "?" in path else "?"
-    return f"{path}{separator}token={escape(token)}" if token else path
+    return escape(path + separator + urlencode({"token": token})) if token else escape(path)
 
 
 def token_input(token: str) -> str:
@@ -274,4 +393,29 @@ input{padding:10px 12px;border:1px solid #ccc;border-radius:8px;min-width:240px}
 .meta span{background:#edf3f1;border-radius:999px;padding:6px 10px;font-size:13px}
 .list{background:#fff;border:1px solid #ddd;border-radius:8px;padding:20px 20px 20px 40px}
 .empty{color:#666}
+"""
+
+
+def nutrition_revision(recipe) -> str:
+    n = recipe.nutrition
+    data = [n.calories_kcal, n.protein_g, n.source, n.estimated] if n else None
+    return hashlib.sha256(json.dumps(data, ensure_ascii=False).encode()).hexdigest()
+
+
+def form_error(message: str, token: str, status: int, draft: str = "") -> HTMLResponse:
+    body = "<h1>Kaydedilmedi</h1><p role='alert'>" + escape(message) + "</p>"
+    if draft:
+        body += "<p>Yazdıkların aşağıda korunuyor; kopyalayıp güncel kurallarla birleştirebilirsin.</p><textarea rows='12' readonly>" + escape(draft) + "</textarea>"
+    body += link_button("Kurallara dön", "/preferences", token)
+    return HTMLResponse(page("Kaydedilmedi", body, token), status_code=status)
+
+
+CSS += """
+textarea{box-sizing:border-box;width:100%;padding:14px;border:1px solid #bbb;border-radius:8px;font:inherit;line-height:1.6;resize:vertical}
+label{display:block;margin:12px 0;font-weight:600}
+label input{display:block;box-sizing:border-box;max-width:100%;margin-top:6px}
+label input[type=checkbox]{display:inline;min-width:0}
+.rule-status{margin-top:20px}
+.rule-status li{margin:9px 0}
+@media(max-width:600px){nav{gap:12px;padding:12px;flex-wrap:wrap}main{padding:16px}input{min-width:0;width:100%}label input[type=checkbox]{width:auto}}
 """

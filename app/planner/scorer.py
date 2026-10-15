@@ -29,6 +29,8 @@ class CandidateScorer:
         rejected = FeedbackService(self.db).rejected_counts()
         accepted = FeedbackService(self.db).accepted_counts()
         last_seen = self._last_seen()
+        from app.memory.rules import MealRules
+        protein_priority = MealRules.from_db(self.db).protein_priority
         scored: list[tuple[float, Recipe]] = []
         for recipe in candidates:
             score = 100.0
@@ -48,6 +50,11 @@ class CandidateScorer:
                 score += 10
             if recipe.protein_type and used_proteins[recipe.protein_type] > 0:
                 score -= used_proteins[recipe.protein_type] * 18
+            if protein_priority:
+                if recipe.nutrition and recipe.nutrition.protein_g is not None:
+                    score += min(recipe.nutrition.protein_g, 100) * 2
+                elif recipe.protein_type in {"chicken", "beef", "fish", "legumes", "dairy", "egg", "lamb"}:
+                    score += 15  # Qualitative preference only; not a gram estimate.
             scored.append((score, recipe))
         scored.sort(key=lambda item: (-item[0], item[1].name))
         return scored

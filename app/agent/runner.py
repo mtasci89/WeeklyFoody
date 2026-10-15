@@ -119,9 +119,7 @@ class MealPlannerAgent:
     def _context(self, toolset: MealAgentToolset) -> str:
         hard, soft, pantry = toolset.ambient_context()
         today = datetime.now(ZoneInfo(self.settings.timezone)).date()
-        return context_block(
-            today, toolset.plan_summary(), hard, soft, pantry, house_rules=toolset.rules.for_prompt()
-        )
+        return context_block(today, toolset.plan_summary(), hard, soft, pantry)
 
     async def aclose(self) -> None:
         """Istemcinin ag oturumunu kapatir (kisa omurlu kullanim icin: CLI)."""

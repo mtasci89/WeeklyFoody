@@ -23,14 +23,24 @@ class RevisionService:
         self.llm = build_llm_provider(settings)
 
     async def revise(self, session: WeeklyPlanningSession, message: str) -> WeeklyPlanningSession:
+        # One transaction: a rejected rule must not leave meal/feedback writes.
+        with self.db.begin_nested():
+            result = await self._revise(session, message)
+        self.db.commit()
+        return result
+
+    async def _revise(self, session: WeeklyPlanningSession, message: str) -> WeeklyPlanningSession:
         if not session.meal_plan:
             raise ValueError("No active meal plan")
         if session.state in (SessionState.APPROVED, SessionState.PUBLISHED):
             raise ValueError("Approved plans cannot be revised")
         session.state = SessionState.REVISION_IN_PROGRESS
-        self.db.commit()
-        recipes = RecipeService(self.db).list_recipes()
+        from app.memory.rules import MealRules, validate_session
+        rules = MealRules.from_db(self.db)
+        recipes = [r for r in RecipeService(self.db).list_recipes() if not rules.excludes(r)]
         context = {
+            "hard_preferences": PreferenceService(self.db).hard_rules(),
+            "soft_preferences": PreferenceService(self.db).soft_rules(),
             "recipes": [{"id": recipe.id, "name": recipe.name} for recipe in recipes],
             "current_plan": [
                 {"date": item.date.isoformat(), "day_index": item.date.weekday(), "meal_slot": item.meal_slot, "recipe": item.recipe.name}
@@ -41,7 +51,7 @@ class RevisionService:
         if revision.needs_clarification:
             session.state = SessionState.AWAITING_ADMIN_FEEDBACK
             session.context = {**(session.context or {}), "clarification": revision.clarification_question}
-            self.db.commit()
+            self.db.flush()
             return session
         recipe_service = RecipeService(self.db)
         for op in revision.operations:
@@ -53,6 +63,8 @@ class RevisionService:
                     item.servings = op.servings
             if op.recipe_name:
                 replacement = recipe_service.find_recipe(op.recipe_name)
+                if replacement and replacement not in recipes:
+                    raise ValueError("Tarif onaylı değil veya kalıcı yasakla çelişiyor.")
                 if replacement:
                     for item in self._items_to_replace(target_items, replacement):
                         original = item.recipe_id
@@ -68,6 +80,7 @@ class RevisionService:
                                 original_recipe_id=original,
                                 replacement_recipe_id=replacement.id,
                                 context={"date": item.date.isoformat(), "meal_slot": item.meal_slot},
+                                commit=False,
                             )
             elif op.exclude_recipe_name or op.instruction:
                 # Minimal deterministic substitution: change only targeted items, choosing the first different approved recipe.
@@ -80,12 +93,13 @@ class RevisionService:
                         item.recipe = replacement
                         item.admin_changed = True
                         item.change_reason = message
-                        FeedbackService(self.db).record(message, session_id=session.id, original_recipe_id=original, replacement_recipe_id=replacement.id)
+                        FeedbackService(self.db).record(message, session_id=session.id, original_recipe_id=original, replacement_recipe_id=replacement.id, commit=False)
         if revision.permanent_preference:
-            PreferenceService(self.db).add(revision.permanent_preference.rule, PreferenceType(revision.permanent_preference.type), source="telegram")
+            PreferenceService(self.db).add(revision.permanent_preference.rule, PreferenceType(revision.permanent_preference.type), source="telegram", commit=False)
+        validate_session(self.db, session, self.settings)
         session.state = SessionState.AWAITING_APPROVAL
         session.draft_version += 1
-        self.db.commit()
+        self.db.flush()
         logger.info("draft_revised week_start=%s session_id=%s", session.week_start, session.id)
         return session
 

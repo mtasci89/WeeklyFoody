@@ -1,104 +1,70 @@
 from __future__ import annotations
 
-import re
-
-from sqlalchemy import select
-
-from app.db.models import HouseRulesDocument
-
-_COMMENT = re.compile(r"<!--.*?-->", re.DOTALL)
-_BULLET = re.compile(r"^\s*[-*]\s+(.*\S)\s*$")
-
-
-def _clean(rule: str) -> str:
-    return " ".join(rule.split()).strip().lstrip("-* ").strip()
+from app.db.models import PreferenceType
+from app.memory.preferences import PreferenceService
+from app.memory.rules import MealRules
 
 
 class HouseRules:
-    """Kullanicinin kalici ev kurallari: CLAUDE.md gibi tek bir markdown belge.
+    """Ev kurallari: Telegram komutlari ve ajan araclari icin ortak giris.
 
-    Veritabaninda durur (dosyada degil): bot sunucuda calisirken telefondan
-    yalnizca Telegram uzerinden duzenlenebilir ve yeniden kurulumda
-    kaybolmamasi gerekir. Her istekte taze okunur; ekleme/silme bir sonraki
-    mesajda gecerlidir.
+    Tek kayit kaynagi `preferences` tablosudur (panel ve /preferences ile
+    ayni kayitlar); yorumlama ve denetim `app.memory.rules.MealRules`te.
+    Satirlar `PreferenceService.document()` bicimindedir: yumusak tercihler
+    "Tercih: " onekiyle yazilir.
     """
 
     def __init__(self, session_factory):
         self.session_factory = session_factory
 
-    def _row(self, db) -> HouseRulesDocument | None:
-        return db.scalar(select(HouseRulesDocument).order_by(HouseRulesDocument.id).limit(1))
-
-    def read_raw(self) -> str:
-        with self.session_factory() as db:
-            row = self._row(db)
-            return row.text if row else ""
-
-    def write_raw(self, text: str) -> None:
-        with self.session_factory() as db:
-            row = self._row(db)
-            if row is None:
-                db.add(HouseRulesDocument(text=text))
-            else:
-                row.text = text
-            db.commit()
-
-    def _visible(self) -> str:
-        return _COMMENT.sub("", self.read_raw())
-
     def active(self) -> list[str]:
-        """Madde isaretli satirlar: listeleme ve silme icin."""
-        return [m.group(1) for line in self._visible().splitlines() if (m := _BULLET.match(line))]
+        with self.session_factory() as db:
+            document = PreferenceService(db).document()
+        return [line for line in document.splitlines() if line.strip()]
 
-    def for_prompt(self) -> str:
-        """Ajana gidecek metin: yorumlar ve ana baslik ayiklanmis, kural yoksa bos."""
-        lines = [line for line in self._visible().splitlines() if not line.startswith("# ")]
-        return "\n".join(lines).strip()
+    def summary(self) -> list[str]:
+        """Sistemin hangi kurali otomatik denetledigi, hangisini yalnizca ajana ilettigi."""
+        with self.session_factory() as db:
+            return MealRules.from_db(db).summary()
 
-    def add(self, rule: str) -> bool:
-        """Kurali madde olarak sona ekler. Ayni kural zaten varsa eklemez."""
-        cleaned = _clean(rule)
-        if not cleaned:
-            return False
-        if any(existing.casefold() == cleaned.casefold() for existing in self.active()):
-            return False
-        raw = self.read_raw()
-        if raw and not raw.endswith("\n"):
-            raw += "\n"
-        self.write_raw(raw + f"- {cleaned}\n")
-        return True
-
-    def replace(self, text: str) -> list[str]:
-        """Tum listeyi yeniden yazar. Her bos olmayan satir bir kural olur;
-        madde isareti olmayan satirlara eklenir. Kaydedilen kurallari dondurur."""
-        rules: list[str] = []
-        for line in text.splitlines():
-            cleaned = _clean(line)
-            if cleaned and cleaned.casefold() not in {r.casefold() for r in rules}:
-                rules.append(cleaned)
-        self.write_raw("".join(f"- {rule}\n" for rule in rules))
-        return rules
+    def add(self, rule: str) -> tuple[bool, str]:
+        """(eklendi_mi, aciklama). "Tercih: ..." yumusak tercih olarak eklenir."""
+        text = " ".join(rule.split()).strip().lstrip("-* ").strip()
+        kind = PreferenceType.HARD
+        if text.casefold().startswith("tercih:"):
+            kind, text = PreferenceType.SOFT, text.split(":", 1)[1].strip()
+        if not text:
+            return False, "Kural metni boş."
+        with self.session_factory() as db:
+            prefs = PreferenceService(db)
+            if any(p.rule.casefold() == text.casefold() and p.type == kind for p in prefs.active()):
+                return False, "Bu kural zaten var."
+            try:
+                prefs.add(text, kind, source="telegram")
+            except ValueError as error:
+                return False, str(error)
+        return True, text
 
     def matching(self, phrase: str) -> list[str]:
         needle = phrase.casefold().strip()
         return [rule for rule in self.active() if needle and needle in rule.casefold()]
 
-    def remove(self, rule: str) -> bool:
-        """Tam olarak bu metne sahip madde satirini siler (yorumlara dokunmaz)."""
-        target = rule.casefold().strip()
-        raw = self.read_raw()
-        kept, removed = [], False
-        protected = [(m.start(), m.end()) for m in _COMMENT.finditer(raw)]
-        offset = 0
-        for line in raw.splitlines(keepends=True):
-            start = offset
-            offset += len(line)
-            inside_comment = any(a <= start < b for a, b in protected)
-            match = _BULLET.match(line.rstrip("\n"))
-            if not removed and not inside_comment and match and match.group(1).casefold() == target:
-                removed = True
-                continue
-            kept.append(line)
-        if removed:
-            self.write_raw("".join(kept))
-        return removed
+    def remove(self, line: str) -> bool:
+        """`active()` satirlarindan birini birebir siler (gecmis korunur, kayit pasiflesir)."""
+        kind, text = PreferenceType.HARD, line.strip()
+        if text.startswith("Tercih: "):
+            kind, text = PreferenceType.SOFT, text[len("Tercih: "):]
+        with self.session_factory() as db:
+            for pref in PreferenceService(db).active(kind):
+                if pref.rule == text:
+                    pref.active = False
+                    db.commit()
+                    return True
+        return False
+
+    def replace(self, text: str) -> list[str]:
+        """Tum listeyi yeniden yazar; gecersiz/celisen kuralda ValueError."""
+        with self.session_factory() as db:
+            prefs = PreferenceService(db)
+            prefs.replace_document(text, prefs.revision())
+        return self.active()

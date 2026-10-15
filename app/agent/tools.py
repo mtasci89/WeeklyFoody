@@ -22,6 +22,8 @@ from app.db.models import (
 from app.formatting import course_label
 from app.memory.feedback import FeedbackService
 from app.memory.preferences import PreferenceService
+from app.memory.rules import MealRules, RuleViolation
+from app.recipes.nutrition import NutritionInput, nutrition_text, save_nutrition
 from app.db.models import MealPlan
 from app.planner.candidate_selector import CandidateSelector
 from app.planner.dates import TR_DAY_NAMES, next_week_start, this_week_start, week_dates, week_end
@@ -40,30 +42,6 @@ logger = logging.getLogger(__name__)
 SessionFactory = Callable[[], Session]
 
 
-def nutrition_tag(recipe: Recipe) -> str:
-    """"~450 kcal, 32 g protein" ya da bilinmiyorsa "besin değeri yok"."""
-    parts = []
-    if recipe.calories_per_serving:
-        parts.append(f"~{recipe.calories_per_serving} kcal")
-    if recipe.protein_g_per_serving is not None:
-        parts.append(f"{recipe.protein_g_per_serving} g protein")
-    return ", ".join(parts) if parts else "besin değeri yok"
-
-
-def day_totals(recipes: list[Recipe]) -> str:
-    """Bir gunun kisi basi toplami. Eksik deger varsa bunu acikca soyler;
-    eksikken toplam vermek yaniltici olur."""
-    if not recipes:
-        return ""
-    missing = sum(1 for r in recipes if not r.calories_per_serving)
-    if missing:
-        return f"kişi başı toplam: bilinmiyor ({missing} yemeğin kalorisi yok)"
-    kcal = sum(r.calories_per_serving for r in recipes)
-    protein = [r.protein_g_per_serving for r in recipes]
-    protein_text = f", {sum(protein)} g protein" if all(p is not None for p in protein) else ""
-    return f"kişi başı toplam: ~{kcal} kcal{protein_text}"
-
-
 def render_plan(session: WeeklyPlanningSession | None) -> str:
     """Modele verilecek sade plan metni (kullaniciya giden bicim degil)."""
     if session is None:
@@ -77,14 +55,20 @@ def render_plan(session: WeeklyPlanningSession | None) -> str:
     for item in sorted(session.meal_plan.items, key=lambda i: (i.date, i.meal_slot)):
         by_day.setdefault(item.date, []).append(item)
     for day, items in by_day.items():
-        lines.append(f"\n{day.isoformat()} {TR_DAY_NAMES[day.weekday()]} ({day_totals([i.recipe for i in items])}):")
+        lines.append(f"\n{day.isoformat()} {TR_DAY_NAMES[day.weekday()]}:")
         for item in items:
             servings = f", {item.servings} kişi" if item.servings else ""
             changed = " [admin değiştirdi]" if item.admin_changed else ""
             lines.append(
                 f"  slot={item.meal_slot} ({course_label(item.meal_slot)}): "
-                f"{item.recipe.name} [kategori={item.recipe.category}{servings}; {nutrition_tag(item.recipe)}]{changed}"
+                f"{item.recipe.name} [kategori={item.recipe.category}{servings}; {nutrition_text(item.recipe)}]{changed}"
             )
+    # Ajan kalori kuralini kontrol edebilsin diye toplamlar her zaman verilir;
+    # kullaniciya giden menude ise yalnizca kural isterse gosterilir.
+    from app.formatting import nutrition_plan_lines
+
+    lines.append("")
+    lines.extend(nutrition_plan_lines(session, MealRules(show_calories=True), details=False))
     return "\n".join(lines)
 
 
@@ -138,7 +122,7 @@ def _describe(recipe: Recipe) -> str:
     if recipe.vegetarian:
         parts.append("vejetaryen")
     parts.append(f"{len(recipe.ingredients)} malzeme")
-    parts.append(nutrition_tag(recipe))
+    parts.append(nutrition_text(recipe))
     return f"{recipe.name} ({', '.join(parts)})"
 
 
@@ -173,7 +157,8 @@ class MealAgentToolset:
         with self.session_factory() as db:
             prefs = PreferenceService(db)
             pantry = [p.ingredient_name for p in db.scalars(select(PantryItem).order_by(PantryItem.ingredient_name))]
-            return prefs.hard_rules(), prefs.soft_rules(), pantry
+            status = MealRules.from_db(db).summary()
+            return prefs.hard_rules() + status, prefs.soft_rules(), pantry
 
     # --- araclar ---------------------------------------------------------
 
@@ -304,6 +289,13 @@ class MealAgentToolset:
                         )
                 if chosen.recipe_id == replacement.id:
                     return f"{tarih} {chosen.meal_slot} zaten {replacement.name}. Değişiklik gerekmedi."
+                if replacement.status != RecipeStatus.APPROVED:
+                    return "Aday veya pasif tarif menüye konamaz."
+                proposed = [(i.date, i.meal_slot, replacement if i is chosen else i.recipe) for i in session.meal_plan.items]
+                try:
+                    MealRules.from_db(db).validate(proposed)
+                except RuleViolation as error:
+                    return f"Değişiklik kaydedilmedi: {error}"
                 original_id = chosen.recipe_id
                 original_name = chosen.recipe.name
                 chosen.original_recipe_id = chosen.original_recipe_id or original_id
@@ -385,13 +377,13 @@ class MealAgentToolset:
 
         @beta_async_tool
         async def kurallari_goster() -> str:
-            """Ev kurallarını (kalıcı kurallar dosyası) listeler."""
+            """Ev kurallarını ve sistemin hangisini otomatik denetlediğini listeler."""
             toolset.calls.append("kurallari_goster()")
             rules = toolset.rules.active()
             if not rules:
                 return "Henüz ev kuralı yok."
             listed = "\n".join(f"{i}. {rule}" for i, rule in enumerate(rules, 1))
-            return f"{len(rules)} ev kuralı:\n{listed}"
+            return f"{len(rules)} ev kuralı:\n{listed}\n\n" + "\n".join(toolset.rules.summary())
 
         @beta_async_tool
         async def kural_ekle(kural: str) -> str:
@@ -402,16 +394,19 @@ class MealAgentToolset:
 
             Args:
                 kural: Kuralın tek cümlelik, net Türkçe hali. Örn: "Balık
-                    kullanma." ya da "Bir kişi için bir öğün 1000 kaloriyi
-                    geçmesin."
+                    kullanma", "Her öğünde 3 farklı yemek olsun", "Kişi başı
+                    öğün en fazla 1000 kcal", "Protein ağırlıklı olsun".
+                    Kesin olmayan bir eğilimse başına "Tercih: " yaz.
             """
             toolset.calls.append(f"kural_ekle({kural!r})")
-            if not kural.strip():
-                return "Kural metni boş, eklemedim."
-            if not toolset.rules.add(kural):
-                return "Bu kural zaten var, tekrar eklemedim."
+            added, detail = toolset.rules.add(kural)
+            if not added:
+                return f"Kural eklenmedi: {detail}"
             logger.info("agent_rule_added")
-            return f"Kural eklendi, bundan sonra her planlamada uygulanacak: {kural.strip()}"
+            return (
+                f"Kural eklendi, bundan sonra her planlamada uygulanacak: {detail}\n"
+                + "\n".join(toolset.rules.summary())
+            )
 
         @beta_async_tool
         async def kural_sil(ifade: str) -> str:
@@ -457,23 +452,33 @@ class MealAgentToolset:
                     if recipe is None:
                         problems.append(f"'{parts[0]}' kütüphanede yok")
                         continue
+                    if recipe.nutrition is not None and not recipe.nutrition.estimated:
+                        problems.append(f"'{recipe.name}' için kullanıcının girdiği değer var, üzerine yazmadım")
+                        continue
                     try:
-                        kcal = int(float(parts[1].replace(",", ".")))
-                        protein = int(float(parts[2].replace(",", "."))) if len(parts) == 3 and parts[2] else None
+                        kcal = round(float(parts[1].replace(",", ".")))
+                        protein = round(float(parts[2].replace(",", "."))) if len(parts) == 3 and parts[2] else None
                     except ValueError:
                         problems.append(f"'{raw}' içinde sayı okunamadı")
                         continue
                     if not 20 <= kcal <= 3000 or (protein is not None and not 0 <= protein <= 250):
                         problems.append(f"'{recipe.name}' için değerler makul aralıkta değil ({kcal} kcal, {protein} g)")
                         continue
-                    recipe.calories_per_serving = kcal
-                    if protein is not None:
-                        recipe.protein_g_per_serving = protein
+                    save_nutrition(
+                        db,
+                        recipe,
+                        NutritionInput(
+                            calories_kcal=kcal,
+                            protein_g=protein,
+                            source="ajan tahmini (malzemelerden)",
+                            estimated=True,
+                        ),
+                    )
                     saved.append(f"{recipe.name}: ~{kcal} kcal" + (f", {protein} g protein" if protein is not None else ""))
                 db.commit()
             report = []
             if saved:
-                report.append(f"{len(saved)} tarifin besin değeri kaydedildi:")
+                report.append(f"{len(saved)} tarifin besin değeri tahmini olarak kaydedildi:")
                 report += [f"  - {line}" for line in saved]
             if problems:
                 report.append("Kaydedilemeyenler:")
@@ -521,7 +526,8 @@ class MealAgentToolset:
                 rejected = FeedbackService(db).rejected_counts()
                 dates = week_dates(week_start)
                 base = toolset.settings.meal_slots[0] if toolset.settings.meal_slots else "dinner"
-                suggested = Counter(course_role(slot) for slot in toolset.settings.planning_slots)
+                rules = MealRules.from_db(db)
+                suggested = Counter(course_role(slot) for slot in rules.settings_for_plan(toolset.settings).planning_slots)
                 lines = [
                     f"Hafta: {week_start} - {week_end(week_start)}",
                     "Günler: " + ", ".join(f"{d.isoformat()} {TR_DAY_NAMES[d.weekday()]}" for d in dates),
@@ -533,36 +539,34 @@ class MealAgentToolset:
                     "",
                     "Aday havuzu (rol başına, puan sırasına göre):",
                 ]
-                for role in ("main", "meze", "salad", "side", "soup"):
-                    candidates = selector.select(base, hard, week_start, course_role=role)
-                    scored = scorer.score_with_values(candidates, dates[0], Counter())
-                    lines.append(
-                        f"\n{role} (uygun kategoriler: "
-                        f"{', '.join(allowed_categories_for_role(role))}) - {len(scored)} aday:"
-                    )
-                    if not scored:
-                        lines.append("  (aday yok)")
-                        continue
-                    for score, recipe in scored[:10]:
-                        seen = last_seen.get(recipe.id)
-                        seen_text = f"son {seen.isoformat()}" if seen else "yeni"
-                        red = rejected.get(recipe.id, 0)
-                        red_text = f", {red}x çıkarıldı" if red else ""
-                        effort = (recipe.prep_minutes or 0) + (recipe.cook_minutes or 0)
-                        effort_text = f", {effort} dk" if effort else ""
-                        kcal = f"{recipe.calories_per_serving}kcal" if recipe.calories_per_serving else "kcal?"
-                        protein_g = (
-                            f"/{recipe.protein_g_per_serving}gP" if recipe.protein_g_per_serving is not None else ""
-                        )
+                lines.extend(["Kalıcı kurallar:", *rules.summary()])
+                for base in toolset.settings.meal_slots:
+                    lines.append(f"\nÖğün: {base}")
+                    for role in ("main", "meze", "salad", "side", "soup"):
+                        candidates = selector.select(base, hard, week_start, course_role=role)
+                        scored = scorer.score_with_values(candidates, dates[0], Counter())
                         lines.append(
-                            f"  {recipe.name} | {score:.0f}p | {seen_text}{red_text}"
-                            f"{', ' + recipe.protein_type if recipe.protein_type else ''}{effort_text}"
-                            f" | {kcal}{protein_g}"
+                            f"\n{role} (uygun kategoriler: "
+                            f"{', '.join(allowed_categories_for_role(role))}) - {len(scored)} aday:"
                         )
+                        if not scored:
+                            lines.append("  (aday yok)")
+                            continue
+                        for score, recipe in scored[:10]:
+                            seen = last_seen.get(recipe.id)
+                            seen_text = f"son {seen.isoformat()}" if seen else "yeni"
+                            red = rejected.get(recipe.id, 0)
+                            red_text = f", {red}x çıkarıldı" if red else ""
+                            effort = (recipe.prep_minutes or 0) + (recipe.cook_minutes or 0)
+                            effort_text = f", {effort} dk" if effort else ""
+                            lines.append(
+                                f"  {recipe.name} | {score:.0f}p | {seen_text}{red_text}"
+                                f"{', ' + recipe.protein_type if recipe.protein_type else ''}{effort_text} | {nutrition_text(recipe)}"
+                            )
                 lines.append(
-                    "\nkcal? = kişi başı kalorisi bilinmiyor. Ev kurallarında kalori ya da "
-                    "protein şartı varsa, kullanacağın tariflerin değerlerini önce "
-                    "besin_degeri_kaydet ile tahmin edip kaydet."
+                    "\n'kalori/protein bilgisi yok' olan tarifleri, ev kurallarında kalori "
+                    "ya da protein şartı varsa, kullanmadan önce besin_degeri_kaydet ile "
+                    "tahmin edip kaydet; yoksa plan_kaydet kalori sınırını denetleyemez."
                 )
                 return "\n".join(lines)
 
@@ -651,6 +655,15 @@ class MealAgentToolset:
                 if not parsed:
                     return "Hiç geçerli öğün verilmedi, plan kaydedilmedi."
 
+                try:
+                    # Yalnizca yazilan ogunler denetlenir: "pazar disaridayiz" gibi
+                    # bos birakilan bir gun, yemek sayisi kuralini ihlal etmez.
+                    MealRules.from_db(db).validate(
+                        [(date.fromisoformat(iso), slot, recipe) for (iso, slot), recipe in parsed.items()]
+                    )
+                except RuleViolation as error:
+                    return f"Plan kaydedilmedi: {error}"
+
                 if session is None:
                     session = WeeklyPlanningSession(
                         week_start=week_start,
@@ -688,15 +701,13 @@ class MealAgentToolset:
                     f"{week_start} - {week_end(week_start)} haftası kaydedildi ({len(parsed)} öğün).",
                     "Gün başına: " + ", ".join(f"{iso}={per_day[iso]}" for iso in sorted(per_day)),
                 ]
-                for iso in sorted(per_day):
-                    day_recipes = [recipe for (d, _), recipe in parsed.items() if d == iso]
-                    summary.append(f"  {iso}: {day_totals(day_recipes)}")
                 if empty:
                     summary.append("Öğün yazılmayan günler: " + ", ".join(empty))
                 summary.append(
                     "Kullanıcı onaylamak isterse /approve yazmalı; onaylanınca alıcılara "
                     "menü ve alışveriş listesi gider."
                 )
+                summary.append(render_plan(session))
                 return "\n".join(summary)
 
         @beta_async_tool

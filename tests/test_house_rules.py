@@ -1,12 +1,11 @@
 from __future__ import annotations
 
 import pytest
-from sqlalchemy import create_engine, inspect, text
+from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from app.agent.rules import HouseRules
 from app.db.models import Base
-from app.db.session import ensure_columns
 
 
 @pytest.fixture()
@@ -32,53 +31,104 @@ def house(session_factory):
 # --- HouseRules ---------------------------------------------------------
 
 
-def test_empty_document_has_no_rules(house):
+def test_empty_rules(house):
     assert house.active() == []
-    assert house.for_prompt() == ""
 
 
-def test_add_appends_bullets_and_skips_duplicates(house):
-    assert house.add("Balık kullanma")
-    assert house.add("  - Protein   ağırlıklı olsun ")
-    assert not house.add("balık KULLANMA")
-    assert not house.add("   ")
+def test_add_stores_hard_and_soft_rules_and_skips_duplicates(db, house):
+    from app.memory.preferences import PreferenceService
 
-    assert house.active() == ["Balık kullanma", "Protein ağırlıklı olsun"]
-    assert house.read_raw() == "- Balık kullanma\n- Protein ağırlıklı olsun\n"
+    assert house.add("Balık kullanma") == (True, "Balık kullanma")
+    assert house.add("  - Tercih:  Protein   ağırlıklı olsun ")[0]
+    assert house.add("balık KULLANMA") == (False, "Bu kural zaten var.")
+    assert house.add("   ")[0] is False
+
+    assert PreferenceService(db).hard_rules() == ["Balık kullanma"]
+    assert PreferenceService(db).soft_rules() == ["Protein ağırlıklı olsun"]
+    assert set(house.active()) == {"Balık kullanma", "Tercih: Protein ağırlıklı olsun"}
 
 
-def test_rules_persist_in_the_database(db, house, session_factory):
+def test_add_rejects_contradicting_rules(house):
+    assert house.add("Her öğünde 3 farklı yemek olsun")[0]
+
+    added, detail = house.add("Her öğünde 2 farklı yemek olsun")
+
+    assert not added
+    assert "çelişiyor" in detail
+
+
+def test_summary_says_what_the_system_enforces(house):
     house.add("Balık kullanma")
+    house.add("Mutfakta az bulaşık çıksın")
 
-    assert HouseRules(session_factory).active() == ["Balık kullanma"]
+    summary = "\n".join(house.summary())
 
-
-def test_comments_and_title_are_not_sent_to_the_agent(house):
-    house.write_raw("# Ev kuralları\n<!--\n- Örnek kural\n-->\n- Balık kullanma\nAçıklama satırı\n")
-
-    assert house.active() == ["Balık kullanma"]
-    assert house.for_prompt() == "- Balık kullanma\nAçıklama satırı"
+    assert "Yasaklanan içerikler" in summary
+    assert "otomatik denetim yok: Mutfakta az bulaşık çıksın" in summary
 
 
-def test_remove_deletes_exact_bullet_but_not_commented_example(house):
-    house.write_raw("<!--\n- Balık kullanma\n-->\n- Balık kullanma\n- Protein ağırlıklı olsun\n")
+def test_remove_deactivates_exact_rule(db, house):
+    from app.db.models import Preference
 
-    assert house.remove("balık kullanma")
+    house.add("Balık kullanma")
+    house.add("Tercih: Protein ağırlıklı olsun")
+
+    assert house.remove("Tercih: Protein ağırlıklı olsun")
     assert not house.remove("olmayan kural")
 
-    assert house.active() == ["Protein ağırlıklı olsun"]
-    assert "<!--\n- Balık kullanma\n-->" in house.read_raw()
+    assert house.active() == ["Balık kullanma"]
+    # Gecmis korunur: kayit silinmez, pasiflesir
+    assert db.query(Preference).count() == 2
 
 
 def test_replace_rewrites_whole_list(house):
     house.add("Eski kural")
 
-    saved = house.replace("Balık kullanma\n\n- Her akşam 3 farklı yemek olsun\nbalık kullanma\n")
+    saved = house.replace("Balık kullanma\n\n- Her öğünde 3 farklı yemek olsun\n")
 
-    assert saved == ["Balık kullanma", "Her akşam 3 farklı yemek olsun"]
-    assert house.active() == saved
+    assert set(saved) == {"Balık kullanma", "Her öğünde 3 farklı yemek olsun"}
     assert house.replace("") == []
-    assert house.active() == []
+
+
+def test_replace_keeps_old_list_on_invalid_input(house):
+    house.add("Balık kullanma")
+
+    with pytest.raises(ValueError):
+        house.replace("Her öğünde 2 farklı yemek olsun\nHer öğünde 3 farklı yemek olsun")
+
+    assert house.active() == ["Balık kullanma"]
+
+
+def test_delete_preference_ignores_empty_query(db, house):
+    from app.memory.preferences import PreferenceService
+
+    house.add("Balık kullanma")
+
+    assert PreferenceService(db).delete("   ") is False
+    assert house.active() == ["Balık kullanma"]
+
+
+@pytest.mark.asyncio
+async def test_dish_count_rule_allows_an_empty_day_but_not_a_short_one(db, settings, session_factory):
+    from app.agent.tools import MealAgentToolset
+    from app.planner.dates import next_week_start, week_dates
+
+    HouseRules(session_factory).add("Her öğünde 1 farklı yemek olsun")
+    toolset = MealAgentToolset(settings, session_factory)
+    plan_kaydet = next(t for t in toolset.build() if t.name == "plan_kaydet")
+    days = week_dates(next_week_start(timezone=settings.timezone))
+
+    # Hafta sonu disarida: bos gunler kurali ihlal etmez
+    mains = ["Fırında Tavuk", "Kuru Fasulye", "Izgara Köfte"]
+    ok = await plan_kaydet.call({"ogunler": [f"{d.isoformat()}|dinner_main|{name}" for d, name in zip(days, mains)]})
+    assert "kaydedildi" in ok, ok
+
+    # Ayni gunde iki yemek: kural ihlali
+    bad = await plan_kaydet.call({"ogunler": [
+        f"{days[0].isoformat()}|dinner_main|Fırında Tavuk",
+        f"{days[0].isoformat()}|dinner_salad|Çoban Salata",
+    ]})
+    assert "Plan kaydedilmedi" in bad
 
 
 # --- ajan baglami ------------------------------------------------------
@@ -99,27 +149,7 @@ async def test_agent_context_reads_rules_fresh_each_turn(db, settings, session_f
 
     assert "## Ev kuralları" in context
     assert "- Balık kullanma" in context
-    # Kurallar planin onunde gelir
     assert context.index("Ev kuralları") < context.index("## Aktif plan")
-
-
-# --- sema guncellemesi ---------------------------------------------------
-
-
-def test_ensure_columns_adds_nutrition_to_an_old_database(tmp_path):
-    engine = create_engine(f"sqlite:///{tmp_path / 'old.db'}", future=True)
-    with engine.begin() as conn:
-        conn.execute(text("CREATE TABLE recipes (id INTEGER PRIMARY KEY, name VARCHAR)"))
-        conn.execute(text("INSERT INTO recipes (id, name) VALUES (1, 'Pilav')"))
-
-    ensure_columns(engine)
-    ensure_columns(engine)  # ikinci kez calismasi zararsiz
-
-    columns = {c["name"] for c in inspect(engine).get_columns("recipes")}
-    assert {"calories_per_serving", "protein_g_per_serving"} <= columns
-    with engine.connect() as conn:
-        assert conn.execute(text("SELECT name FROM recipes")).scalar() == "Pilav"
-    engine.dispose()
 
 
 # --- Telegram komutlari ------------------------------------------------
@@ -187,8 +217,11 @@ async def test_kurallari_yaz_replaces_the_list_from_one_message(handlers):
 
     reply = (await run(handlers, "rules_replace", "/kurallari_yaz\nBalık kullanma\nProtein ağırlıklı olsun"))[0]
 
-    assert "1. Balık kullanma\n2. Protein ağırlıklı olsun" in reply
+    assert "Balık kullanma" in reply and "Protein ağırlıklı olsun" in reply
     assert "Eski kural" not in reply
+    assert "liste değişmedi" in (
+        await run(handlers, "rules_replace", "/kurallari_yaz\nHer öğünde 2 yemek olsun\nHer öğünde 3 yemek olsun")
+    )[0]
     assert "Henüz ev kuralı yok" in (await run(handlers, "rules_replace", "/kurallari_yaz sil"))[0]
     assert "Tüm listeyi" in (await run(handlers, "rules_replace", "/kurallari_yaz"))[0]
 

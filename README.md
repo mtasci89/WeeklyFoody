@@ -171,7 +171,7 @@ For an always-on setup, deploy the GitHub repo to Railway and use Railway Postgr
 
 ## Web Panel
 
-The app includes a small read-only web panel for browsing the recipe database, candidate recipes, pantry items, and preferences.
+The app includes a token-protected web panel for browsing recipes, candidates and pantry items, editing persistent meal rules, and entering per-serving nutrition values. The panel token now also grants permission to edit rules and nutrition; keep it private.
 
 By default it runs on localhost only:
 
@@ -354,48 +354,111 @@ https://www.instagram.com/reel/...
 
 The link is stored as the recipe source. The app does not scrape Instagram directly; pasted recipe text and ingredients are parsed into the database.
 
-## Ev Kurallari
+## Yemek Kurallarım — kalıcı kurallar
 
-Her seferinde tekrar soylemek zorunda kalmamak icin kalici kurallar: CLAUDE.md
-gibi tek bir belge, ama veritabaninda durur (bot sunucudayken telefondan
-yonetilebilsin ve yeniden kurulumda kaybolmasin diye). Ajan her mesajda guncel
-listeyi okur ve kurallari anlayarak uygular: "Balik kullanma" somonu da, hamsiyi
-de kapsar; anahtar kelime filtresi degildir.
+Her seferinde tekrar söylemek zorunda kalmamak için kalıcı kurallar. Telefondan,
+Telegram üzerinden yönetilir; modele uğramadığı için Gemini kotası dolsa da çalışır:
 
 ```text
-/kurallar                         listeyi gosterir (numarali)
-/kural_ekle Balik kullanma        tek kural ekler
-/kural_sil 2                      numarayla ya da "/kural_sil balik" ile siler
-/kurallari_yaz                    komutun altina her satira bir kural: listeyi bastan yazar
+/kurallar                         listeyi numaralı gösterir + sistemin hangisini denetlediği
+/kural_ekle Balık kullanma        tek kural ekler ("Tercih: ..." ile başlarsa yumuşak tercih)
+/kural_sil 2                      numarayla ya da "/kural_sil balık" ile siler
+/kurallari_yaz                    komutun altına her satıra bir kural: listeyi baştan yazar
 /kurallari_yaz sil                hepsini siler
 ```
 
-Bu komutlar modele ugramaz; Gemini kotasi dolsa da calisir. Sohbetten de olur:
-"bundan sonra balik kullanma" dediginde ajan kurali kendisi ekler; "bu hafta
-balik olmasin" gibi tek seferlik isteklerde eklemez.
+Sohbetten de olur: "bundan sonra balık kullanma" dediğinde ajan kuralı kendisi
+ekler; "bu hafta balık olmasın" gibi tek seferlik isteklerde eklemez. Ajan her
+mesajda güncel listeyi okur.
 
-Ornek kurallar: `Her aksam 3 farkli yemek olsun`, `Her yemegin yanina kisi
-basi kalorisini yaz`, `Bir kisi icin bir ogun 1000 kaloriyi gecmesin`,
-`Protein agirlikli olsun`.
+Kurallar `preferences` tablosunda saklanır; panelin **Yemek Kurallarım**
+sayfası (`/preferences`) ve eski `/preferences`, `/addpreference`,
+`/deletepreference` komutları aynı kayıtları kullanır. Mevcut menü otomatik
+olarak yeniden yazılmaz; yeni bir taslak oluşturun.
 
-Kalori ve protein: tariflerde kisi basi `calories_per_serving` ve
-`protein_g_per_serving` alanlari var. Bilinmeyenleri ajan malzemelerden tahmin
-edip `besin_degeri_kaydet` ile bir kez kaydeder; sonraki planlarda ayni deger
-kullanilir. Plan ciktisi her gun icin kisi basi toplami verir, eksik deger varsa
-toplami uydurmaz, "bilinmiyor" der. Degerler tahmindir (`~` ile gosterilir).
-Eski veritabaninda bu kolonlar yoksa bot acilista kendisi ekler.
+Panelde **Yemek Kurallarım** (`/preferences`) sayfasına her satırda bir kural
+yazıp kaydedin. Kurallar mevcut tercih veritabanında saklanır; yeni konuşmada
+ve bot yeniden başlatıldığında korunur. Satırı düzenlemek kuralı değiştirir,
+silmek devre dışı bırakır. Telegram'daki `/preferences`, `/addpreference <kural>`
+ve `/deletepreference <kural>` aynı kayıtları kullanır. Mevcut menü otomatik
+olarak yeniden yazılmaz; yeni bir taslak oluşturun.
 
-## Preferences
-
-Hard preferences are explicit permanent rules, for example:
+Örnekler (kendiliğinden etkinleştirilmez):
 
 ```text
-Bundan sonra kereviz önerme.
+Balık kullanma
+Her öğünde 3 farklı yemek olsun
+Kalorilerini de yaz yanına
+Kişi başı öğün en fazla 1000 kcal
+Protein ağırlıklı olsun
 ```
 
-Soft preferences come from repeated feedback and affect scoring without becoming permanent bans. Feedback such as `Bu yemeği geçen hafta yedik` is stored and lowers future repetition.
+- Yemek sayısı **her öğündeki farklı tarif sayısıdır**, 1–6 arasıdır. Üç
+  yemek için otomatik şablon ana yemek + meze/salata + yan yemektir.
+- Yasaklar, sayı ve kayıtlı kalori üst sınırı; otomatik planlama, ajanla
+  kaydetme/değiştirme, revizyon, onay ve yayınlama sırasında kontrol edilir.
+  Sonradan eklenen kuralla çelişen eski taslak onaylanamaz; önce düzeltin.
+  Ajanın tamamen boş bıraktığı bir gün ("pazar dışarıdayız") yemek sayısı
+  kuralını ihlal etmez; yazılan her öğün ise kurala uymak zorundadır.
+- Kalori toplamı her yemekten **bir porsiyon / bir kişi** içindir. Ailenin kişi
+  sayısıyla çarpılmaz. Porsiyon büyüklüğü bu kayıtların dayandığı porsiyon olmalıdır.
+- Protein önceliği, kayıtlı gram değerleriyle aday puanını artırır. Değer yoksa
+  yalnızca protein kaynağı türüyle nitel bir tercih yapılır; gram uydurulmaz.
+- Kesin olmayan isteklere `Tercih:` ile başlayabilirsiniz. Diğer serbest
+  metinler de saklanıp ajana iletilir; otomatik denetimi olmayan kurallar
+  panelde açıkça işaretlenir. Her doğal dil ifadesi otomatik kısıta çevrilmez.
+- Boş satırlar ve `#` başlıkları atlanır; `-`/`*` liste işaretleri kabul edilir.
+  Çelişen yemek sayıları kaydedilmez. Birden fazla kalori sınırında en düşük
+  sınır geçerlidir. Eski bir düzenleme formu, sonradan değişmiş kayıtların
+  üzerine yazamaz; yazılan metin hata ekranında korunur.
 
-Commands: `/preferences`, `/addpreference <rule>`, `/deletepreference <rule>`.
+### Porsiyon başına kalori ve protein
+
+Tarifin panel sayfasında kalori (kcal), protein (g), kaynak/hesaplama notu ve
+“tahmini değer” işaretini düzenleyebilirsiniz. Alanlara bütün tencerenin değil,
+**bir porsiyonun** değerlerini girin. Sıfır ve bilinmeyen değer birbirinden
+ayrıdır. Kaynak gereklidir; bilinmeyen sayılar hesaplanmış gibi gösterilmez.
+İki sayı alanını boş bırakıp kaydetmek besin değerlerini kaldırır.
+
+Değeri olmayan tarifleri ajan, kalori/protein kuralı varsa malzemelerden tahmin
+edip `besin_degeri_kaydet` ile kaydeder. Bu kayıtlar `tahmini` işaretli ve
+kaynağı "ajan tahmini" olarak tutulur; elle girilmiş (tahmini olmayan) bir
+değerin üzerine yazılmaz. Menüde tahmin oldukları belirtilir.
+
+Kalori sınırı etkinse, kalori bilgisi olmayan yemeklerden uygunluk garantisi
+verilemez; uygun ve bilgisi tamamlanmış bir öğün oluşturulamıyorsa işlem açık
+bir hata ile durur. Menü, kayıtlı değerlere göre denetlenir; tahmini değerler
+menüde ayrıca belirtilir. Kalorileri yalnızca gösterme kuralında eksik veriler
+“bilinmiyor” olarak görünür.
+
+YAML/JSON tarif içe aktarmada isteğe bağlı `nutrition` alanı da kullanılabilir:
+
+```yaml
+nutrition:
+  calories_kcal: 250  # Yalnızca biçimi gösteren örnek değer
+  protein_g: 20
+  source: "Kullandığınız etiket veya hesaplama kaynağı"
+  estimated: true
+```
+
+`nutrition` alanı bulunmayan eski tarif dosyaları mevcut besin değerini
+korur; açık `nutrition: null` değeri kaydı kaldırır. Örnek tariflere otomatik
+kalori tahminleri eklenmez.
+
+### Mevcut kurulumda güncelleme
+
+Yeni `recipe_nutrition` tablosu `init-db` veya normal uygulama başlangıcında
+`create_all` ile eklenir. Eski tarif/tercih tabloları değiştirilmez; veri
+silinmez. Güncelleme sırasında eski ve yeni botu aynı anda çalıştırmayın.
+Paneli kullanmak için mevcut Web Panel ayarları geçerlidir; bu özellik paneli
+kendiliğinden açmaz veya `.env` dosyanızı değiştirmez.
+
+```bash
+python -m app.cli init-db
+```
+
+Bu komut yapılandırılmış veritabanına yazar. Üretim veritabanında çalıştırmadan
+önce normal yedekleme/güncelleme sürecinizi uygulayın.
 
 ## Pantry
 

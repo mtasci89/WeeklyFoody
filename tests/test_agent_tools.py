@@ -61,7 +61,7 @@ async def test_plani_getir_lists_every_course(db, settings, toolset):
 
     out = await call(toolset, "plani_getir", hafta="gelecek_hafta")
 
-    assert f"{WEEK.isoformat()} {WEEK_DAY_NAME} (" in out
+    assert f"{WEEK.isoformat()} {WEEK_DAY_NAME}:" in out
     assert out.count("slot=") == 7 * len(settings.planning_slots)
     assert f"Hafta: {WEEK.isoformat()}" in out
 
@@ -255,7 +255,7 @@ async def test_kural_ekle_stores_rule(toolset):
     out = await call(toolset, "kural_ekle", kural="Balık kullanma.")
 
     assert "Kural eklendi" in out
-    assert "- Balık kullanma." in toolset.rules.read_raw()
+    assert "Yasaklanan içerikler" in out
     assert toolset.rules.active() == ["Balık kullanma."]
 
 
@@ -294,15 +294,30 @@ async def test_kurallari_goster_lists_rules(toolset):
 
 
 @pytest.mark.asyncio
-async def test_besin_degeri_kaydet_stores_per_serving_values(db, toolset):
-    out = await call(toolset, "besin_degeri_kaydet", degerler=["Izgara Köfte|540|38", "Mercimek Çorbası|210"])
+async def test_besin_degeri_kaydet_stores_estimates_per_serving(db, toolset):
+    out = await call(toolset, "besin_degeri_kaydet", degerler=["Izgara Köfte|540|38", "Mercimek Çorbası|210,4"])
 
-    assert "2 tarifin besin değeri kaydedildi" in out
+    assert "2 tarifin besin değeri tahmini olarak kaydedildi" in out
     service = RecipeService(db)
-    kofte = service.find_recipe("Izgara Köfte")
-    corba = service.find_recipe("Mercimek Çorbası")
-    assert (kofte.calories_per_serving, kofte.protein_g_per_serving) == (540, 38)
-    assert (corba.calories_per_serving, corba.protein_g_per_serving) == (210, None)
+    kofte = service.find_recipe("Izgara Köfte").nutrition
+    corba = service.find_recipe("Mercimek Çorbası").nutrition
+    assert (kofte.calories_kcal, kofte.protein_g, kofte.estimated) == (540, 38, True)
+    assert "ajan tahmini" in kofte.source
+    assert (corba.calories_kcal, corba.protein_g) == (210, None)
+
+
+@pytest.mark.asyncio
+async def test_besin_degeri_kaydet_never_overwrites_user_entered_values(db, toolset):
+    from app.recipes.nutrition import NutritionInput, save_nutrition
+
+    kofte = RecipeService(db).find_recipe("Izgara Köfte")
+    save_nutrition(db, kofte, NutritionInput(calories_kcal=610, protein_g=40, source="etiket", estimated=False))
+    db.commit()
+
+    out = await call(toolset, "besin_degeri_kaydet", degerler=["Izgara Köfte|400|20"])
+
+    assert "üzerine yazmadım" in out
+    assert RecipeService(db).find_recipe("Izgara Köfte").nutrition.calories_kcal == 610
 
 
 @pytest.mark.asyncio
@@ -318,22 +333,22 @@ async def test_besin_degeri_kaydet_rejects_bad_rows(db, toolset):
     assert "makul aralıkta değil" in out
     assert "sayı okunamadı" in out
     assert "biçimi yanlış" in out
-    assert RecipeService(db).find_recipe("Izgara Köfte").calories_per_serving is None
+    assert RecipeService(db).find_recipe("Izgara Köfte").nutrition is None
 
 
 @pytest.mark.asyncio
-async def test_plani_getir_shows_nutrition_and_day_totals(db, settings, toolset):
+async def test_plani_getir_shows_nutrition_and_meal_totals(db, settings, toolset):
+    from app.recipes.nutrition import NutritionInput, save_nutrition
+
     session = await MealPlannerService(db, settings).create_or_get_weekly_session(WEEK)
-    for item in session.meal_plan.items:
-        item.recipe.calories_per_serving = 300
-        item.recipe.protein_g_per_serving = 20
+    for recipe in {item.recipe for item in session.meal_plan.items}:
+        save_nutrition(db, recipe, NutritionInput(calories_kcal=300, protein_g=20, source="test"))
     db.commit()
 
     out = await call(toolset, "plani_getir", hafta="gelecek_hafta")
 
-    per_day = 300 * len(settings.planning_slots)
-    assert f"kişi başı toplam: ~{per_day} kcal, {20 * len(settings.planning_slots)} g protein" in out
-    assert "~300 kcal, 20 g protein" in out
+    assert "300 kcal, 20 g protein / kişi (tahmini)" in out
+    assert f"{WEEK} dinner: {300 * len(settings.planning_slots)} kcal (tahmini)" in out
 
 
 @pytest.mark.asyncio
@@ -342,8 +357,8 @@ async def test_plani_getir_says_when_calories_are_unknown(db, settings, toolset)
 
     out = await call(toolset, "plani_getir", hafta="gelecek_hafta")
 
-    assert "kişi başı toplam: bilinmiyor" in out
-    assert "besin değeri yok" in out
+    assert "toplam kalori bilinmiyor" in out
+    assert "kalori/protein bilgisi yok" in out
 
 
 # --- arac semalari -----------------------------------------------------

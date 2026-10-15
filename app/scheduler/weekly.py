@@ -9,7 +9,7 @@ from apscheduler.triggers.cron import CronTrigger
 from app.bot.keyboards import approval_keyboard
 from app.config import Settings, get_settings
 from app.db.session import SessionLocal, build_engine
-from app.formatting import format_candidate_recipes, format_meal_plan
+from app.formatting import format_candidate_recipes, format_meal_plan, split_for_telegram
 from app.planner.service import MealPlannerService
 from app.recipes.weekly_discovery import WeeklyRecipeDiscoveryService
 
@@ -91,22 +91,21 @@ async def weekly_plan_job(**_legacy: object) -> None:
         with SessionLocal() as db:
             session = await MealPlannerService(db, settings).create_or_get_weekly_session()
             if _CURRENT_BOT and settings.admin_telegram_user_id:
-                await _CURRENT_BOT.send_message(
-                    chat_id=settings.admin_telegram_user_id,
-                    text=f"🍽️ Önümüzdeki haftanın yemek planını hazırladım.\n\n{format_meal_plan(session)}",
-                    parse_mode="Markdown",
-                    reply_markup=approval_keyboard(),
-                )
+                text = f"🍽️ Önümüzdeki haftanın yemek planını hazırladım.\n\n{format_meal_plan(session)}"
+                chunks = split_for_telegram(text)
+                for index, chunk in enumerate(chunks):
+                    await _CURRENT_BOT.send_message(
+                        chat_id=settings.admin_telegram_user_id, text=chunk, parse_mode="Markdown",
+                        reply_markup=approval_keyboard() if index == len(chunks) - 1 else None,
+                    )
                 logger.info("draft_sent_to_admin session_id=%s", session.id)
-    except Exception:
+    except Exception as error:
         # Sessizce olmek yok: yoksa admin pazar sabahi hicbir sey gormuyor
         # ve nedenini anlamak icin loglara bakmasi gerekiyor (RUN-02).
         logger.exception("weekly_plan_failed")
-        await _notify_admin(
-            settings,
-            "Bu haftanın menüsünü hazırlarken bir hata oldu ve taslak oluşmadı. "
-            "/regenerate ile tekrar deneyebilirsin; sorun sürerse loglara bakmak gerekebilir.",
-        )
+        from app.memory.rules import RuleViolation
+        detail = str(error) if isinstance(error, RuleViolation) else "Bu haftanın menüsünü hazırlarken bir hata oldu ve taslak oluşmadı."
+        await _notify_admin(settings, detail + " /preferences ile kuralları kontrol edip /regenerate ile tekrar deneyebilirsin.")
 
 
 async def weekly_recipe_discovery_job(**_legacy: object) -> None:
