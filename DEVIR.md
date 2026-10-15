@@ -42,8 +42,16 @@ Codex'in tasarımı oldu:
 2. Oracle sunucusuna dağıtım: veritabanı yedeği → dalı çek →
    `pip install -r requirements.txt` → `.env` Gemini ayarları → servisi yeniden
    başlat → `python -m app.cli check-agent`. Aynı bot anahtarıyla Mac'teki bot
-   kapatılmalı. Sunucudaki bot farklı bir Telegram botu; hangisinin
-   kullanılacağı kullanıcıya sorulmalı.
+   kapatılmalı.
+3. **Doğrulandı (kullanıcı, 2026-10-15):** kullanıcının telefonda kullandığı tek
+   bot `@weeklyfoodybot` ve **Mac'te** çalışıyor (Mac'teki bot durunca cevap
+   vermiyor). Oracle sunucusundaki eski kurulum başka bir bot anahtarı
+   kullanıyor. Karar: `@weeklyfoodybot` sunucuya taşınacak; sunucu `.env`'deki
+   Telegram anahtarı Mac'teki anahtarla değiştirilecek (değer gösterilmeden).
+   Açık karar: hangi veritabanı kalacak (Mac SQLite mi, sunucudaki 180 tarifli
+   kayıt mı); iki tarafın tarif/kural sayıları karşılaştırılıp kullanıcıya
+   sorulacak. Sunucu bot başladıktan sonra Mac'teki bot kalıcı kapatılmalı
+   (aynı anahtarla iki bot polling çakışması yapar).
 
 ---
 
