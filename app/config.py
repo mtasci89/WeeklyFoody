@@ -40,6 +40,9 @@ class Settings(BaseSettings):
     # Sunucu araci uzun surerse tur `pause_turn` ile durur; Python runner
     # bunu kendiliginden devam ettirmiyor, dongu disaridan yeniden baslatilir.
     agent_max_pause_restarts: int = 3
+    # "1h" beta basligi (extended-cache-ttl) gerektirir; varsayilan "5m" her
+    # zaman destekleniyor ve bir turun ardisik cagrilarini zaten kapsiyor.
+    agent_cache_ttl: Literal["5m", "1h"] = "5m"
 
     default_servings: int = 4
     meal_slots: Annotated[list[str], NoDecode] = Field(default_factory=lambda: ["dinner"])

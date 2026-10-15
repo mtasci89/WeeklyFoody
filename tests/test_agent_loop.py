@@ -6,7 +6,7 @@ import pytest
 from sqlalchemy import select
 
 from app.agent.conversation import ConversationStore
-from app.agent.runner import FALLBACK_REPLY, MealPlannerAgent
+from app.agent.runner import MealPlannerAgent
 from app.db.models import Feedback, PreferenceType, SessionState
 from app.memory.preferences import PreferenceService
 from app.planner.dates import next_week_start
@@ -199,7 +199,9 @@ async def test_stable_prompt_is_cached_and_volatile_context_is_separate(db, sett
     system = client.last["system"]
     assert len(system) == 2
     # Sabit on-ek onbellege alinir, degisken baglam ALINMAZ
-    assert system[0]["cache_control"] == {"type": "ephemeral", "ttl": "1h"}
+    assert system[0]["cache_control"] == {"type": "ephemeral", "ttl": "5m"}
+    # 5m beta istemez; baslik gonderilmemeli
+    assert "betas" not in client.last
     assert "cache_control" not in system[1]
     assert "araçları kullanarak" in system[0]["text"]
     # Degisken blok bugunu, plani ve tercihleri tasiyor
@@ -306,7 +308,8 @@ async def test_api_failure_answers_instead_of_going_silent(db, settings, session
     reply = await agent.reply(chat_id=3, message="menüyü göster")
 
     assert reply.ok is False
-    assert reply.text == FALLBACK_REPLY
+    # Artik sebebi de soyluyor, ama komut ipucu duruyor
+    assert "RuntimeError" in reply.text
     assert "/menu" in reply.text
     # Basarisiz tur gecmise yazilmaz
     assert agent.store.history(3) == []
@@ -438,3 +441,38 @@ async def test_tool_results_are_mirrored_for_resume(db, settings, session_factor
         and any(b.get("type") == "tool_result" for b in m["content"] if isinstance(b, dict))
         for m in resumed
     )
+
+
+@pytest.mark.asyncio
+async def test_one_hour_cache_ttl_sends_the_required_beta(db, settings, session_factory):
+    """`ttl: "1h"` extended-cache-ttl beta basligi ister; basliksiz gonderilen
+    istek reddedilir."""
+    long_ttl = settings.model_copy(update={"agent_cache_ttl": "1h"})
+    client = FakeClient()
+    agent = make_agent(long_ttl, session_factory, client)
+
+    await agent.reply(chat_id=1, message="selam")
+
+    assert client.last["system"][0]["cache_control"]["ttl"] == "1h"
+    assert client.last["betas"] == ["extended-cache-ttl-2025-04-11"]
+
+
+@pytest.mark.asyncio
+async def test_failures_tell_the_user_what_went_wrong(db, settings, session_factory):
+    """Tek bir "teknik aksilik" mesaji her arizayi ayni gosteriyordu."""
+    import anthropic
+    from app.agent.runner import explain_failure
+
+    cases = [
+        (anthropic.AuthenticationError, "ANTHROPIC_API_KEY"),
+        (anthropic.PermissionDeniedError, "bakiye"),
+        (anthropic.RateLimitError, "hız sınırına"),
+        (anthropic.OverloadedError, "geçici"),
+        (anthropic.APITimeoutError, "ulaşamadım"),
+    ]
+    for cls, needle in cases:
+        error = cls.__new__(cls)
+        Exception.__init__(error, "boom")
+        assert needle in explain_failure(error), f"{cls.__name__} -> {explain_failure(error)}"
+
+    assert "RuntimeError" in explain_failure(RuntimeError("beklenmedik"))

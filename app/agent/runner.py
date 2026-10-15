@@ -12,10 +12,48 @@ from app.config import Settings
 
 logger = logging.getLogger(__name__)
 
+FALLBACK_SUFFIX = " Bu arada /menu, /shopping ve /regenerate komutları çalışmaya devam ediyor."
+
 FALLBACK_REPLY = (
-    "Şu an isteğini işleyemedim, teknik bir aksilik oldu. Birazdan tekrar dener misin? "
-    "Acele ediyorsan /menu, /shopping ve /regenerate komutları çalışmaya devam ediyor."
+    "Şu an isteğini işleyemedim, teknik bir aksilik oldu. Birazdan tekrar dener misin?"
+    + FALLBACK_SUFFIX
 )
+
+
+def explain_failure(error: Exception) -> str:
+    """Hatanin SEBEBINI kullaniciya soyler.
+
+    Tek bir "teknik aksilik" mesaji her arizayi ayni gosteriyordu: bitmis
+    kredi, yanlis anahtar ve gecici kesinti arasinda fark yoktu, kullanici
+    neyi duzeltecegini bilemiyordu.
+    """
+    import anthropic
+
+    if isinstance(error, anthropic.AuthenticationError):
+        return (
+            "Anthropic API anahtarı kabul edilmedi. .env içindeki "
+            "ANTHROPIC_API_KEY geçersiz ya da silinmiş olabilir."
+        )
+    if isinstance(error, anthropic.PermissionDeniedError):
+        return (
+            "Anthropic hesabı bu isteği reddetti. Genellikle bakiye bitmiş ya da "
+            "harcama limitine takılmış olur; faturalandırma sayfasını kontrol et."
+        )
+    if isinstance(error, anthropic.RateLimitError):
+        return "Anthropic hız sınırına takıldım. Bir dakika bekleyip tekrar dener misin?"
+    if isinstance(error, (anthropic.OverloadedError, anthropic.InternalServerError,
+                          anthropic.ServiceUnavailableError)):
+        return "Anthropic tarafında geçici bir sorun var. Birazdan tekrar dener misin?"
+    if isinstance(error, (anthropic.APITimeoutError, anthropic.APIConnectionError)):
+        return "Anthropic'e ulaşamadım; internet bağlantısı ya da ağ sorunu olabilir."
+    if isinstance(error, anthropic.BadRequestError):
+        return (
+            "İstek Anthropic tarafından reddedildi (geçersiz istek). "
+            f"Ayrıntı: {str(error)[:200]}"
+        )
+    if isinstance(error, anthropic.APIStatusError):
+        return f"Anthropic {getattr(error, 'status_code', '?')} döndürdü: {str(error)[:200]}"
+    return f"Beklenmedik bir hata: {type(error).__name__}: {str(error)[:200]}"
 
 
 @dataclass
@@ -54,6 +92,10 @@ class MealPlannerAgent:
     def available(cls, settings: Settings) -> bool:
         return bool(settings.agent_enabled and settings.anthropic_api_key)
 
+    def _betas(self) -> list[str]:
+        """1 saatlik onbellek TTL'i beta basligi ister; 5 dakikalik istemez."""
+        return ["extended-cache-ttl-2025-04-11"] if self.settings.agent_cache_ttl == "1h" else []
+
     def _tools(self, toolset: MealAgentToolset) -> list:
         """Kendi araclarimiz + Anthropic'in sunucu tarafi web arama araci.
 
@@ -77,13 +119,13 @@ class MealPlannerAgent:
         return [
             # Sabit kisim onbellege alinir; arac semalari da bu on-ekin
             # parcasi oldugu icin her istekte yeniden faturalanmaz.
-            # 1 saatlik TTL: bir tur 2-4 istek atiyor ve planlama sohbeti
-            # dakikalara yayiliyor. Sabit on-ek (arac semalari + sistem
-            # istemi) ~4.200 token; onbellekten okumak tam fiyatin ~5'te 1'i.
+            # Sabit on-ek (arac semalari + sistem istemi) ~4.000 token ve
+            # bir kullanici mesaji 2-4 istek uretiyor; onbellekten okumak
+            # tam fiyatin cok altinda. "1h" beta basligi ister, "5m" istemez.
             {
                 "type": "text",
                 "text": SYSTEM_PROMPT,
-                "cache_control": {"type": "ephemeral", "ttl": "1h"},
+                "cache_control": {"type": "ephemeral", "ttl": self.settings.agent_cache_ttl},
             },
             {
                 "type": "text",
@@ -97,6 +139,7 @@ class MealPlannerAgent:
         messages: list = [*history, {"role": "user", "content": message}]
         system = self._system(toolset)
         tools = self._tools(toolset)
+        betas = self._betas()
         try:
             final = None
             restarts = 0
@@ -111,6 +154,7 @@ class MealPlannerAgent:
                     # istek o buyumeden geriye donuk etkilenmemeli.
                     messages=list(messages),
                     output_config={"effort": self.settings.agent_effort},
+                    **({"betas": betas} if betas else {}),
                 )
                 last = None
                 async for response in runner:
@@ -131,9 +175,13 @@ class MealPlannerAgent:
                     break
                 logger.info("agent_pause_turn_resumed chat_id=%s restart=%s", chat_id, restarts)
             text = _text_of(final)
-        except Exception:
+        except Exception as error:
             logger.exception("agent_turn_failed chat_id=%s", chat_id)
-            return AgentReply(text=FALLBACK_REPLY, tool_calls=toolset.calls, ok=False)
+            return AgentReply(
+                text=explain_failure(error) + FALLBACK_SUFFIX,
+                tool_calls=toolset.calls,
+                ok=False,
+            )
 
         if not text:
             logger.warning(
