@@ -94,8 +94,9 @@ def session_factory(db):
 
 
 def make_agent(settings, session_factory, client, **overrides):
+    # Varsayilan: tek model. Yedek model zinciri kendi testlerinde aciliyor.
     gemini_settings = settings.model_copy(
-        update={"agent_provider": "gemini", "gemini_api_key": "test", **overrides}
+        update={"agent_provider": "gemini", "gemini_api_key": "test", "gemini_fallback_models": [], **overrides}
     )
     return MealPlannerAgent(gemini_settings, session_factory, client=client, store=ConversationStore(max_turns=6))
 
@@ -357,7 +358,7 @@ async def test_unknown_tool_is_reported_to_the_model(db, settings, session_facto
         (429, "RESOURCE_EXHAUSTED", "Resource has been exhausted", "ücretsiz kotası doldu"),
         (400, "INVALID_ARGUMENT", "API key not valid. Please pass a valid API key.", "GEMINI_API_KEY"),
         (404, "NOT_FOUND", "models/gemini-9 is not found", "GEMINI_MODEL geçerli"),
-        (503, "UNAVAILABLE", "overloaded", "geçici"),
+        (503, "UNAVAILABLE", "overloaded", "aşırı yoğun"),
     ],
 )
 async def test_api_errors_explain_themselves(db, settings, session_factory, code, status, message, expected):
@@ -429,66 +430,41 @@ async def test_check_agent_reports_a_missing_key(settings, capsys):
 
 
 @pytest.mark.asyncio
-async def test_check_agent_explains_a_failure(settings, monkeypatch, capsys):
+async def test_check_agent_lists_every_model_and_picks_the_first_working(settings, monkeypatch, capsys):
+    from app.agent.gemini_backend import GeminiBackend
     from app.cli.__main__ import _check_agent
 
-    async def quota(self):
-        raise errors.ClientError(429, {"error": {"code": 429, "message": "quota", "status": "RESOURCE_EXHAUSTED"}})
+    async def table(self):
+        return [
+            ("gemini-3.8-flash", False, "MESGUL (asiri yuk)"),
+            ("gemini-3.5-flash-lite", True, "cevap: 'tamam'"),
+            ("gemini-2.5-flash-lite", False, "BULUNAMADI (model yok/kapatilmis)"),
+        ]
 
-    monkeypatch.setattr(MealPlannerAgent, "ping", quota)
+    monkeypatch.setattr(GeminiBackend, "check_models", table)
 
     code = await _check_agent(settings.model_copy(update={"agent_provider": "gemini", "gemini_api_key": "k"}))
 
     out = capsys.readouterr().out
-    assert code == 1
-    assert "ücretsiz kotası doldu" in out
-    assert "Model     : gemini" in out
+    assert code == 0
+    assert "gemini-3.8-flash" in out and "MESGUL" in out
+    assert "bot gemini-3.5-flash-lite ile cevap verecek" in out
 
 
 @pytest.mark.asyncio
-async def test_check_agent_reports_success(settings, monkeypatch, capsys):
+async def test_check_agent_fails_when_no_model_answers(settings, monkeypatch, capsys):
+    from app.agent.gemini_backend import GeminiBackend
     from app.cli.__main__ import _check_agent
 
-    async def ok(self):
-        return "tamam"
+    async def table(self):
+        return [("gemini-3.8-flash", False, "MESGUL (asiri yuk)")]
 
-    monkeypatch.setattr(MealPlannerAgent, "ping", ok)
+    monkeypatch.setattr(GeminiBackend, "check_models", table)
 
     code = await _check_agent(settings.model_copy(update={"agent_provider": "gemini", "gemini_api_key": "k"}))
 
-    assert code == 0
-    assert "CALISIYOR" in capsys.readouterr().out
-
-
-def test_retired_model_error_points_at_googles_suggestion_not_the_failing_model():
-    """Gercek hata: gemini-2.5-flash yeni kullanicilara kapatildi. Eski ipucu
-    tam da bu modeli oneriyordu ve Google'in onerisini 80 karakterde kesiyordu."""
-    from app.agent.runner import explain_failure
-
-    real = errors.ClientError(
-        404,
-        {
-            "error": {
-                "code": 404,
-                "status": "NOT_FOUND",
-                "message": (
-                    "This model models/gemini-2.5-flash is no longer available to new users. "
-                    "Please update your code to use models/gemini-3.8-flash for the latest "
-                    "features and improvements."
-                ),
-            }
-        },
-    )
-
-    text = explain_failure(real)
-
-    assert "GEMINI_MODEL=gemini-3.8-flash" in text
-    assert "gemini-2.5-flash" not in text
-
-
-def test_default_model_is_not_the_retired_one(settings):
-    assert settings.gemini_model != "gemini-2.5-flash"
-
+    assert code == 1
+    assert "hicbir model cevap vermedi" in capsys.readouterr().out
 
 # --- sessiz bekleme olmasin -------------------------------------------------
 
@@ -581,3 +557,167 @@ async def test_typing_indicator_stays_on_for_the_whole_turn(settings):
     assert sent_during_turn >= 3
     assert len(actions) == sent_during_turn  # tur bitince durdu
     assert replies == ["Menü hazır."]
+
+
+
+# --- yedek model zinciri -------------------------------------------------
+
+
+def overloaded():
+    return errors.ServerError(
+        503, {"error": {"code": 503, "status": "UNAVAILABLE", "message": "This model is currently experiencing high demand."}}
+    )
+
+
+def retired():
+    return errors.ClientError(404, {"error": {"code": 404, "status": "NOT_FOUND", "message": "model not found"}})
+
+
+def bad_key():
+    return errors.ClientError(400, {"error": {"code": 400, "status": "INVALID_ARGUMENT", "message": "API key not valid."}})
+
+
+class ModelAwareClient(FakeGeminiClient):
+    """Her model icin ayri cevap sirasi: {"model": [cevap veya hata, ...]}."""
+
+    def __init__(self, script: dict[str, list]):
+        super().__init__([])
+        self.script = {model: list(items) for model, items in script.items()}
+
+    async def _generate(self, *, model, contents, config=None):
+        self.requests.append(
+            {"model": model, "contents": list(contents) if isinstance(contents, list) else contents, "config": config}
+        )
+        item = self.script[model].pop(0)
+        if isinstance(item, Exception):
+            raise item
+        return item
+
+
+CHAIN = {"gemini_model": "ana", "gemini_fallback_models": ["yedek1", "yedek2"]}
+
+
+@pytest.mark.asyncio
+async def test_an_overloaded_model_falls_back_to_the_next(db, settings, session_factory, caplog):
+    """Gercek log: gemini-3.8-flash 503 'high demand' donuyordu."""
+    import logging
+
+    caplog.set_level(logging.WARNING)
+    client = ModelAwareClient({"ana": [overloaded()], "yedek1": [text_response("Merhaba!")]})
+    agent = make_agent(settings, session_factory, client, **CHAIN)
+
+    reply = await agent.reply(chat_id=1, message="selam")
+
+    assert reply.ok
+    assert reply.text == "Merhaba!"
+    assert [r["model"] for r in client.requests] == ["ana", "yedek1"]
+    assert any("agent_model_fallback from=ana to=yedek1" in r.getMessage() for r in caplog.records)
+
+
+@pytest.mark.asyncio
+async def test_fallback_is_sticky_for_the_rest_of_the_turn(db, settings, session_factory):
+    """Yedege gecilen turda ana modele geri donulmez: onceki adimlarin
+    thoughtSignature alanlari yedek modelin uretimi."""
+    client = ModelAwareClient(
+        {
+            "ana": [overloaded()],
+            "yedek1": [call_response(("aday_tarifler", {})), text_response("Aday yok.")],
+        }
+    )
+    agent = make_agent(settings, session_factory, client, **CHAIN)
+
+    await agent.reply(chat_id=1, message="adaylar")
+
+    assert [r["model"] for r in client.requests] == ["ana", "yedek1", "yedek1"]
+
+
+@pytest.mark.asyncio
+async def test_retired_and_rate_limited_models_are_skipped(db, settings, session_factory):
+    quota = errors.ClientError(429, {"error": {"code": 429, "status": "RESOURCE_EXHAUSTED", "message": "quota"}})
+    client = ModelAwareClient({"ana": [quota], "yedek1": [retired()], "yedek2": [text_response("Tamam.")]})
+    agent = make_agent(settings, session_factory, client, **CHAIN)
+
+    reply = await agent.reply(chat_id=1, message="selam")
+
+    assert reply.ok
+    assert [r["model"] for r in client.requests] == ["ana", "yedek1", "yedek2"]
+
+
+@pytest.mark.asyncio
+async def test_a_bad_key_does_not_fall_back(db, settings, session_factory):
+    """Anahtar hatasi tum modeller icin ayni; denemeye devam etmek bosuna."""
+    client = ModelAwareClient({"ana": [bad_key()], "yedek1": [text_response("olmamali")]})
+    agent = make_agent(settings, session_factory, client, **CHAIN)
+
+    reply = await agent.reply(chat_id=1, message="selam")
+
+    assert reply.ok is False
+    assert "GEMINI_API_KEY" in reply.text
+    assert [r["model"] for r in client.requests] == ["ana"]
+
+
+@pytest.mark.asyncio
+async def test_when_every_model_is_busy_the_user_is_told(db, settings, session_factory):
+    client = ModelAwareClient({"ana": [overloaded()], "yedek1": [overloaded()], "yedek2": [overloaded()]})
+    agent = make_agent(settings, session_factory, client, **CHAIN)
+
+    reply = await agent.reply(chat_id=1, message="selam")
+
+    assert reply.ok is False
+    assert "aşırı yoğun" in reply.text
+    assert len(client.requests) == 3
+
+
+@pytest.mark.asyncio
+async def test_web_search_falls_back_without_moving_the_main_turn(db, settings, session_factory):
+    """Arama kendi imleciyle yedege gecer; ana tur o an mesgul olmayan ana
+    modelde kalir."""
+    client = ModelAwareClient(
+        {
+            "ana": [call_response((WEB_TOOL_NAME, {"sorgu": "x"})), overloaded(), text_response("Buldum.")],
+            "yedek1": [text_response("bulunan tarif")],
+        }
+    )
+    agent = make_agent(settings, session_factory, client, **CHAIN)
+
+    reply = await agent.reply(chat_id=1, message="ara")
+
+    assert reply.ok
+    assert [r["model"] for r in client.requests] == ["ana", "ana", "yedek1", "ana"]
+    sent_back = client.requests[-1]["contents"][-1].parts[0].function_response.response["result"]
+    assert "bulunan tarif" in sent_back
+
+
+def test_fallback_chain_is_deduplicated_and_ordered(settings):
+    from app.agent.gemini_backend import GeminiBackend
+
+    backend = GeminiBackend(
+        settings.model_copy(update={"gemini_model": "a", "gemini_fallback_models": ["b", "a", "c", "b"]}),
+        client=FakeGeminiClient([]),
+    )
+
+    assert backend.models == ["a", "b", "c"]
+
+
+def test_fallback_models_parse_from_env_string(monkeypatch):
+    from app.config import Settings
+
+    monkeypatch.setenv("GEMINI_FALLBACK_MODELS", "m1, m2 ,,m3")
+
+    assert Settings(_env_file=None).gemini_fallback_models == ["m1", "m2", "m3"]
+
+
+@pytest.mark.asyncio
+async def test_check_models_reports_each_model(settings):
+    from app.agent.gemini_backend import GeminiBackend
+
+    backend = GeminiBackend(
+        settings.model_copy(update=CHAIN),
+        client=ModelAwareClient({"ana": [overloaded()], "yedek1": [text_response("tamam")], "yedek2": [retired()]}),
+    )
+
+    results = await backend.check_models()
+
+    assert [(m, ok) for m, ok, _ in results] == [("ana", False), ("yedek1", True), ("yedek2", False)]
+    assert "MESGUL" in results[0][2]
+    assert "BULUNAMADI" in results[2][2]

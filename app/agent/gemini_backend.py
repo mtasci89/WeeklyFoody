@@ -2,9 +2,10 @@ from __future__ import annotations
 
 import logging
 import re
+from dataclasses import dataclass
 
 from google import genai
-from google.genai import types
+from google.genai import errors, types
 
 from app.config import Settings
 
@@ -31,6 +32,25 @@ WEB_DECLARATION = types.FunctionDeclaration(
         "additionalProperties": False,
     },
 )
+
+
+# Baska modele gecmeyi hakli kilan hatalar: model mesgul, modelin kotasi dolmus
+# ya da model kapatilmis. Anahtar/yetki hatalari (400/401/403) tum modeller icin
+# ayni oldugundan gecis yapmaz; dogrudan kullaniciya aciklanir.
+FALLBACK_CODES = {404, 429, 500, 503, 504}
+
+
+def should_fall_back(error: Exception) -> bool:
+    return isinstance(error, errors.APIError) and getattr(error, "code", None) in FALLBACK_CODES
+
+
+@dataclass
+class ModelCursor:
+    """Bir tur boyunca hangi modelde oldugumuz. Yapiskan: tur icinde bir kez
+    yedege gecildiyse geri donulmez, cunku onceki adimlarin thoughtSignature
+    alanlari o modelin urettigi parcalarda duruyor."""
+
+    index: int = 0
 
 
 def history_to_contents(history: list[dict]) -> list[types.Content]:
@@ -78,10 +98,12 @@ class GeminiBackend:
             http_options=types.HttpOptions(
                 # Milisaniye. Asili kalan bir istek turu sonsuza dek bekletmesin.
                 timeout=settings.agent_request_timeout_seconds * 1000,
+                # Kisa tutuldu: model mesgulse uzun beklemek yerine yedek
+                # modele gecmek daha hizli cevap getiriyor.
                 retry_options=types.HttpRetryOptions(
-                    attempts=4,
+                    attempts=3,
                     initial_delay=2.0,
-                    max_delay=20.0,
+                    max_delay=8.0,
                     http_status_codes=[429, 500, 503, 504],
                 )
             ),
@@ -90,6 +112,40 @@ class GeminiBackend:
     @property
     def model(self) -> str:
         return self.settings.gemini_model
+
+    @property
+    def models(self) -> list[str]:
+        """Ana model + yedekler, tekrarsiz ve sirali."""
+        chain: list[str] = []
+        for name in [self.settings.gemini_model, *self.settings.gemini_fallback_models]:
+            if name and name not in chain:
+                chain.append(name)
+        return chain
+
+    async def _generate(self, cursor: ModelCursor, contents, config=None):
+        """Zincirdeki ilk calisan modelle istek atar."""
+        models = self.models
+        last_error: Exception | None = None
+        for index in range(cursor.index, len(models)):
+            model = models[index]
+            try:
+                response = await self.client.aio.models.generate_content(
+                    model=model, contents=contents, config=config
+                )
+            except Exception as error:
+                if not should_fall_back(error) or index == len(models) - 1:
+                    raise
+                logger.warning(
+                    "agent_model_unavailable model=%s code=%s next=%s",
+                    model, getattr(error, "code", None), models[index + 1],
+                )
+                last_error = error
+                continue
+            if index != cursor.index:
+                logger.warning("agent_model_fallback from=%s to=%s", models[cursor.index], model)
+                cursor.index = index
+            return response
+        raise last_error if last_error else RuntimeError("Denenecek Gemini modeli yok")
 
     async def run_turn(
         self,
@@ -121,13 +177,12 @@ class GeminiBackend:
         ]
         searches = 0
         last_finish = None
+        cursor = ModelCursor()
         for step in range(1, max(1, self.settings.agent_max_iterations) + 1):
             # Her adim terminalde gorunsun: uzun bir plan turu disaridan
             # "bot oldu" gibi gorunmesin.
-            logger.info("agent_model_request step=%s model=%s", step, self.model)
-            response = await self.client.aio.models.generate_content(
-                model=self.model, contents=contents, config=config
-            )
+            logger.info("agent_model_request step=%s model=%s", step, self.models[cursor.index])
+            response = await self._generate(cursor, contents, config)
             candidate = response.candidates[0] if response.candidates else None
             if candidate is None or candidate.content is None or not candidate.content.parts:
                 feedback = getattr(response, "prompt_feedback", None)
@@ -181,14 +236,14 @@ class GeminiBackend:
         if not query.strip():
             return "Arama metni boş."
         try:
-            response = await self.client.aio.models.generate_content(
-                model=self.model,
-                contents=(
+            response = await self._generate(
+                ModelCursor(),
+                (
                     "Şunu internette ara ve bulduklarını Türkçe, kısaca özetle. "
                     "Bir tarifse adını, miktarlarıyla malzemelerini ve hazırlanışını yaz: "
                     f"{query}"
                 ),
-                config=types.GenerateContentConfig(tools=[types.Tool(google_search=types.GoogleSearch())]),
+                types.GenerateContentConfig(tools=[types.Tool(google_search=types.GoogleSearch())]),
             )
         except Exception as error:
             logger.exception("agent_web_search_failed")
@@ -208,10 +263,31 @@ class GeminiBackend:
         return text
 
     async def ping(self) -> str:
-        response = await self.client.aio.models.generate_content(
-            model=self.model, contents="Sadece 'tamam' yaz."
-        )
+        response = await self._generate(ModelCursor(), "Sadece 'tamam' yaz.")
         return text_of(response.candidates[0].content) if response.candidates else ""
+
+    async def check_models(self) -> list[tuple[str, bool, str]]:
+        """Zincirdeki HER modeli tek tek dener: (model, calisiyor_mu, aciklama)."""
+        results = []
+        for model in self.models:
+            try:
+                response = await self.client.aio.models.generate_content(
+                    model=model, contents="Sadece 'tamam' yaz."
+                )
+                answer = text_of(response.candidates[0].content) if response.candidates else ""
+                results.append((model, True, f"cevap: {answer[:30]!r}"))
+            except Exception as error:
+                results.append((model, False, model_status(error)))
+        return results
+
+
+def model_status(error: Exception) -> str:
+    """check-agent tablosu icin kisa durum."""
+    code = getattr(error, "code", None)
+    labels = {404: "BULUNAMADI (model yok/kapatilmis)", 429: "KOTA DOLU", 503: "MESGUL (asiri yuk)"}
+    if code in labels:
+        return labels[code]
+    return explain_gemini_failure(error) or f"{type(error).__name__}: {str(error)[:80]}"
 
 
 def explain_gemini_failure(error: Exception) -> str | None:
@@ -250,7 +326,10 @@ def explain_gemini_failure(error: Exception) -> str | None:
     if code == 403 or status == "PERMISSION_DENIED":
         return "Gemini bu anahtarla isteği reddetti; anahtarın Gemini API için açık olduğunu kontrol et."
     if code is not None and code >= 500:
-        return "Gemini tarafında geçici bir sorun var. Birazdan tekrar dener misin?"
+        return (
+            "Gemini modelleri şu an aşırı yoğun (yedek modeller dahil). "
+            "Birkaç dakika sonra tekrar dener misin?"
+        )
     if "location" in lowered and "not supported" in lowered:
         return "Gemini API bu bölgeden kullanılamıyor görünüyor."
     return f"Gemini {code} {status} döndürdü: {message[:200]}"

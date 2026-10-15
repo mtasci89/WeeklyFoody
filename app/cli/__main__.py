@@ -76,8 +76,21 @@ async def _check_agent(settings) -> int:
         print(f"SONUC     : KAPALI - .env icinde {key} yok ya da AGENT_ENABLED=false")
         return 1
     agent = MealPlannerAgent(settings, SessionLocal)
-    print(f"Model     : {agent.model}")
     try:
+        if agent.provider == "gemini":
+            # Zincirdeki her modeli tek tek dene: hangisi mesgul, hangisi
+            # kapatilmis, hangisi calisiyor - tahmin etmeden gor.
+            results = await agent.gemini.check_models()
+            print("Modeller  : (ilk calisan kullanilir)")
+            for model, ok, detail in results:
+                print(f"  {'OK ' if ok else '-- '} {model:28s} {detail}")
+            working = [model for model, ok, _ in results if ok]
+            if working:
+                print(f"SONUC     : CALISIYOR - bot {working[0]} ile cevap verecek")
+                return 0
+            print("SONUC     : HATA - zincirdeki hicbir model cevap vermedi")
+            return 1
+        print(f"Model     : {agent.model}")
         answer = await agent.ping()
     except Exception as error:
         print(f"SONUC     : HATA - {explain_failure(error)}")

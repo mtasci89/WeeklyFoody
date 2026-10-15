@@ -25,6 +25,12 @@ class Settings(BaseSettings):
     gemini_api_key: str = ""
     # gemini-2.5-flash yeni kullanicilara kapatildi; API bunu oneriyor.
     gemini_model: str = "gemini-3.8-flash"
+    # Ana model mesgul (503), kotasi dolmus (429) ya da kapatilmis (404) ise
+    # sirayla denenecek modeller. Ucretsiz katmanda her modelin kotasi ve yuku
+    # ayri. Hangilerinin calistigini `python -m app.cli check-agent` gosterir.
+    gemini_fallback_models: Annotated[list[str], NoDecode] = Field(
+        default_factory=lambda: ["gemini-3.5-flash-lite", "gemini-3.1-flash-lite", "gemini-2.5-flash-lite"]
+    )
 
     # Konusma ajani (tool-use dongusu). Saglayicinin anahtari yoksa eski niyet
     # yonlendiricisine geri dusulur, boylece ikisi yan yana denenebilir.
@@ -88,6 +94,15 @@ class Settings(BaseSettings):
         if isinstance(value, list):
             return [int(v) for v in value]
         return [int(part.strip()) for part in value.split(",") if part.strip()]
+
+    @field_validator("gemini_fallback_models", mode="before")
+    @classmethod
+    def parse_fallback_models(cls, value: str | list[str] | None) -> list[str]:
+        if value is None:
+            return []
+        if isinstance(value, list):
+            return [v.strip() for v in value if v and v.strip()]
+        return [part.strip() for part in value.split(",") if part.strip()]
 
     @field_validator("meal_slots", mode="before")
     @classmethod
