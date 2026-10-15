@@ -23,7 +23,8 @@ class Settings(BaseSettings):
     openai_api_key: str = ""
     openai_model: str = "gpt-4o-mini"
     gemini_api_key: str = ""
-    gemini_model: str = "gemini-2.5-flash"
+    # gemini-2.5-flash yeni kullanicilara kapatildi; API bunu oneriyor.
+    gemini_model: str = "gemini-3.8-flash"
 
     # Konusma ajani (tool-use dongusu). Saglayicinin anahtari yoksa eski niyet
     # yonlendiricisine geri dusulur, boylece ikisi yan yana denenebilir.

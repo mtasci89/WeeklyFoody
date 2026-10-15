@@ -356,7 +356,7 @@ async def test_unknown_tool_is_reported_to_the_model(db, settings, session_facto
     [
         (429, "RESOURCE_EXHAUSTED", "Resource has been exhausted", "ücretsiz kotası doldu"),
         (400, "INVALID_ARGUMENT", "API key not valid. Please pass a valid API key.", "GEMINI_API_KEY"),
-        (404, "NOT_FOUND", "models/gemini-9 is not found", "GEMINI_MODEL"),
+        (404, "NOT_FOUND", "models/gemini-9 is not found", "GEMINI_MODEL geçerli"),
         (503, "UNAVAILABLE", "overloaded", "geçici"),
     ],
 )
@@ -458,3 +458,33 @@ async def test_check_agent_reports_success(settings, monkeypatch, capsys):
 
     assert code == 0
     assert "CALISIYOR" in capsys.readouterr().out
+
+
+def test_retired_model_error_points_at_googles_suggestion_not_the_failing_model():
+    """Gercek hata: gemini-2.5-flash yeni kullanicilara kapatildi. Eski ipucu
+    tam da bu modeli oneriyordu ve Google'in onerisini 80 karakterde kesiyordu."""
+    from app.agent.runner import explain_failure
+
+    real = errors.ClientError(
+        404,
+        {
+            "error": {
+                "code": 404,
+                "status": "NOT_FOUND",
+                "message": (
+                    "This model models/gemini-2.5-flash is no longer available to new users. "
+                    "Please update your code to use models/gemini-3.8-flash for the latest "
+                    "features and improvements."
+                ),
+            }
+        },
+    )
+
+    text = explain_failure(real)
+
+    assert "GEMINI_MODEL=gemini-3.8-flash" in text
+    assert "gemini-2.5-flash" not in text
+
+
+def test_default_model_is_not_the_retired_one(settings):
+    assert settings.gemini_model != "gemini-2.5-flash"

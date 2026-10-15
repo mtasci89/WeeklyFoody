@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import re
 
 from google import genai
 from google.genai import types
@@ -228,9 +229,17 @@ def explain_gemini_failure(error: Exception) -> str | None:
             "Bir dakika bekleyip tekrar dene; günlük sınırsa yarın sıfırlanır."
         )
     if code == 404 or status == "NOT_FOUND":
+        # Sabit bir model onermiyoruz: eskiden burada gemini-2.5-flash yaziyordu
+        # ve tam da kapatilan model oydu. API cogu zaman yerine geceni soyluyor.
+        suggested = re.search(r"use (?:models/)?(gemini-[\w.\-]+)", message)
+        if suggested:
+            return (
+                "Gemini bu modeli artık sunmuyor. Google'ın önerdiği model: "
+                f"{suggested.group(1)}. .env içine GEMINI_MODEL={suggested.group(1)} yaz."
+            )
         return (
-            f"Gemini '{message[:80]}' dedi: model bulunamadı. .env içindeki "
-            "GEMINI_MODEL'i gemini-2.5-flash yapmayı dene."
+            "Gemini modeli bulunamadı. .env içindeki GEMINI_MODEL geçerli bir "
+            f"model adı olmalı. Google'ın mesajı: {message[:300]}"
         )
     if code == 403 or status == "PERMISSION_DENIED":
         return "Gemini bu anahtarla isteği reddetti; anahtarın Gemini API için açık olduğunu kontrol et."

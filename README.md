@@ -142,7 +142,7 @@ ADMIN_TELEGRAM_USER_ID=111111111
 TELEGRAM_RECIPIENT_CHAT_IDS=111111111,222222222
 LLM_PROVIDER=gemini
 GEMINI_API_KEY=...
-GEMINI_MODEL=gemini-2.5-flash
+GEMINI_MODEL=gemini-3.8-flash
 MEAL_COURSE_ROLES=main,meze,meze,side
 ```
 
@@ -213,7 +213,7 @@ Gemini is recommended for a free-tier first run:
 ```env
 LLM_PROVIDER=gemini
 GEMINI_API_KEY=...
-GEMINI_MODEL=gemini-2.5-flash
+GEMINI_MODEL=gemini-3.8-flash
 ```
 
 Create a key in [Google AI Studio](https://aistudio.google.com/app/apikey). Google currently lists Gemini 2.5 Flash input and output tokens as free of charge on the free tier, with limited access/rate limits.
