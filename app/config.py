@@ -85,7 +85,17 @@ class Settings(BaseSettings):
     web_panel_token: str = ""
 
     data_dir: Path = Path("data")
-    # Ev kurallari (CLAUDE.md gibi): ajan her mesajda okur ve uyar.
+
+    # Foody Android uygulamasinin API'si (app/api.py). Disariya acik oldugu
+    # icin yalnizca HTTPS ile ve uzun bir anahtarla baslar.
+    app_api_enabled: bool = False
+    app_api_host: str = "0.0.0.0"
+    app_api_port: int = 8443
+    app_api_token: str = ""
+    app_api_cert: Path = Path("data/foody-api.crt")
+    app_api_key: Path = Path("data/foody-api.key")
+    # Telefonun baglanacagi adres, orn. https://152.67.69.25:8443
+    app_api_public_url: str = ""
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 

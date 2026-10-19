@@ -84,9 +84,6 @@ class Recipe(Base, TimestampMixin):
     source: Mapped[str | None] = mapped_column(String, nullable=True)
     status: Mapped[RecipeStatus] = mapped_column(Enum(RecipeStatus), default=RecipeStatus.APPROVED, nullable=False)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
-    # Kisi basi (1 porsiyon) tahmini besin degeri. Ajan malzemelerden tahmin
-    # edip bir kez kaydeder; kalori/protein kurallari buna dayanir.
-
     nutrition: Mapped["RecipeNutrition | None"] = relationship(cascade="all, delete-orphan", uselist=False)
 
     ingredients: Mapped[list["RecipeIngredient"]] = relationship(

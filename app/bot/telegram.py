@@ -33,6 +33,7 @@ def build_application(settings: Settings):
         "kural_ekle": handlers.rule_add,
         "kural_sil": handlers.rule_delete,
         "kurallari_yaz": handlers.rules_replace,
+        "uygulama": handlers.app_code,
         "preferences": handlers.preferences,
         "addpreference": handlers.add_preference,
         "deletepreference": handlers.delete_preference,

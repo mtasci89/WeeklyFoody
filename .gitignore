@@ -14,6 +14,7 @@ __pycache__/
 data/*.db
 data/*.sqlite
 data/*.sqlite3
+data/foody-api.*
 logs
 *.log
 

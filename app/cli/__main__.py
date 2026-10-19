@@ -23,6 +23,8 @@ def main() -> None:
     sub.add_parser("plan-now")
     sub.add_parser("discover-now")
     sub.add_parser("check-agent", help="Ajanin saglayicisina tek bir deneme istegi atar")
+    app_parser = sub.add_parser("uygulama-hazirla", help="Foody uygulamasi icin HTTPS API'yi hazirlar")
+    app_parser.add_argument("--adres", required=True, help="Telefonun baglanacagi adres, orn. https://152.67.69.25:8443")
     sub.add_parser("run")
     args = parser.parse_args()
 
@@ -76,6 +78,14 @@ def main() -> None:
                     print(f"- {recipe.name} ({recipe.category})")
 
         asyncio.run(_discover())
+    elif args.command == "uygulama-hazirla":
+        from app.api_tls import prepare
+
+        result = prepare(Path(".env"), args.adres, settings.app_api_cert, settings.app_api_key)
+        print("Uygulama anahtari: " + ("yeni uretildi" if result["yeni_anahtar"] else "mevcut olan kullaniliyor"))
+        print("Sertifika       : " + ("yeni uretildi" if result["yeni_sertifika"] else "mevcut olan kullaniliyor"))
+        print(f"Sertifika pini  : {result['pin']}")
+        print("Botu yeniden baslat, sonra Telegram'da /uygulama yaz: baglanti kodu oraya gelir.")
     elif args.command == "check-agent":
         raise SystemExit(asyncio.run(_check_agent(settings)))
     elif args.command == "run":

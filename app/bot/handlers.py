@@ -265,6 +265,27 @@ class TelegramHandlers:
         for chunk in split_for_telegram(rules_text(house.active(), house.summary())):
             await update.effective_message.reply_text(chunk)
 
+    async def app_code(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        """Foody uygulamasinin baglanti kodunu yoneticiye gonderir."""
+        if not await self._require_admin(update):
+            return
+        from app.api_tls import connection_code, spki_pin
+
+        s = self.settings
+        if not (s.app_api_enabled and s.app_api_public_url and len(s.app_api_token) >= 24 and s.app_api_cert.exists()):
+            await update.effective_message.reply_text(
+                "Uygulama bağlantısı henüz hazır değil. Sunucuda "
+                "`python -m app.cli uygulama-hazirla --adres https://SUNUCU:8443` çalıştırıp botu yeniden başlat."
+            )
+            return
+        code = connection_code(s.app_api_public_url, s.app_api_token, spki_pin(s.app_api_cert))
+        await update.effective_message.reply_text(
+            "Foody bağlantı kodu aşağıda. Uzun basıp kopyala, uygulamada Ayarlar → Bağlantı kodu "
+            "alanına yapıştır. Bu kod uygulamanın anahtarıdır: yapıştırdıktan sonra iki mesajı da sil."
+        )
+        await update.effective_message.reply_text(code)
+        logger.info("app_code_sent")
+
     async def rule_add(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         if not await self._require_admin(update):
             return
