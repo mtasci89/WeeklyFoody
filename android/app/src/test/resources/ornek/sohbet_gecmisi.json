@@ -1,0 +1,12 @@
+{
+  "mesajlar": [
+    {
+      "kullanici": true,
+      "metin": "Gelecek hafta için menü hazırla"
+    },
+    {
+      "kullanici": false,
+      "metin": "Gelecek hafta için menüyü hazırladım. Salı'yı hafif tuttum."
+    }
+  ]
+}

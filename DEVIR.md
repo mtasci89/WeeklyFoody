@@ -2,6 +2,37 @@
 
 Son güncelleme: **2026-10-15 — Claude**. Önce [PROJE.md](PROJE.md) dosyasını okuyun.
 
+## Son tamamlanan iş (Claude, 2026-10-19): Foody Android uygulaması
+
+Kullanıcı: "Bu Telegram'da olmuyor, app haline getir; Financia ve Cal-Track'i baz al."
+Financia (`mtasci89/Financia`, `android/`) ve Cal-Track incelendi; Financia'nın yapısı,
+teması, derleme ayarları, imza/CI düzeni ve **yalnızca INTERNET izni** kuralı alındı.
+Fark: veri ve ajan sunucuda kaldı, uygulama HTTPS API'nin ince istemcisi.
+
+- Sunucu: `app/api.py` (JSON API, bearer anahtar), `app/api_tls.py` (sertifika, SPKI pini,
+  `FOODY1.` kodu, `.env` güncelleme), `app/main.py` API'yi TLS ile ayrı uvicorn sunucusunda
+  başlatır (eksik ayar botu durdurmaz, günlüğe `app_api_not_started` yazar), CLI
+  `uygulama-hazirla`, Telegram `/uygulama`. Ayarlar: `APP_API_*` (`.env.example`).
+- Uygulama: `android/` (paket `com.foody`, ad "Foody"); ekranlar Menü, Alışveriş, Asistan,
+  Tarifler (+detay), Kurallar, Ayarlar. Ayrıntı PROJE.md > Foody uygulaması.
+- CI: `.github/workflows/uygulama.yml` (sözleşme + API testleri → Android testleri + APK →
+  izin denetimi → `uygulama-son` sürümü).
+- Kurulum betiği: `deploy/uygulama-ac.sh` (güncelle → anahtar/sertifika → firewalld 8443 →
+  yeniden başlat → dışarıdan dene; ulaşılamazsa Oracle VCN kuralını tarif eder).
+
+**Kontroller:** `pytest -q` → **274 geçti** (16 API + 11 sözleşme testi dahil); yerel HTTPS +
+`curl --pinnedpubkey` (doğru pin 200, yanlış pin ve düz HTTP red); Android
+`testDebugUnitTest` **21 geçti**; `assembleRelease` 3 MB imzalı APK, `aapt2` izinleri yalnızca
+INTERNET (+ AndroidX iç izni); `CanliSunucuTest` gerçek Kotlin istemcisi ↔ gerçek Python HTTPS
+API (3/3: veri okundu, yanlış pin ve yanlış anahtar reddedildi).
+
+**Doğrulanmadı:** gerçek telefonda kurulum ve kullanım; Oracle'da 8443'ün dışarıya açık
+olduğu (VCN kuralı kullanıcının işi olabilir); CI'nın GitHub'da ilk koşusu (push sonrası bakılacak).
+
+**Sıradaki adım:** kullanıcı Mac'te `git pull` → `./deploy/uygulama-ac.sh`; gerekirse Oracle
+VCN'de 8443 giriş kuralı; GitHub Releases'tan `foody.apk` kur; Telegram `/uygulama` kodunu
+Ayarlar'a yapıştır.
+
 ## Son tamamlanan iş (Claude + kullanıcı, 2026-10-15): bot Oracle sunucusuna taşındı
 
 **Doğrulandı (kullanıcının çalıştırdığı komut çıktılarıyla):** `@weeklyfoodybot`

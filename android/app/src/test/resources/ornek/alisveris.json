@@ -1,0 +1,110 @@
+{
+  "hafta_baslangic": "2026-10-26",
+  "gruplar": [
+    {
+      "kategori": "Et / Tavuk / Balık",
+      "kalemler": [
+        {
+          "anahtar": "balık|g",
+          "ad": "balık",
+          "metin": "1 kg balık"
+        },
+        {
+          "anahtar": "kıyma|g",
+          "ad": "kıyma",
+          "metin": "600 g kıyma"
+        },
+        {
+          "anahtar": "tavuk|g",
+          "ad": "tavuk",
+          "metin": "2 kg tavuk"
+        }
+      ]
+    },
+    {
+      "kategori": "Sebze & Meyve",
+      "kalemler": [
+        {
+          "anahtar": "dereotu|demet",
+          "ad": "dereotu",
+          "metin": "7 demet dereotu"
+        },
+        {
+          "anahtar": "domates|adet",
+          "ad": "domates",
+          "metin": "33 adet domates"
+        },
+        {
+          "anahtar": "havuç|adet",
+          "ad": "havuç",
+          "metin": "5 adet havuç"
+        },
+        {
+          "anahtar": "kabak|adet",
+          "ad": "kabak",
+          "metin": "2 adet kabak"
+        },
+        {
+          "anahtar": "limon|adet",
+          "ad": "limon",
+          "metin": "2 adet limon"
+        },
+        {
+          "anahtar": "patates|adet",
+          "ad": "patates",
+          "metin": "8 adet patates"
+        },
+        {
+          "anahtar": "salatalık|adet",
+          "ad": "salatalık",
+          "metin": "14 adet salatalık"
+        },
+        {
+          "anahtar": "soğan|adet",
+          "ad": "soğan",
+          "metin": "4 adet soğan"
+        }
+      ]
+    },
+    {
+      "kategori": "Süt Ürünleri",
+      "kalemler": [
+        {
+          "anahtar": "yoğurt|g",
+          "ad": "yoğurt",
+          "metin": "2,8 kg yoğurt"
+        }
+      ]
+    },
+    {
+      "kategori": "Bakliyat",
+      "kalemler": [
+        {
+          "anahtar": "kuru fasulye|g",
+          "ad": "kuru fasulye",
+          "metin": "500 g kuru fasulye"
+        },
+        {
+          "anahtar": "mercimek|g",
+          "ad": "mercimek",
+          "metin": "750 g mercimek"
+        },
+        {
+          "anahtar": "nohut|g",
+          "ad": "nohut",
+          "metin": "500 g nohut"
+        }
+      ]
+    },
+    {
+      "kategori": "Kuru Gıda / Baharat",
+      "kalemler": [
+        {
+          "anahtar": "makarna|g",
+          "ad": "makarna",
+          "metin": "2 kg makarna"
+        }
+      ]
+    }
+  ]
+}

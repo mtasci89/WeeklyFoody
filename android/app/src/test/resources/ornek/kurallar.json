@@ -1,0 +1,12 @@
+{
+  "kurallar": [
+    "Balık kullanma",
+    "Kalorilerini de yaz yanına",
+    "Mutfakta az bulaşık çıksın"
+  ],
+  "ozet": [
+    "Yasaklanan içerikler plan kaydedilirken kontrol edilir.",
+    "Menüde kişi başı kalori gösterilir; eksik değerler belirtilir.",
+    "Yalnızca ajana iletilir, otomatik denetim yok: Mutfakta az bulaşık çıksın"
+  ]
+}

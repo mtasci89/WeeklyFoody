@@ -4,7 +4,7 @@ Bu dosya Claude ve Codex için kalıcı proje bağlamıdır. Güncel durum, son 
 
 ## Amaç ve kapsam
 
-WeeklyFoody, kişisel/aile kullanımı için Telegram üzerinden haftalık yemek planlayan bir Python uygulamasıdır. Yöneticiyle Türkçe revizyon yapar; onaylanan menüyü ve birleştirilmiş alışveriş listesini yapılandırılmış alıcılara gönderir. Tarifler, tercihler, geri bildirimler ve haftalık iş akışı SQLAlchemy veritabanında saklanır.
+WeeklyFoody, kişisel/aile kullanımı için haftalık yemek planlayan bir Python uygulamasıdır. Yönetici arayüzü Foody Android uygulamasıdır (`android/`); Telegram botu alıcılara gönderim, bildirim ve bağlantı kodu için çalışmaya devam eder. Yöneticiyle Türkçe revizyon yapar; onaylanan menüyü ve birleştirilmiş alışveriş listesini yapılandırılmış alıcılara gönderir. Tarifler, tercihler, geri bildirimler ve haftalık iş akışı SQLAlchemy veritabanında saklanır.
 
 Bu rehberdeki mimari bilgileri yerel kaynak koduna dayanır. Canlı botun, bulut dağıtımının ve dış sağlayıcıların çalıştığı anlamına gelmez; doğrulama kapsamı DEVIR.md içinde belirtilir.
 
@@ -21,6 +21,8 @@ Bu rehberdeki mimari bilgileri yerel kaynak koduna dayanır. Canlı botun, bulut
 | `app/recipes/`, `data/recipes/` | Tarif içe aktarma, keşif, aday/onaylı tarif yönetimi ve örnek YAML tarifleri |
 | `app/memory/`, `app/shopping/` | Kalıcı tercihler/geri bildirim; porsiyon, birim, kiler ve alışveriş hesapları |
 | `app/db/` | SQLAlchemy modelleri, SQLite/PostgreSQL bağlantısı ve `create_all` ile ilk kurulum |
+| `app/api.py`, `app/api_tls.py` | Foody uygulamasının HTTPS JSON API'si (bearer anahtar), kendinden imzalı sertifika, SPKI pini ve `FOODY1.` bağlantı kodu |
+| `android/` | Foody Android uygulaması (Kotlin/Compose, paket `com.foody`); aşağıdaki "Foody uygulaması" bölümü |
 | `app/web_panel.py` | FastAPI paneli; token ile tarif görüntüleme, kalıcı kural ve porsiyon besin değeri düzenleme |
 | `tests/` | pytest ile ajan, planlayıcı, alışveriş, güvenlik, kalıcılık ve panel kontrolleri |
 | `requirements.txt`, `Dockerfile`, `docker-compose.yml` | Sabitlenmiş bağımlılıklar; Python 3.12 tabanlı konteyner; `data/` kalıcılığı |
@@ -103,3 +105,33 @@ README/CLOUD_DEPLOY içindeki operasyon ayrıntıları için güncel kod ve DEVI
 Bot Oracle sunucusunda `weeklyfoody.service` olarak çalışır; Mac'te
 `app.cli run` başlatmayın. Güncelleme ve günlük için `deploy/` altındaki
 betikler; ayrıntı ve SELinux notu DEVIR.md'de.
+
+## Foody uygulaması (android/, 2026-10-19)
+
+Mimari: Financia/Cal-Track tarzı yerel Android uygulaması, ama veri ve zekâ sunucuda.
+Uygulama yalnızca ince istemcidir: `app/api.py`'deki `/api/v1/*` uçlarını çağırır
+(menü, onay, öğün değiştirme, tarifler + aday onayla/çıkar, alışveriş, kurallar,
+sohbet, web'de keşif). Gemini anahtarı telefonda değil sunucuda. Telefonda yalnızca
+adres + uygulama anahtarı + sertifika pini (EncryptedSharedPreferences) ve alışveriş
+işaretleri (düz SharedPreferences, hafta başına) durur.
+
+- **Bağlantı:** `python -m app.cli uygulama-hazirla --adres https://IP:8443` anahtarı
+  (`APP_API_TOKEN`), sertifikayı (`data/foody-api.crt/.key`, git dışı) ve `.env`
+  satırlarını üretir; Telegram `/uygulama` komutu `FOODY1.` kodunu yöneticiye yollar.
+  Uygulama `SabitAnahtarGuveni` ile yalnızca pini tutan sertifikayı kabul eder.
+- **Sözleşme:** API cevap biçimi `android/app/src/test/resources/ornek/*.json`
+  örnekleriyle sabittir; örnekler `python -m tests.app_samples android/app/src/test/resources/ornek`
+  ile gerçek API'den üretilir, `tests/test_app_contract.py` uyumu denetler. Bir alan
+  adını değiştirirsen örnekleri yeniden üret ve Kotlin modellerini (`data/Modeller.kt`) uyumla.
+- **İzin kuralı (Financia ile aynı, banka uygulamalarıyla uyum):** yalnızca `INTERNET`.
+  Kamera, bildirim, erişilebilirlik, açılışta başlama vb. eklenmez; CI izin listesini denetler.
+- **Test:** `cd android && ./gradlew :app:testDebugUnitTest` (modeller, bağlantı kodu,
+  pin, Robolectric ekranları). `CanliSunucuTest` yalnızca `FOODY_CANLI_KOD` verilirse
+  gerçek sunucuya bağlanır. Robolectric'te AlertDialog içindeki metin alanı hiç
+  durulmuyor (AppNotIdle); pencere içeriklerini ayrı composable yapıp pencere olmadan test edin.
+- **Derleme/yayın:** `.github/workflows/uygulama.yml` → `uygulama-son` sürümünde
+  `foody.apk`. İmza anahtarı `android/app/release.keystore` (şifre `foodyapp`) bilerek
+  depoda: aynı anahtarla yeni APK eskisinin üzerine kurulur. Depo herkese açık olduğu
+  için depoyu özel yapmak önerilir (kullanıcıya söylendi).
+- Sunucuda 8443 hem `firewalld`'da hem Oracle VCN güvenlik listesinde açık olmalı
+  (`deploy/uygulama-ac.sh`).

@@ -1,0 +1,63 @@
+name: Foody uygulaması (APK)
+
+on:
+  push:
+    branches: [main, "claude/**"]
+    paths: ["android/**", "app/api.py", "app/api_tls.py", "tests/app_samples.py", ".github/workflows/uygulama.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  sunucu-sozlesmesi:
+    # Uygulamanın beklediği API biçimi bozulmasın (tests/test_app_contract.py).
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -r requirements.txt
+      - run: python -m pytest tests/test_app_contract.py tests/test_app_api.py -q
+
+  derle:
+    needs: sunucu-sozlesmesi
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: android
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v3
+      - name: Testler ve APK
+        run: ./gradlew :app:testDebugUnitTest :app:assembleRelease --no-daemon
+      - name: İzin denetimi (banka uygulamalarıyla uyum)
+        run: |
+          AAPT2=$(ls -d "$ANDROID_HOME"/build-tools/*/ | sort -V | tail -1)aapt2
+          IZINLER=$("$AAPT2" dump permissions app/build/outputs/apk/release/app-release.apk | grep "uses-permission:" | sed "s/.*name='\([^']*\)'.*/\1/" | sort)
+          echo "$IZINLER"
+          IZINLI="android.permission.INTERNET com.foody.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
+          for i in $IZINLER; do
+            case " $IZINLI " in *" $i "*) ;; *) echo "::error::İzin listesinde olmayan izin: $i (PROJE.md > Foody uygulaması > izin kuralı)"; exit 1 ;; esac
+          done
+      - name: Adlandır
+        run: |
+          mkdir -p ../out
+          cp app/build/outputs/apk/release/app-release.apk ../out/foody.apk
+      - name: "Yayınla: uygulama-son"
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: uygulama-son
+          name: Foody (son sürüm)
+          body: |
+            `${{ github.ref_name }}` dalındaki `${{ github.sha }}` commit'inden otomatik derlendi.
+            Telefonundan aşağıdaki **foody.apk** dosyasına dokunarak kur ya da güncelle.
+          files: out/foody.apk
+          make_latest: "true"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

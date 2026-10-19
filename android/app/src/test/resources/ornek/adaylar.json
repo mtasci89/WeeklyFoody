@@ -1,0 +1,17 @@
+{
+  "tarifler": [
+    {
+      "id": "292b0c10-946d-49de-9021-717e010fa3f2",
+      "ad": "Tavuk Fajita",
+      "kategori": "main",
+      "kategori_adi": "Ana yemek",
+      "durum": "candidate",
+      "sure_dk": null,
+      "vejetaryen": false,
+      "kaynak": "https://ornek.example/fajita",
+      "kcal": 520,
+      "protein": 17,
+      "tahmini": true
+    }
+  ]
+}

@@ -169,6 +169,40 @@ If your computer is off, the local bot is off too. GitHub stores the code but do
 
 For an always-on setup, deploy the GitHub repo to Railway and use Railway Postgres for persistent memory. See [CLOUD_DEPLOY.md](CLOUD_DEPLOY.md).
 
+## Foody Android Uygulaması
+
+Yönetici arayüzü artık telefondaki **Foody** uygulaması (`android/`, Kotlin/Compose;
+yapısı Financia ile aynı). Beyin sunucuda kalır: uygulama `app/api.py`'deki HTTPS
+JSON API'si üzerinden menüyü, alışveriş listesini, tarifleri, kuralları ve
+asistanı kullanır. Telegram botu çalışmaya devam eder (alıcılara onaylı menü,
+haftalık bildirimler, bağlantı kodu).
+
+| Ekran | Ne yapar |
+| --- | --- |
+| Menü | Haftanın günleri, öğünler, kişi başı kalori; öğün değiştirme; onay |
+| Alışveriş | Kategorili liste, alınanları işaretleme, paylaşma |
+| Asistan | Sohbet: menü kur, değiştir, web'de tarif bul, kural ekle |
+| Tarifler | Kütüphane ve adaylar; web'de tarif arama; adayı onaylama/çıkarma; tarif detayı (kişi sayısına göre) |
+| Kurallar | Ev kurallarını ekleme/silme, sistemin neyi denetlediği |
+
+**Kurulum (bir kez):**
+1. Mac'te `./deploy/uygulama-ac.sh` → sunucuda anahtar + sertifika üretir, 8443'ü açar, dener.
+   Dışarıdan ulaşılamıyorsa Oracle'da 8443 için giriş kuralı eklemen gerekir (betik nasıl
+   yapılacağını yazar).
+2. GitHub'da **Releases → "Foody (son sürüm)" → foody.apk** dosyasını telefondan indirip kur.
+3. Telegram'da bota `/uygulama` yaz; gelen `FOODY1.` kodunu uygulamada Ayarlar'a yapıştır.
+
+**Güvenlik:** Alan adı olmadığı için sunucu kendinden imzalı sertifika kullanır; uygulama
+bu sertifikanın açık anahtarını sabitler (pin), başka sertifikayla konuşmaz. İstekler
+uzun bir uygulama anahtarıyla (`Authorization: Bearer`) yapılır. Uygulama yalnızca
+`INTERNET` izni taşır (banka uygulamalarıyla uyum; CI denetler). Kod ve anahtar
+telefonda şifreli saklanır.
+
+**Derleme:** GitHub Actions (`.github/workflows/uygulama.yml`) her gönderimde API
+sözleşme testlerini, Android testlerini çalıştırır, APK'yı derler ve `uygulama-son`
+sürümüne koyar. Yerelde: `cd android && ./gradlew :app:testDebugUnitTest :app:assembleRelease`
+(`android/local.properties` içinde `sdk.dir`).
+
 ## Oracle Sunucusu
 
 Bot Oracle sunucusunda systemd servisi (`weeklyfoody`) olarak çalışıyor. Mac'ten:
