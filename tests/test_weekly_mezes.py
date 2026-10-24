@@ -380,3 +380,12 @@ async def test_app_sections_draft_and_approved(factory, wsettings):
 
     client.post("/api/v1/menu/onayla", headers=AUTH, json={"hafta": "taslak"})
     assert client.get("/api/v1/menu", headers=AUTH, params={"hafta": "taslak"}).json()["plan"] is None
+
+
+def test_app_channel_asks_for_plain_text_and_followups_are_understood():
+    from datetime import date
+
+    from app.agent.prompts import SYSTEM_PROMPT
+
+    assert "biçim işaretleri kullanma" in context_block(date(2026, 10, 24), "", [], [], [], channel="uygulama")
+    assert "pancarı da değiştirelim" in SYSTEM_PROMPT

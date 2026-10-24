@@ -333,7 +333,7 @@ async def test_empty_model_response_asks_for_clarification(db, settings, session
     reply = await agent.reply(chat_id=4, message="hmm")
 
     assert reply.ok is False
-    assert "anlayamadım" in reply.text
+    assert "boş döndü" in reply.text or "anlayamadım" in reply.text
     assert agent.store.history(4) == []
 
 

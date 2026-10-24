@@ -375,25 +375,62 @@ async def test_api_errors_explain_themselves(db, settings, session_factory, code
     assert agent.store.history(1) == []
 
 
+EMPTY = types.GenerateContentResponse(
+    candidates=[types.Candidate(content=types.Content(role="model", parts=[]), finish_reason="STOP")]
+)
+
+
 @pytest.mark.asyncio
-async def test_empty_candidate_asks_for_clarification(db, settings, session_factory):
-    agent = make_agent(settings, session_factory, FakeGeminiClient([types.GenerateContentResponse(candidates=[])]))
+async def test_empty_candidate_is_retried_before_giving_up(db, settings, session_factory):
+    """Kullanıcı: "pancarı da değiştirelim" -> "Bunu anlayamadım". Sebep anlamamak değil,
+    ücretsiz modelin ara sıra boş cevap vermesiydi."""
+    client = FakeGeminiClient([EMPTY, text_response("Pancarı Muhammara ile değiştirdim.")])
+    agent = make_agent(settings, session_factory, client)
+
+    reply = await agent.reply(chat_id=1, message="pancarı da değiştirelim")
+
+    assert reply.ok is True and reply.text == "Pancarı Muhammara ile değiştirdim."
+    retry = client.requests[1]["contents"][-1]
+    assert retry.role == "user" and "Cevabın boş geldi" in retry.parts[-1].text
+
+
+@pytest.mark.asyncio
+async def test_persistently_empty_answers_say_so_honestly(db, settings, session_factory):
+    agent = make_agent(settings, session_factory, FakeGeminiClient([EMPTY, EMPTY, EMPTY]))
 
     reply = await agent.reply(chat_id=1, message="selam")
 
     assert reply.ok is False
-    assert "anlayamadım" in reply.text
+    assert "boş döndü" in reply.text and "anlayamadım" not in reply.text
+    assert len(agent.client.requests) == 3
 
 
 @pytest.mark.asyncio
-async def test_endless_tool_calls_stop_at_the_iteration_limit(db, settings, session_factory):
-    loop = [call_response(("aday_tarifler", {})) for _ in range(5)]
+async def test_an_empty_answer_after_a_saved_change_still_reports_the_change(db, settings, session_factory):
+    session = await MealPlannerService(db, settings).create_or_get_weekly_session(WEEK)
+    target = next(i for i in session.meal_plan.items if i.date == WEEK and i.recipe.category == "main")
+    swap = call_response(("ogun_degistir", {"tarih": WEEK.isoformat(), "yeni_tarif": "Kuru Fasulye",
+                                            "gerekce": "x", "ogun_slotu": target.meal_slot}))
+    agent = make_agent(settings, session_factory, FakeGeminiClient([swap, EMPTY, EMPTY, EMPTY]))
+
+    reply = await agent.reply(chat_id=1, message="pazartesiye baklagil")
+
+    assert reply.ok is True
+    assert "Taslağı güncelledim" in reply.text
+    assert reply.plan_session_id == session.id
+
+
+@pytest.mark.asyncio
+async def test_iteration_limit_ends_with_a_summary_instead_of_silence(db, settings, session_factory):
+    loop = [call_response(("aday_tarifler", {})) for _ in range(3)] + [text_response("3 adımda adayları inceledim.")]
     agent = make_agent(settings, session_factory, FakeGeminiClient(loop), agent_max_iterations=3)
 
     reply = await agent.reply(chat_id=1, message="x")
 
-    assert reply.ok is False
-    assert len(agent.client.requests) == 3
+    assert reply.text == "3 adımda adayları inceledim."
+    assert len(agent.client.requests) == 4
+    final = agent.client.requests[-1]["config"]
+    assert final.tool_config.function_calling_config.mode == "NONE"
 
 
 # --- kurulum ---------------------------------------------------------------

@@ -193,6 +193,9 @@ başına verme; kullanıcı istemeli ya da beğendiğini belli etmeli.
 - Yaptığın her değişikliğin gerekçesini bir cümleyle söylersin. "Salı'ya somon
   koydum, çünkü beş haftadır balık yok ve Salı akşamı hazırlığı kısa" gibi.
   Gerekçesiz değişiklik yapmazsın.
+- Kısa takip mesajlarını ("pancarı da değiştirelim", "onu da çıkar", "son
+  olarak şunu da") önceki konuşmaya ve plana bakarak anlarsın: neyi
+  kastettiği konuşmada ya da planda tekse sormadan yaparsın.
 - Emin olmadığında tahmin etmek yerine sorarsın. Özellikle hangi günü ya da
   hangi öğünü kastettiği belirsizse.
 - Yapmadığın bir şeyi yapmış gibi anlatmazsın. Bir araç hata döndürdüyse bunu
@@ -304,6 +307,7 @@ def context_block(
             "## Kanal: Foody uygulaması",
             "Kullanıcı uygulamadan yazıyor. Planı değiştirdiğinde uygulama değişen menüyü "
             "sohbette tablo olarak kendisi gösterir ve değişenleri vurgular: menüyü ya da "
-            "günleri metin olarak TEKRAR YAZMA. Ne yaptığını ve nedenini 1-3 kısa cümleyle söyle.",
+            "günleri metin olarak TEKRAR YAZMA. Ne yaptığını ve nedenini 1-3 kısa cümleyle söyle. "
+            "Düz metin yaz: ** ya da # gibi biçim işaretleri kullanma.",
         ]
     return "\n".join(lines)

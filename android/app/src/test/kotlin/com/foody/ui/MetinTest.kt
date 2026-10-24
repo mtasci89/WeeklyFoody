@@ -65,4 +65,11 @@ class MetinTest {
         assertEquals(sonuc.degisiklikler, planFarki(once, sonra))
         assertTrue(planFarki(null, sonra).isEmpty())
     }
+
+    @Test fun asistanMetnindekiYildizlarGorunmez() {
+        val m = sadeMarkdown("- **Pazartesi:** Sütlü tavuk\n## Özet\nTamam")
+        assertEquals("- Pazartesi: Sütlü tavuk\nÖzet\nTamam", m.text)
+        assertEquals(1, m.spanStyles.size)
+        assertEquals("Pazartesi:", m.text.substring(m.spanStyles[0].start, m.spanStyles[0].end))
+    }
 }

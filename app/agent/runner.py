@@ -330,11 +330,23 @@ class MealPlannerAgent:
             logger.warning(
                 "agent_empty_reply chat_id=%s stop=%s tools=%s", chat_id, stop, toolset.calls
             )
-            return AgentReply(
-                text="Bunu anlayamadım, biraz daha açar mısın?",
-                tool_calls=toolset.calls,
-                ok=False,
-            )
+            if toolset.touched_session_id is not None:
+                # Model özet yazamadı ama değişiklikler kaydedildi: bunu söyle,
+                # uygulama güncel taslağı gösterir. "Anlamadım" yanıltıcı olurdu.
+                text = (
+                    "Taslağı güncelledim ama özetini yazamadım. Değişiklikleri Menü > Taslak'ta "
+                    "görebilirsin; eksik kalan bir şey varsa tekrar yaz."
+                )
+            else:
+                return AgentReply(
+                    text=(
+                        "Bu sefer cevap üretemedim (model boş döndü). Mesajını aynen tekrar gönderir misin?"
+                        if toolset.calls or stop
+                        else "Bunu anlayamadım, biraz daha açar mısın?"
+                    ),
+                    tool_calls=toolset.calls,
+                    ok=False,
+                )
 
         # Gorseller gecmise yazilmaz (buyuk ve tekrar gonderilmesi gereksiz);
         # sonraki mesajlarda "o listedeki" diye donulebilsin diye notu kalir.

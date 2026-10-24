@@ -61,6 +61,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -263,6 +264,16 @@ private fun YaziAlani(vm: AnaViewModel, girdi: String, degis: (String) -> Unit, 
     }
 }
 
+/** Asistanın metnindeki **kalın** kısımları kalın gösterir, baştaki "#" başlık işaretlerini atar. */
+fun sadeMarkdown(metin: String): androidx.compose.ui.text.AnnotatedString = androidx.compose.ui.text.buildAnnotatedString {
+    val temiz = metin.lines().joinToString("\n") { it.replace(Regex("^\\s*#{1,6}\\s+"), "") }
+    var kalin = false
+    temiz.split("**").forEachIndexed { i, parca ->
+        if (i > 0) kalin = !kalin
+        if (kalin) withStyle(androidx.compose.ui.text.SpanStyle(fontWeight = FontWeight.Bold)) { append(parca) } else append(parca)
+    }
+}
+
 /** "1 dk 05 sn" */
 fun gecenSure(baslangic: Long, simdi: Long): String {
     val sn = ((simdi - baslangic) / 1000).coerceAtLeast(0)
@@ -290,7 +301,7 @@ private fun Balon(kullanici: Boolean, metin: String, hata: Boolean = false) {
     Row(Modifier.fillMaxWidth(), horizontalArrangement = if (kullanici) Arrangement.End else Arrangement.Start) {
         SelectionContainer {
             Text(
-                metin,
+                if (kullanici) androidx.compose.ui.text.AnnotatedString(metin) else sadeMarkdown(metin),
                 Modifier.widthIn(max = 330.dp)
                     .clip(RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp, bottomStart = if (kullanici) 20.dp else 6.dp, bottomEnd = if (kullanici) 6.dp else 20.dp))
                     .background(if (kullanici) Renk.Yesil else if (hata) Color(0xFFFEE2E2) else Color.White)

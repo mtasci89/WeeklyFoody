@@ -2,6 +2,22 @@
 
 Son güncelleme: **2026-10-24 — Claude**. Önce [PROJE.md](PROJE.md) dosyasını okuyun.
 
+## Son tamamlanan iş (Claude, 2026-10-24): "Bunu anlayamadım" düşmeleri, ** işaretleri (1.7)
+
+Kullanıcı ekran görüntüsü: "pancarı da değiştirelim son olarak" -> kırmızı "Bunu anlayamadım".
+Kod incelemesi: bu metin anlama hatası değil; Gemini boş aday döndürünce (araç sonucundan
+sonra ara sıra, MALFORMED_FUNCTION_CALL vb.) ya da adım sınırına (12) gelince
+`_finish` boş metni "anlayamadım" yapıyordu. Sunucu günlüğü görülmedi; hangisi olduğu
+doğrulanmadı.
+
+- `gemini_backend.run_turn`: boş aday / yalnızca düşünce parçası -> en fazla 2 kez "(Sistem
+  notu) ..." ile dürtme; adım sınırında araçsız (`FunctionCallingConfig(mode="NONE")`) son
+  istekle özet. `runner._finish`: metin yine boşsa ama plan değiştiyse "Taslağı güncelledim"
+  (ok=True, uygulama Taslak'a geçer); değişmediyse dürüst "model boş döndü" mesajı.
+- İstem: kısa takip mesajlarını ("pancarı da", "onu da çıkar") konuşma + plandan anla;
+  uygulama kanalında düz metin (** yok). Uygulama 1.7: `sadeMarkdown` ** kalın gösterir.
+- Kontroller: pytest 352 geçti; Android 53 test (5 canlı atlandı) geçti; assembleRelease tamam.
+
 ## Son tamamlanan iş (Claude, 2026-10-24): Menü > Taslak bölümü (uygulama 1.6)
 
 Kullanıcı (1.5 kurulu, sunucu güncel): "Taslağı her değişiklik sonrası bu tabloda görmek
