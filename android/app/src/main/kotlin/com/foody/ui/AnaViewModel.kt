@@ -11,6 +11,7 @@ import com.foody.data.BaglantiKodu
 import com.foody.data.DurumCevap
 import com.foody.data.Ek
 import com.foody.data.Gorsel
+import com.foody.data.IsBekleyici
 import com.foody.data.Isaretler
 import com.foody.data.KuralCevap
 import com.foody.data.MenuCevap
@@ -78,6 +79,9 @@ class AnaViewModel(app: Application) : AndroidViewModel(app) {
     val sohbet: StateFlow<List<SohbetMesaji>> = _sohbet.asStateFlow()
     private val _asistanCalisiyor = MutableStateFlow(false)
     val asistanCalisiyor: StateFlow<Boolean> = _asistanCalisiyor.asStateFlow()
+    /** Asistanın şu anki işinin başladığı an (geçen süreyi göstermek için). */
+    private val _asistanBaslangic = MutableStateFlow(0L)
+    val asistanBaslangic: StateFlow<Long> = _asistanBaslangic.asStateFlow()
 
     /** Asistana gönderilmeyi bekleyen fotoğraflar. */
     private val _ekler = MutableStateFlow<List<Ek>>(emptyList())
@@ -257,7 +261,13 @@ class AnaViewModel(app: Application) : AndroidViewModel(app) {
         if (testModu || konu.isBlank()) return
         viewModelScope.launch {
             _tarifler.update { it.copy(kesifSuruyor = true, kesifSonucu = null) }
-            runCatching { sunucu.tarifKesfet(konu.trim()) }
+            runCatching {
+                IsBekleyici.bekle(
+                    baslat = { sunucu.kesfiBaslat(konu.trim()) },
+                    durum = sunucu::isDurumu,
+                    eskiYol = { sunucu.tarifKesfet(konu.trim()) },
+                )
+            }
                 .onSuccess { c -> _tarifler.update { it.copy(kesifSuruyor = false, kesifSonucu = c.metin) }; tarifleriYenile() }
                 .onFailure { e -> _tarifler.update { it.copy(kesifSuruyor = false, kesifSonucu = e.message) } }
         }
@@ -321,7 +331,14 @@ class AnaViewModel(app: Application) : AndroidViewModel(app) {
         if (testModu) return
         viewModelScope.launch {
             _asistanCalisiyor.value = true
-            runCatching { sunucu.sor(soru, ekler) }
+            _asistanBaslangic.value = System.currentTimeMillis()
+            runCatching {
+                IsBekleyici.bekle(
+                    baslat = { sunucu.soruyuBaslat(soru, ekler) },
+                    durum = sunucu::isDurumu,
+                    eskiYol = { sunucu.sor(soru, ekler) },
+                )
+            }
                 .onSuccess { c ->
                     _sohbet.update { it + SohbetMesaji(false, c.metin, kaloriOzeti = c.kaloriOzeti, planDegisti = c.planDegisti, hata = !c.ok) }
                     if (c.planDegisti) { menuYenile(); alisverisYenile() }

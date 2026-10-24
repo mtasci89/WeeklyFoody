@@ -12,6 +12,7 @@ import asyncio
 import json
 import sys
 import tempfile
+import time
 from pathlib import Path
 
 TOKEN = "o" * 40
@@ -39,7 +40,7 @@ class _Agent:
 
         self.store = Store()
 
-    async def reply(self, chat_id, message, images=None):
+    async def reply(self, chat_id, message, images=None, timeout=None):
         return _Reply(self.plan_session_id)
 
 
@@ -105,6 +106,17 @@ def build_samples(workdir: Path) -> dict[str, object]:
         "sohbet_gecmisi": client.get("/api/v1/sohbet", headers=auth).json(),
         "hata": client.post("/api/v1/kurallar/sil", headers=auth, json={"kural": "olmayan"}).json(),
     }
+    # Arka plan isi: baslat, sonra bitene kadar sor (TestClient baglami acik kalmali).
+    with client:
+        started = client.post("/api/v1/sohbet/baslat", headers=auth, json={"mesaj": "menü"}).json()
+        samples["is_baslat"] = {**started, "is": "ornek-is"}
+        for _ in range(200):
+            body = client.get(f"/api/v1/is/{started['is']}", headers=auth).json()
+            if body["durum"] != "calisiyor":
+                break
+            time.sleep(0.02)
+        samples["is_bitti"] = {**body, "is": "ornek-is"}
+        samples["is_suruyor"] = {"is": "ornek-is", "durum": "calisiyor", "sonuc": None, "hata": None}
     engine.dispose()
     return samples
 

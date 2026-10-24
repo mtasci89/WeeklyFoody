@@ -542,7 +542,7 @@ async def test_typing_indicator_stays_on_for_the_whole_turn(settings):
             actions.append(chat_id)
 
     class SlowAgent:
-        async def reply(self, chat_id, message, images=None):
+        async def reply(self, chat_id, message, images=None, timeout=None):
             await asyncio.sleep(9)  # 4 sn araliklarla en az 3 gosterge
             return AgentReply(text="Menü hazır.")
 

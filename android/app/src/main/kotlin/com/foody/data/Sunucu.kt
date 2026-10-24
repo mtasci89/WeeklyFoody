@@ -48,7 +48,7 @@ class SabitAnahtarGuveni(private val pin: String) : X509TrustManager {
 
 /** Foody sunucusuyla konuşan istemci. Her çağrı arka planda çalışır; hata [Hata] olarak gelir. */
 class Sunucu(private val ayarlar: () -> Ayarlar.Degerler) {
-    class Hata(mesaj: String) : Exception(mesaj)
+    class Hata(mesaj: String, val kod: Int? = null) : Exception(mesaj)
 
     private val jsonTip = "application/json; charset=utf-8".toMediaType()
     private var istemci: Pair<String, OkHttpClient>? = null
@@ -89,7 +89,7 @@ class Sunucu(private val ayarlar: () -> Ayarlar.Degerler) {
         try {
             http(a.pin).newCall(istek).execute().use { r ->
                 val metin = r.body?.string().orEmpty()
-                if (!r.isSuccessful) throw Hata(hataMetni(r.code, metin))
+                if (!r.isSuccessful) throw Hata(hataMetni(r.code, metin), r.code)
                 esnekJson.decodeFromString(cevirici, metin)
             }
         } catch (e: Hata) {
@@ -144,6 +144,16 @@ class Sunucu(private val ayarlar: () -> Ayarlar.Degerler) {
     suspend fun sor(mesaj: String, ekler: List<Ek> = emptyList()) = cagir(
         "POST", "sohbet", govde = sohbetGovdesi(mesaj, ekler), cevirici = SohbetCevap.serializer(),
     )
+
+    suspend fun soruyuBaslat(mesaj: String, ekler: List<Ek> = emptyList()) = cagir(
+        "POST", "sohbet/baslat", govde = sohbetGovdesi(mesaj, ekler), cevirici = IsBaslat.serializer(),
+    )
+
+    suspend fun kesfiBaslat(konu: String) = cagir(
+        "POST", "kesif/baslat", govde = buildJsonObject { put("konu", konu) }.toString(), cevirici = IsBaslat.serializer(),
+    )
+
+    suspend fun isDurumu(id: String) = cagir("GET", "is/$id", cevirici = IsDurumu.serializer())
 
     suspend fun sohbetGecmisi() = cagir("GET", "sohbet", cevirici = SohbetGecmisi.serializer())
 

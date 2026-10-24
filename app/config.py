@@ -43,7 +43,8 @@ class Settings(BaseSettings):
     anthropic_api_key: str = ""
     anthropic_model: str = "claude-opus-5-5"
     agent_effort: Literal["low", "medium", "high", "xhigh", "max"] = "medium"
-    agent_max_tokens: int = 8000
+    # Fotograftan 15 tarif eklemek gibi toplu islerde tek cevap uzun olabiliyor.
+    agent_max_tokens: int = 16000
     agent_max_iterations: int = 12
     agent_history_turns: int = 12
     # Web arama sunucu araci: ajan kutuphanede olmayan tarifi kendisi arar.
@@ -57,8 +58,10 @@ class Settings(BaseSettings):
     agent_cache_ttl: Literal["5m", "1h"] = "5m"
     # Tek bir model isteginin ve bir kullanici mesajinin tamaminin ust siniri.
     # Asilirsa kullanici "cok uzun surdu" cevabi alir; sessizce asili kalmaz.
-    agent_request_timeout_seconds: int = 60
+    agent_request_timeout_seconds: int = 90
     agent_turn_timeout_seconds: int = 240
+    # Uygulamanin arka plan isleri (baglanti beklemedigi icin daha uzun olabilir).
+    agent_job_timeout_seconds: int = 600
 
     default_servings: int = 4
     meal_slots: Annotated[list[str], NoDecode] = Field(default_factory=lambda: ["dinner"])

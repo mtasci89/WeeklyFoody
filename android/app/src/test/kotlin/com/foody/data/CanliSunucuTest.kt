@@ -38,6 +38,18 @@ class CanliSunucuTest {
         assertTrue(cevap.metin.isNotBlank())
     }
 
+    @Test fun uzunIsArkaPlandaBiterVeSorularakAlinir() = runBlocking {
+        assumeTrue(kod != null)
+        val sunucu = Sunucu { BaglantiKodu.coz(kod!!) }
+        val ek = Ek(2, ByteArray(50_000) { 7 }, android.graphics.Bitmap.createBitmap(2, 2, android.graphics.Bitmap.Config.ARGB_8888))
+        val cevap = IsBekleyici.bekle(
+            baslat = { sunucu.soruyuBaslat("yavaş iş", listOf(ek)) },
+            durum = sunucu::isDurumu,
+            eskiYol = { error("eski yola düşmemeli") },
+        )
+        assertTrue(cevap.metin.contains("1 görsel"))
+    }
+
     @Test fun yanlisPinleBaglanmaz() = runBlocking {
         assumeTrue(kod != null)
         val ayar = BaglantiKodu.coz(kod!!).copy(pin = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=")

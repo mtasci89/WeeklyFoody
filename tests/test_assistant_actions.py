@@ -97,7 +97,7 @@ class RecordingAgent:
     def __init__(self):
         self.calls = []
 
-    async def reply(self, chat_id, message, images=None):
+    async def reply(self, chat_id, message, images=None, timeout=None):
         self.calls.append((message, images))
 
         class Reply:

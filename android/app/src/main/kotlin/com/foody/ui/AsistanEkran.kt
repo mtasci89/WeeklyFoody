@@ -77,6 +77,9 @@ fun AsistanEkran(vm: AnaViewModel, menuyeGit: () -> Unit) {
     val taslak by vm.taslak.collectAsStateWithLifecycle()
     val ayar by vm.ayarlar.collectAsStateWithLifecycle()
     val ekler by vm.ekler.collectAsStateWithLifecycle()
+    val baslangic by vm.asistanBaslangic.collectAsStateWithLifecycle()
+    var simdi by remember { mutableStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(calisiyor) { while (calisiyor) { simdi = System.currentTimeMillis(); kotlinx.coroutines.delay(1000) } }
     var girdi by rememberSaveable { mutableStateOf("") }
     var ekMenusu by remember { mutableStateOf(false) }
     val liste = rememberLazyListState()
@@ -121,7 +124,10 @@ fun AsistanEkran(vm: AnaViewModel, menuyeGit: () -> Unit) {
             if (calisiyor) item {
                 Row(Modifier.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
-                    Text("Asistan çalışıyor… bir menü kurmak bir iki dakika sürebilir", color = Renk.Soluk, fontSize = 13.sp)
+                    Text(
+                        "Asistan çalışıyor… ${gecenSure(baslangic, simdi)}\nBaşka uygulamaya geçebilirsin; döndüğünde cevap burada olur.",
+                        color = Renk.Soluk, fontSize = 13.sp, lineHeight = 18.sp,
+                    )
                 }
             }
         }
@@ -186,6 +192,12 @@ fun AsistanEkran(vm: AnaViewModel, menuyeGit: () -> Unit) {
             ) { Icon(Icons.AutoMirrored.Rounded.Send, contentDescription = "Gönder") }
         }
     }
+}
+
+/** "1 dk 05 sn" */
+fun gecenSure(baslangic: Long, simdi: Long): String {
+    val sn = ((simdi - baslangic) / 1000).coerceAtLeast(0)
+    return if (sn < 60) "$sn sn" else "${sn / 60} dk ${"%02d".format(sn % 60)} sn"
 }
 
 /** Kameranın fotoğrafı yazacağı geçici dosya (uygulamanın önbelleğinde, FileProvider ile paylaşılır). */

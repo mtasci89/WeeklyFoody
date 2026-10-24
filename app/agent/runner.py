@@ -202,7 +202,9 @@ class MealPlannerAgent:
             {"type": "text", "text": self._context(toolset)},
         ]
 
-    async def reply(self, chat_id: int, message: str, images: list[Gorsel] | None = None) -> AgentReply:
+    async def reply(
+        self, chat_id: int, message: str, images: list[Gorsel] | None = None, timeout: int | None = None
+    ) -> AgentReply:
         images = list(images or [])
         message = message.strip() or (VARSAYILAN_GORSEL_MESAJI if images else message)
         logger.info(
@@ -212,19 +214,17 @@ class MealPlannerAgent:
         toolset = MealAgentToolset(
             self.settings, self.session_factory, estimator=self.estimator(), notifier=self.notifier
         )
+        limit = timeout or self.settings.agent_turn_timeout_seconds
         try:
             return await asyncio.wait_for(
                 self._reply(chat_id, message, toolset, images),
-                timeout=self.settings.agent_turn_timeout_seconds,
+                timeout=limit,
             )
         except asyncio.TimeoutError:
-            logger.warning(
-                "agent_turn_timeout chat_id=%s seconds=%s tools=%s",
-                chat_id, self.settings.agent_turn_timeout_seconds, toolset.calls,
-            )
+            logger.warning("agent_turn_timeout chat_id=%s seconds=%s tools=%s", chat_id, limit, toolset.calls)
             return AgentReply(
                 text=(
-                    f"Bu istek {self.settings.agent_turn_timeout_seconds} saniyeden uzun sürdü, "
+                    f"Bu istek {limit} saniyeden uzun sürdü, "
                     "yarıda bıraktım. Daha kısa bir şey isteyerek tekrar dener misin?"
                     + FALLBACK_SUFFIX
                 ),

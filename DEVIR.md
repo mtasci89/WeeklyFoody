@@ -2,6 +2,25 @@
 
 Son güncelleme: **2026-10-15 — Claude**. Önce [PROJE.md](PROJE.md) dosyasını okuyun.
 
+## Son tamamlanan iş (Claude, 2026-10-24): uzun asistan işleri arka planda
+
+- **Sorun (kullanıcı ekran görüntüsü):** mobil veride uzun bir meze listesi fotoğrafıyla
+  "bunları mezelere ekle" → uygulamada "Sunucuya ulaşılamadı". Sunucu günlüğü görülmedi;
+  en olası sebep: tek bir uzun bekleyen HTTPS isteği (dakikalarca veri akmıyor) mobil
+  operatör / Honor arka plan kısıtlaması yüzünden kopuyor, sunucu ise işi bitiriyor.
+- **Düzeltme:** API'ye arka plan işleri: `POST /sohbet/baslat`, `POST /kesif/baslat` →
+  `{"is": id}`, `GET /is/{id}` → `calisiyor|bitti|hata`. İş bellekte (1 saat), süre sınırı
+  `AGENT_JOB_TIMEOUT_SECONDS=600`. Eski `POST /sohbet` (uygulama 1.1 için) duruyor.
+  Uygulama 1.2: `IsBekleyici` işi başlatır, 2,5 sn'de bir sorar, ağ hatasında sessizce
+  yeniden dener (12 dk'ya kadar), sunucu eskiyse (404) eski yola düşer; geçen süreyi gösterir.
+- Ayrıca: `AGENT_MAX_TOKENS` 8000 → 16000 (toplu tarif ekleme uzun cevap), istek zaman aşımı
+  60 → 90 sn.
+- Kontroller: `pytest` 290 geçti; Android testleri geçti (`IsBekleyiciTest`: kopma, eski
+  sunucu, kayıp iş, süre aşımı); `CanliSunucuTest` 5/5 (gerçek istemci ↔ gerçek HTTPS API,
+  6 sn'lik iş sorularak alındı).
+- **Doğrulanmadı:** sunucu günlüğüyle asıl kopma sebebi; gerçek Gemini'nin uzun listeyi
+  600 sn içinde bitirmesi.
+
 ## Son tamamlanan iş (Claude, 2026-10-24): asistana görsel, her şey asistanla
 
 Kullanıcı: "AI asistana görüntü ekleme getir (yemek listesini fotoğraflayıp 'bunları

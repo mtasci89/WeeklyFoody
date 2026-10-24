@@ -63,7 +63,7 @@ class FakeAgent:
 
         self.store = Store()
 
-    async def reply(self, chat_id, message, images=None):
+    async def reply(self, chat_id, message, images=None, timeout=None):
         self.messages.append(message)
         return FakeReply("Tamam, hazırladım.", self.plan_session_id)
 
@@ -351,3 +351,77 @@ def test_api_server_is_skipped_without_certificate_and_built_with_one(settings, 
     ensure_certificate(enabled.app_api_cert, enabled.app_api_key, "127.0.0.1")
     server = _app_api_server(enabled, bot=None)
     assert server is not None and server.config.ssl_certfile == str(enabled.app_api_cert)
+
+
+# --- arka plan isleri ----------------------------------------------------------------
+
+
+def _wait(client, job_id, tries=200):
+    import time
+
+    for _ in range(tries):
+        body = client.get(f"/api/v1/is/{job_id}", headers=AUTH).json()
+        if body["durum"] != "calisiyor":
+            return body
+        time.sleep(0.02)
+    raise AssertionError("iş bitmedi")
+
+
+class SlowAgent(FakeAgent):
+    async def reply(self, chat_id, message, images=None, timeout=None):
+        import asyncio
+
+        self.timeouts = getattr(self, "timeouts", []) + [timeout]
+        await asyncio.sleep(0.2)
+        return await super().reply(chat_id, message, images, timeout)
+
+
+def test_chat_job_returns_immediately_and_finishes_in_the_background(api_settings, factory):
+    agent = SlowAgent()
+    with TestClient(create_api_app(api_settings, factory, agent=agent)) as client:
+        start = client.post("/api/v1/sohbet/baslat", headers=AUTH, json={"mesaj": "bunları ekle"})
+        assert start.status_code == 200
+        assert start.json()["durum"] == "calisiyor"
+
+        done = _wait(client, start.json()["is"])
+
+    assert done["durum"] == "bitti"
+    assert done["sonuc"]["metin"] == "Tamam, hazırladım."
+    assert agent.messages == ["bunları ekle"]
+    # Arka plan isi daha uzun sure taniyor
+    assert agent.timeouts == [api_settings.agent_job_timeout_seconds]
+
+
+def test_discovery_job_uses_the_discovery_prompt(api_settings, factory):
+    agent = FakeAgent()
+    with TestClient(create_api_app(api_settings, factory, agent=agent)) as client:
+        job = client.post("/api/v1/kesif/baslat", headers=AUTH, json={"konu": "meze"}).json()
+        assert _wait(client, job["is"])["durum"] == "bitti"
+
+    assert "meze" in agent.messages[0] and "tarif_ekle" in agent.messages[0]
+
+
+def test_failed_job_reports_an_error_and_unknown_jobs_are_404(api_settings, factory):
+    class Broken(FakeAgent):
+        async def reply(self, *a, **k):
+            raise RuntimeError("patladı")
+
+    with TestClient(create_api_app(api_settings, factory, agent=Broken())) as client:
+        job = client.post("/api/v1/sohbet/baslat", headers=AUTH, json={"mesaj": "x"}).json()
+        failed = _wait(client, job["is"])
+        missing = client.get("/api/v1/is/yok", headers=AUTH)
+
+    assert failed["durum"] == "hata" and failed["hata"]
+    assert missing.status_code == 404
+
+
+def test_job_start_validates_like_chat(api_settings, factory):
+    with TestClient(create_api_app(api_settings, factory, agent=FakeAgent())) as client:
+        assert client.post("/api/v1/sohbet/baslat", headers=AUTH, json={"mesaj": " "}).status_code == 422
+        assert client.post("/api/v1/sohbet/baslat", json={"mesaj": "x"}).status_code == 401
+
+
+def test_job_start_without_an_agent_is_503(api_settings, factory):
+    settings = api_settings.model_copy(update={"gemini_api_key": "", "anthropic_api_key": ""})
+    with TestClient(create_api_app(settings, factory)) as client:
+        assert client.post("/api/v1/sohbet/baslat", headers=AUTH, json={"mesaj": "x"}).status_code == 503

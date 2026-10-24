@@ -240,8 +240,8 @@ def create_api_app(
             raise HTTPException(status_code=404, detail="Tarif bulunamadı.")
         return recipe
 
-    async def agent_answer(message: str, images=None) -> dict:
-        reply = await get_agent().reply(chat_id, message, images=images or None)
+    async def agent_answer(message: str, images=None, timeout: int | None = None) -> dict:
+        reply = await get_agent().reply(chat_id, message, images=images or None, timeout=timeout)
         summary = ""
         if reply.plan_session_id:
             with session_factory() as db:
@@ -411,8 +411,7 @@ def create_api_app(
         turns = agent_.store.history(chat_id) if agent_ is not None else []
         return {"mesajlar": [{"kullanici": t["role"] == "user", "metin": t["content"]} for t in turns]}
 
-    @api.post("/sohbet")
-    async def chat(body: ChatIn) -> dict:
+    def decode_images(body: ChatIn) -> list[Gorsel]:
         images = []
         for image in body.gorseller:
             if image.mime not in GORSEL_TURLERI:
@@ -423,13 +422,71 @@ def create_api_app(
                 raise HTTPException(status_code=422, detail="Görsel bozuk geldi, tekrar dene.") from error
         if not body.mesaj.strip() and not images:
             raise HTTPException(status_code=422, detail="Boş mesaj gönderilemez.")
-        return await agent_answer(body.mesaj, images)
+        return images
+
+    # --- arka plan isleri ---------------------------------------------------
+    # Bir asistan turu dakikalar surebiliyor. Tek bir uzun bekleyen istek mobil
+    # agda ya da uygulama arka plana gecince kopuyordu ("Sunucuya ulasilamadi"),
+    # oysa sunucu isi bitiriyordu. Simdi uygulama isi baslatir, sonra kisa
+    # isteklerle durumunu sorar; baglanti kopsa da is ve cevabi kaybolmaz.
+    jobs: dict[str, dict] = {}
+    tasks: set[asyncio.Task] = set()
+
+    def start_job(message: str, images: list[Gorsel]) -> dict:
+        import time
+
+        now = time.monotonic()
+        for old_id in [k for k, v in jobs.items() if now - v["zaman"] > 3600]:
+            jobs.pop(old_id, None)
+        job_id = secrets.token_urlsafe(12)
+        jobs[job_id] = {"durum": "calisiyor", "sonuc": None, "hata": None, "zaman": now}
+
+        async def run() -> None:
+            try:
+                jobs[job_id]["sonuc"] = await agent_answer(message, images, timeout=settings.agent_job_timeout_seconds)
+                jobs[job_id]["durum"] = "bitti"
+            except HTTPException as error:
+                jobs[job_id].update(durum="hata", hata=str(error.detail))
+            except Exception:
+                logger.exception("app_job_failed")
+                jobs[job_id].update(durum="hata", hata="Asistan bu isteği tamamlayamadı.")
+
+        task = asyncio.create_task(run())
+        tasks.add(task)
+        task.add_done_callback(tasks.discard)
+        logger.info("app_job_started images=%s", len(images))
+        return {"is": job_id, "durum": "calisiyor"}
+
+    @api.post("/sohbet")
+    async def chat(body: ChatIn) -> dict:
+        """Eski (1.1) uygulama icin: cevabi ayni istekte bekler."""
+        return await agent_answer(body.mesaj, decode_images(body))
+
+    @api.post("/sohbet/baslat")
+    async def chat_start(body: ChatIn) -> dict:
+        images = decode_images(body)
+        get_agent()  # asistan kapaliysa hemen 503
+        return start_job(body.mesaj, images)
 
     @api.post("/kesif")
     async def discover(body: DiscoverIn) -> dict:
         from app.agent.prompts import discovery_prompt
 
         return await agent_answer(discovery_prompt(body.konu, limit=3))
+
+    @api.post("/kesif/baslat")
+    async def discover_start(body: DiscoverIn) -> dict:
+        from app.agent.prompts import discovery_prompt
+
+        get_agent()
+        return start_job(discovery_prompt(body.konu, limit=3), [])
+
+    @api.get("/is/{job_id}")
+    def job_status(job_id: str) -> dict:
+        job = jobs.get(job_id)
+        if job is None:
+            raise HTTPException(status_code=404, detail="Bu iş bulunamadı (sunucu yeniden başlamış olabilir).")
+        return {"is": job_id, "durum": job["durum"], "sonuc": job["sonuc"], "hata": job["hata"]}
 
     app.include_router(api)
     return app
