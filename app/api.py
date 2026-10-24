@@ -298,6 +298,24 @@ def create_api_app(
             state["agent"] = MealPlannerAgent(settings, session_factory, notifier=notifier)
         return state["agent"]
 
+    def json_asker():
+        """Modelden yapılandırılmış cevap isteyen fonksiyon (Gemini yoksa None)."""
+        if settings.agent_provider != "gemini" or not settings.gemini_api_key:
+            return None
+        try:
+            estimator = get_agent().estimator()
+        except HTTPException:
+            return None
+        return getattr(estimator, "ask_json", None)
+
+    async def complete(db, session) -> None:
+        """Menüdeki, malzemesi kaydedilmemiş tarifleri tamamlar (tarif ve alışveriş için)."""
+        if session is None or not session.meal_plan:
+            return
+        from app.agent.recipe_fill import fill_recipes
+
+        await fill_recipes(db, json_asker(), [i.recipe for i in session.meal_plan.items])
+
     def resolve(db, hafta: str) -> WeeklyPlanningSession | None:
         planner = MealPlannerService(db, settings)
         if hafta == "bu_hafta":
@@ -399,6 +417,7 @@ def create_api_app(
                 MealPlannerService(db, settings).approve(session)
             except RuleViolation as error:
                 raise HTTPException(status_code=422, detail=f"Onaylanamadı: {error}") from error
+            await complete(db, session)
             message = "Menü onaylandı. Onaylı menü, tarifleri ve alışveriş listesi uygulamada hazır."
             if settings.telegram_menu_messages and notifier is not None and settings.all_recipient_ids:
                 try:
@@ -451,7 +470,7 @@ def create_api_app(
         )
 
     @api.get("/menu/tarifler")
-    def menu_recipes(hafta: str = "aktif", kisi: int = 0) -> dict:
+    async def menu_recipes(hafta: str = "aktif", kisi: int = 0) -> dict:
         """Bir haftanın menüsündeki tariflerin hepsi (malzemeler kişi sayısına göre,
         hazırlanış): uygulamada "Bu haftanın tarifleri" ve PDF için."""
         people = kisi if 1 <= kisi <= 20 else settings.default_servings
@@ -459,6 +478,7 @@ def create_api_app(
             session = resolve(db, hafta)
             if session is None or not session.meal_plan:
                 return {"hafta_baslangic": None, "durum": None, "tarifler": []}
+            await complete(db, session)
             ordered = sorted(
                 session.meal_plan.items, key=lambda i: (is_weekly_slot(i.meal_slot), i.date, i.meal_slot)
             )
@@ -497,10 +517,15 @@ def create_api_app(
             return {"tarifler": [recipe_summary(r) for r in rows]}
 
     @api.get("/tarifler/{recipe_id}")
-    def recipe(recipe_id: str, kisi: int = 0) -> dict:
+    async def recipe(recipe_id: str, kisi: int = 0) -> dict:
+        from app.agent.recipe_fill import fill_recipes
+
         with session_factory() as db:
             people = kisi if 0 < kisi <= 30 else settings.default_servings
-            return recipe_detail(recipe_or_404(db, recipe_id), people)
+            found = recipe_or_404(db, recipe_id)
+            # Yalnızca adıyla kayıtlı tarif açılınca tamamlanır (bir kez).
+            await fill_recipes(db, json_asker(), [found])
+            return recipe_detail(found, people)
 
     @api.post("/tarifler/{recipe_id}/onayla")
     def approve_recipe(recipe_id: str) -> dict:
@@ -523,11 +548,12 @@ def create_api_app(
             return {"mesaj": f"{recipe.name} listeden çıkarıldı.", "tarif": recipe_summary(recipe)}
 
     @api.get("/alisveris")
-    def shopping(hafta: str = "aktif") -> dict:
+    async def shopping(hafta: str = "aktif") -> dict:
         with session_factory() as db:
             session = resolve(db, hafta)
             if session is None or not session.meal_plan or not session.meal_plan.items:
                 return {"hafta_baslangic": None, "gruplar": []}
+            await complete(db, session)
             items = ShoppingListService(db, settings).generate(session.meal_plan)
             grouped: dict[str, list] = defaultdict(list)
             for item in items:

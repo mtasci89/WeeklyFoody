@@ -98,6 +98,7 @@ async def weekly_plan_job(**_legacy: object) -> None:
                 db.expire_all()
                 session = MealPlannerService(db, settings).current_session(session.week_start)
             if session.meal_plan:
+                await _fill_empty_recipes(db, settings, [i.recipe for i in session.meal_plan.items])
                 await fill_for_rules(db, settings, [i.recipe for i in session.meal_plan.items])
             if _CURRENT_BOT and settings.admin_telegram_user_id and settings.telegram_menu_messages:
                 text = f"🍽️ Önümüzdeki haftanın yemek planını hazırladım.\n\n{format_meal_plan(session)}"
@@ -115,6 +116,22 @@ async def weekly_plan_job(**_legacy: object) -> None:
         from app.memory.rules import RuleViolation
         detail = str(error) if isinstance(error, RuleViolation) else "Bu haftanın menüsünü hazırlarken bir hata oldu ve taslak oluşmadı."
         await _notify_admin(settings, detail + " /preferences ile kuralları kontrol edip /regenerate ile tekrar deneyebilirsin.")
+
+
+async def _fill_empty_recipes(db, settings: Settings, recipes) -> None:
+    """Malzemesi kaydedilmemiş tarifleri tamamlar (alışveriş listesi boş kalmasın)."""
+    if not settings.gemini_api_key:
+        return
+    from app.agent.gemini_backend import GeminiBackend
+    from app.agent.recipe_fill import fill_recipes
+
+    backend = GeminiBackend(settings)
+    try:
+        await fill_recipes(db, backend.generate_json, recipes)
+    except Exception:
+        logger.exception("weekly_recipe_fill_failed")
+    finally:
+        await backend.client.aio.aclose()
 
 
 async def _agent_new_dishes(settings: Settings, session) -> bool:

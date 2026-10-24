@@ -237,6 +237,11 @@ class MealAgentToolset:
     async def _ensure_nutrition(self, db: Session, recipes) -> None:
         if self.estimator is None:
             return
+        # Malzemesi kaydedilmemiş (yalnızca adıyla gelmiş) tarifleri önce tamamla:
+        # kalori tahmini ve alışveriş listesi malzemeye dayanıyor.
+        from app.agent.recipe_fill import fill_recipes
+
+        await fill_recipes(db, getattr(self.estimator, "ask_json", None), recipes)
         rules = MealRules.from_db(db)
         if rules.show_calories or rules.max_kcal is not None:
             await self.estimator.fill_missing(db, recipes)

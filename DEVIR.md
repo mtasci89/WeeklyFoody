@@ -2,6 +2,21 @@
 
 Son güncelleme: **2026-10-24 — Claude**. Önce [PROJE.md](PROJE.md) dosyasını okuyun.
 
+## Son tamamlanan iş (Claude, 2026-10-25): boş tarifler tamamlanıyor
+
+Kullanıcı ekran görüntüsü: Tarifler > Bu hafta'da bazı tarifler boş (Brokoli Çorbası,
+Mercimek Çorbası, Fırında Püreli Tavuk). Sebep: kütüphanenin çoğu eski menü Excel'inden
+yalnızca adlarıyla geldi (`HistoricalMenuExcelImporter`: "ingredients can be taught later");
+bu tarifler alışveriş listesine de hiçbir şey eklemiyordu.
+- `app/agent/recipe_fill.py` `fill_recipes`: malzemesi olmayan tarifleri 6'şarlı tek JSON
+  isteğiyle (4 kişilik, miktarlı malzeme + 3-7 adım) tamamlar, not düşer; her tarif bir kez;
+  eşzamanlı istekler kilitle sıraya girer. Çağrıldığı yerler: ajanın `_ensure_nutrition`'ı
+  (menüye koyarken), API `/menu/tarifler`, `/alisveris`, `/tarifler/{id}`, `/menu/onayla`,
+  pazar `weekly_plan_job`.
+- Kontroller: pytest 373 geçti (`tests/test_recipe_fill.py`). Uygulama değişmedi (1.8).
+- **Doğrulanmadı:** gerçek Gemini'nin ürettiği tariflerin kalitesi; ilk açılışta (çok boş
+  tarif varsa) birkaç saniyelik gecikme.
+
 ## Son tamamlanan iş (Claude, 2026-10-25): yasak yerine düşünen model
 
 Kullanıcı tekrar yasağına: "Kural değil, modelin bunu düşünmesini bekliyorum, böylesi çok
