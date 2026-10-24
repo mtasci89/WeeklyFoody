@@ -141,8 +141,8 @@ class Sunucu(private val ayarlar: () -> Ayarlar.Degerler) {
         "POST", "kurallar/sil", govde = buildJsonObject { put("kural", kural) }.toString(), cevirici = KuralCevap.serializer(),
     )
 
-    suspend fun sor(mesaj: String) = cagir(
-        "POST", "sohbet", govde = buildJsonObject { put("mesaj", mesaj) }.toString(), cevirici = SohbetCevap.serializer(),
+    suspend fun sor(mesaj: String, ekler: List<Ek> = emptyList()) = cagir(
+        "POST", "sohbet", govde = sohbetGovdesi(mesaj, ekler), cevirici = SohbetCevap.serializer(),
     )
 
     suspend fun sohbetGecmisi() = cagir("GET", "sohbet", cevirici = SohbetGecmisi.serializer())
@@ -152,6 +152,14 @@ class Sunucu(private val ayarlar: () -> Ayarlar.Degerler) {
     )
 
     companion object {
+        /** /sohbet gövdesi: {"mesaj": "...", "gorseller": [{"mime": "image/jpeg", "veri": base64}]} (app/api.py ChatIn). */
+        fun sohbetGovdesi(mesaj: String, ekler: List<Ek>): String = buildJsonObject {
+            put("mesaj", mesaj)
+            put("gorseller", kotlinx.serialization.json.buildJsonArray {
+                ekler.forEach { e -> add(buildJsonObject { put("mime", e.mime); put("veri", e.base64) }) }
+            })
+        }.toString()
+
         /** FastAPI hatası: {"detail": "metin"} ya da doğrulama hatalarında liste. */
         fun hataMetni(kod: Int, govde: String): String {
             val detay = runCatching { esnekJson.decodeFromString(HataCevap.serializer(), govde).detail }.getOrNull()

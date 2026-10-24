@@ -29,6 +29,21 @@
             </intent-filter>
         </activity>
 
+        <!--
+        Kameranın çektiği fotoğrafı yazacağı geçici dosya. Dışa açık değil; yalnızca o an
+        açılan kamera uygulamasına tek dosya için yazma izni verilir. Uygulamanın kendisi
+        kamera izni istemez (izin listesi değişmez).
+        -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.dosyalar"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/dosya_yollari" />
+        </provider>
+
         <!-- Kütüphaneden gelen, dışa açık başlangıç profili alıcısı gerekmez; açık bileşen bırakmayalım. -->
         <receiver
             android:name="androidx.profileinstaller.ProfileInstallReceiver"

@@ -1,6 +1,7 @@
 package com.foody.ui
 
 import android.app.Application
+import android.net.Uri
 import androidx.annotation.VisibleForTesting
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -8,6 +9,8 @@ import com.foody.data.Alisveris
 import com.foody.data.Ayarlar
 import com.foody.data.BaglantiKodu
 import com.foody.data.DurumCevap
+import com.foody.data.Ek
+import com.foody.data.Gorsel
 import com.foody.data.Isaretler
 import com.foody.data.KuralCevap
 import com.foody.data.MenuCevap
@@ -35,6 +38,8 @@ data class TarifDurumu(
 data class SohbetMesaji(
     val kullanici: Boolean,
     val metin: String,
+    /** Kullanıcının bu mesajla gönderdiği görsellerin önizlemeleri (yalnızca bu oturumda). */
+    val gorseller: List<android.graphics.Bitmap> = emptyList(),
     val kaloriOzeti: String = "",
     val planDegisti: Boolean = false,
     val hata: Boolean = false,
@@ -73,6 +78,11 @@ class AnaViewModel(app: Application) : AndroidViewModel(app) {
     val sohbet: StateFlow<List<SohbetMesaji>> = _sohbet.asStateFlow()
     private val _asistanCalisiyor = MutableStateFlow(false)
     val asistanCalisiyor: StateFlow<Boolean> = _asistanCalisiyor.asStateFlow()
+
+    /** Asistana gönderilmeyi bekleyen fotoğraflar. */
+    private val _ekler = MutableStateFlow<List<Ek>>(emptyList())
+    val ekler: StateFlow<List<Ek>> = _ekler.asStateFlow()
+    private var ekSayaci = 0L
 
     /** Başka ekrandan asistana hazır yazı göndermek için (ör. "Yeni menü iste"). */
     private val _taslak = MutableStateFlow("")
@@ -290,16 +300,30 @@ class AnaViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    fun gorselEkle(uri: Uri) {
+        if (_ekler.value.size >= Gorsel.EN_COK) { bildir("En fazla ${Gorsel.EN_COK} fotoğraf ekleyebilirsin."); return }
+        val app = getApplication<Application>()
+        viewModelScope.launch {
+            runCatching { Gorsel.hazirla(app, uri, ++ekSayaci) }
+                .onSuccess { ek -> _ekler.update { (it + ek).take(Gorsel.EN_COK) } }
+                .onFailure { bildir("Fotoğraf okunamadı.") }
+        }
+    }
+
+    fun ekiCikar(id: Long) = _ekler.update { liste -> liste.filterNot { it.id == id } }
+
     fun asistanaSor(metin: String) {
         val soru = metin.trim()
-        if (soru.isEmpty() || _asistanCalisiyor.value) return
-        _sohbet.update { it + SohbetMesaji(true, soru) }
+        val ekler = _ekler.value
+        if ((soru.isEmpty() && ekler.isEmpty()) || _asistanCalisiyor.value) return
+        _sohbet.update { it + SohbetMesaji(true, soru, gorseller = ekler.map { e -> e.onizleme }) }
+        _ekler.value = emptyList()
         if (testModu) return
         viewModelScope.launch {
             _asistanCalisiyor.value = true
-            runCatching { sunucu.sor(soru) }
+            runCatching { sunucu.sor(soru, ekler) }
                 .onSuccess { c ->
-                    _sohbet.update { it + SohbetMesaji(false, c.metin, c.kaloriOzeti, c.planDegisti, hata = !c.ok) }
+                    _sohbet.update { it + SohbetMesaji(false, c.metin, kaloriOzeti = c.kaloriOzeti, planDegisti = c.planDegisti, hata = !c.ok) }
                     if (c.planDegisti) { menuYenile(); alisverisYenile() }
                     // Asistan kural ya da tarif eklemiş olabilir.
                     kurallariYenile(); tarifleriYenile()
@@ -312,6 +336,9 @@ class AnaViewModel(app: Application) : AndroidViewModel(app) {
     // --- test kancası ------------------------------------------------------------------
 
     /** Ekran testleri için: sunucuya gitmeden hazır veriyi gösterir. */
+    @VisibleForTesting
+    fun ornekEkle(ek: Ek) = _ekler.update { it + ek }
+
     @VisibleForTesting
     fun ornekVeriyiYukle(
         menu: MenuCevap?,

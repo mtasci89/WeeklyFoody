@@ -181,7 +181,7 @@ haftalık bildirimler, bağlantı kodu).
 | --- | --- |
 | Menü | Haftanın günleri, öğünler, kişi başı kalori; öğün değiştirme; onay |
 | Alışveriş | Kategorili liste, alınanları işaretleme, paylaşma |
-| Asistan | Sohbet: menü kur, değiştir, web'de tarif bul, kural ekle |
+| Asistan | Sohbet: menü kur, değiştir, onayla; web'de tarif bul; kural ve kiler yönet. Fotoğraf eklenebilir (galeriden ya da kamerayla): yemek listesi → tarifleri ekler, tarif sayfası → tarifi kaydeder |
 | Tarifler | Kütüphane ve adaylar; web'de tarif arama; adayı onaylama/çıkarma; tarif detayı (kişi sayısına göre) |
 | Kurallar | Ev kurallarını ekleme/silme, sistemin neyi denetlediği |
 

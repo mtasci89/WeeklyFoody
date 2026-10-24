@@ -2,6 +2,8 @@ package com.foody.ui
 
 import android.app.Application
 import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
@@ -103,6 +105,28 @@ class EkranTest {
         kural.onNodeWithText("Ayarlar'a git").performClick()
         kural.onNodeWithText("Kaydet ve bağlan").assertExists()
         kural.onNodeWithText("Henüz bağlı değil.").assertExists()
+    }
+
+    @Test fun asistanaFotografEklenipMetinsizGonderilebilir() {
+        val vm = vm()
+        vm.ornekEkle(com.foody.data.Ek(7, byteArrayOf(1), android.graphics.Bitmap.createBitmap(8, 8, android.graphics.Bitmap.Config.ARGB_8888)))
+        kural.setContent { FoodyTema { AsistanEkran(vm, menuyeGit = {}) } }
+        kural.onNodeWithContentDescription("Fotoğraf ekle").assertExists()
+        kural.onNodeWithContentDescription("Fotoğrafı çıkar").assertExists()
+        kural.onNodeWithText("Fotoğrafla ne yapayım? (örn. bunları ekle)").assertExists()
+        kural.onNodeWithContentDescription("Gönder").assertIsEnabled().performClick()
+        // Gönderilen fotoğraf sohbette görünür, bekleyen ek temizlenir.
+        kural.onNodeWithContentDescription("Eklenen fotoğraf").assertExists()
+        kural.onNodeWithContentDescription("Fotoğrafı çıkar").assertDoesNotExist()
+    }
+
+    @Test fun eklenenFotografCikarilabilir() {
+        val vm = vm()
+        vm.ornekEkle(com.foody.data.Ek(9, byteArrayOf(1), android.graphics.Bitmap.createBitmap(8, 8, android.graphics.Bitmap.Config.ARGB_8888)))
+        kural.setContent { FoodyTema { AsistanEkran(vm, menuyeGit = {}) } }
+        kural.onNodeWithContentDescription("Fotoğrafı çıkar").performClick()
+        kural.onNodeWithContentDescription("Eklenen fotoğraf").assertDoesNotExist()
+        kural.onNodeWithContentDescription("Gönder").assertIsNotEnabled()
     }
 
     @Test fun haftaSecimiVarsayilanAktif() {

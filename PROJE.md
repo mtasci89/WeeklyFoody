@@ -111,7 +111,8 @@ betikler; ayrıntı ve SELinux notu DEVIR.md'de.
 Mimari: Financia/Cal-Track tarzı yerel Android uygulaması, ama veri ve zekâ sunucuda.
 Uygulama yalnızca ince istemcidir: `app/api.py`'deki `/api/v1/*` uçlarını çağırır
 (menü, onay, öğün değiştirme, tarifler + aday onayla/çıkar, alışveriş, kurallar,
-sohbet, web'de keşif). Gemini anahtarı telefonda değil sunucuda. Telefonda yalnızca
+sohbet + en fazla 4 görsel, web'de keşif). Asistan her şeyi yapabilir: ek olarak
+`menuyu_onayla` (yalnızca açık istekle) ve `kiler` araçları var. Gemini anahtarı telefonda değil sunucuda. Telefonda yalnızca
 adres + uygulama anahtarı + sertifika pini (EncryptedSharedPreferences) ve alışveriş
 işaretleri (düz SharedPreferences, hafta başına) durur.
 
@@ -124,6 +125,10 @@ işaretleri (düz SharedPreferences, hafta başına) durur.
   ile gerçek API'den üretilir, `tests/test_app_contract.py` uyumu denetler. Bir alan
   adını değiştirirsen örnekleri yeniden üret ve Kotlin modellerini (`data/Modeller.kt`) uyumla.
 - **İzin kuralı (Financia ile aynı, banka uygulamalarıyla uyum):** yalnızca `INTERNET`.
+  Fotoğraf ekleme izin istemeden yapılır: galeri için sistem fotoğraf seçicisi
+  (`PickMultipleVisualMedia`), kamera için telefonun kamera uygulaması (`TakePicture`)
+  ve dışa kapalı bir `FileProvider` (yalnızca `cache/kamera/`). `CAMERA` ya da depolama
+  izni EKLENMEZ: manifestte `CAMERA` olursa kamera uygulamasını çağırmak da izin ister.
   Kamera, bildirim, erişilebilirlik, açılışta başlama vb. eklenmez; CI izin listesini denetler.
 - **Test:** `cd android && ./gradlew :app:testDebugUnitTest` (modeller, bağlantı kodu,
   pin, Robolectric ekranları). `CanliSunucuTest` yalnızca `FOODY_CANLI_KOD` verilirse

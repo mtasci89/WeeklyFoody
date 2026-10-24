@@ -2,6 +2,26 @@
 
 Son güncelleme: **2026-10-15 — Claude**. Önce [PROJE.md](PROJE.md) dosyasını okuyun.
 
+## Son tamamlanan iş (Claude, 2026-10-24): asistana görsel, her şey asistanla
+
+Kullanıcı: "AI asistana görüntü ekleme getir (yemek listesini fotoğraflayıp 'bunları
+database'e ekle' diyeceğim); her şeyi asistanla yapmak istiyorum."
+
+- **Görsel:** `MealPlannerAgent.reply(..., images=[Gorsel(mime, data)])`; Gemini'ye satır içi
+  parça, Claude'a base64 görsel bloğu. Geçmişe bayt değil "[N görsel eklenmişti]" notu.
+  API `/sohbet` `gorseller` (en fazla 4, tür ve base64 denetimi); Telegram'da fotoğraf ve
+  görsel dosyası `handlers.photo` ile asistana gider. İstemde görsel bölümü (liste → tarif_ara,
+  yoksa tarif_ekle, "ekle" dendiyse tarif_onayla; tarif sayfası → okunduğu gibi kaydet).
+- **Eksik araçlar:** `menuyu_onayla` (yalnızca kullanıcı o mesajda açıkça isterse; Telegram
+  varsa alıcılara gönderir — eskiden ajanın bu yetkisi yoktu, kullanıcı istedi) ve `kiler`.
+- **Uygulama 1.1:** Asistan'da 📷 düğmesi (galeriden seç / fotoğraf çek), önizleme ve
+  silme, metinsiz gönderme. Fotoğraf 1600 px JPEG'e küçültülür. Yeni izin yok (PROJE.md).
+- Kontroller: `pytest -q` → **285 geçti**; Android `testDebugUnitTest` geçti (görsel ölçek,
+  gövde biçimi, ekran akışı); `CanliSunucuTest` 4/4 — gerçek istemciden 200 KB görsel gerçek
+  HTTPS API'ye bozulmadan (SHA-256 aynı) ulaştı; release APK izinleri yalnızca INTERNET.
+- **Doğrulanmadı:** gerçek Gemini'nin gerçek bir liste fotoğrafını okuyup tarifleri eklemesi;
+  telefonda kamera akışı. Sunucuya kurulum: `./deploy/sunucu-guncelle.sh`.
+
 ## Son tamamlanan iş (Claude, 2026-10-19): Foody Android uygulaması
 
 Kullanıcı: "Bu Telegram'da olmuyor, app haline getir; Financia ve Cal-Track'i baz al."
