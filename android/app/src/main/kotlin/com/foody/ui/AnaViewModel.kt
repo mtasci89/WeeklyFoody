@@ -93,7 +93,10 @@ fun haftaKodu(haftaBaslangic: String, bugun: java.time.LocalDate = java.time.Loc
  * "taslak" onay bekleyen plan (önce gelecek hafta), "onayli" onaylanmış plan (önce bu hafta).
  */
 fun bolumSec(bolum: String, bu: MenuCevap?, gelecek: MenuCevap?): MenuCevap? {
-    val adaylar = if (bolum == "onayli") listOf(bu, gelecek) else listOf(gelecek, bu)
+    // Gelecek haftanın menüsü varsa (onaylı olsa bile) bitmekte olan haftanın eski taslağı
+    // "Taslak" diye gösterilmez; kullanıcı onu çoktan geride bıraktı.
+    val adaylar = if (bolum == "onayli") listOf(bu, gelecek)
+    else if (gelecek?.plan != null) listOf(gelecek) else listOf(bu)
     val uyan = adaylar.firstOrNull { c ->
         val p = c?.plan
         p != null && (if (bolum == "onayli") !p.onaylanabilir && p.gunler.any { it.ogunler.isNotEmpty() } else p.onaylanabilir)

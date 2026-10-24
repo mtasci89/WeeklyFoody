@@ -54,5 +54,7 @@ class PdfTest {
         assertNull(bolumSec("onayli", taslak, null)!!.plan)
         // Taslak yalnızca bu haftaysa
         assertEquals(taslak, bolumSec("taslak", taslak, null))
+        // Gelecek hafta onaylıysa bu haftanın eski taslağı Taslak'ta görünmez
+        assertNull(bolumSec("taslak", taslak, onayli)!!.plan)
     }
 }

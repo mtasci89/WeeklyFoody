@@ -2,6 +2,34 @@
 
 Son güncelleme: **2026-10-24 — Claude**. Önce [PROJE.md](PROJE.md) dosyasını okuyun.
 
+## Son tamamlanan iş (Claude, 2026-10-25): "listeyi sıfırladı", 3 gün nohut, Kore tavuğu (1.9)
+
+Kullanıcı (sinirli, "yapamazsan Codex'e vereceğim"): "Komple listeyi sıfırladı; yeni tarifler
+yap deyince 3 gün nohutlu bir şey, Kore tavuğu değişmemiş." Bulunan kök nedenler:
+1. Gelecek hafta (26 Eki–1 Kas) onaylanınca `active_session` bitmekte olan bu haftaya
+   (19–25 Eki) düşüyordu; ajan o eski taslağı `plan_kaydet` ile baştan yazdı, uygulama da onu
+   Taslak diye gösterdi.
+2. `yenisiyle_degistir` her öğün için ayrı/paralel çağrılıyordu; öneriler birbirini görmediği
+   için "Nohutlu Ispanaklı Frittata" ve "...Tagine" çıktı. Çeşitlilik notu yalnızca proteini
+   sayıyordu (nohut yakalanmadı).
+3. Ajan istenen her değişikliği yapıp yapmadığını denetlemiyordu.
+Düzeltmeler:
+- Araçlarda "aktif" = gelecek hafta (onaylı olsa bile), yoksa bu hafta. Onaylı menü
+  düzenlenirse yeniden taslağa döner (`_reopen`, notla). `plan_kaydet`, dolu bir haftayı ancak
+  `uzerine_yaz=true` ile siler; yoksa ogun_degistir/yenisiyle_degistir'e yönlendirir.
+- `yenisiyle_degistir(ogunler=[...])`: tüm öğünler TEK JSON isteğinde (`build_batch_prompt`:
+  öneriler birbirinden ve haftanın geri kalanından farklı ana malzemeli, `icin`/`ana_malzeme`
+  alanları); seçimde ana malzeme sözcükleri (`key_words`) çakışan öneri atlanır; `FRESH_LOCK`
+  ile sıralı. API `/menu/yenisi` aynı aracı tek öğünle çağırır.
+- `variety_notes`: farklı yemeklerde ortak ana malzeme ("'nohut' 3 ana yemekte ...").
+- İstem: "yeni tarifler"de haftayı silme, tek çağrı; cevaptan önce istenen her değişikliği
+  denetle; onaylı menü değişince kullanıcıya tekrar onaylatmayı söyle.
+- Uygulama 1.9 (versionCode 10): gelecek haftanın menüsü varsa bu haftanın eski taslağı
+  Taslak'ta gösterilmez (`bolumSec`).
+- Kontroller: pytest 377 geçti; Android 58 test geçti; assembleRelease tamam.
+- **Doğrulanmadı:** gerçek Gemini ile uçtan uca (anahtar sunucuda; burada canlı çağrı yok).
+- Not: 19–25 Eki taslağının eski içeriği ajan tarafından üzerine yazıldı (geri alınamaz; hafta bitti).
+
 ## Son tamamlanan iş (Claude, 2026-10-25): boş tarifler tamamlanıyor
 
 Kullanıcı ekran görüntüsü: Tarifler > Bu hafta'da bazı tarifler boş (Brokoli Çorbası,

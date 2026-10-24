@@ -464,9 +464,9 @@ def create_api_app(
     async def fresh_meal(body: FreshIn) -> dict:
         """Uygulamadaki "Yerine yeni bir şey bul": sohbet gerekmeden, kütüphanede
         olmayan bir yemek üretilip konur."""
+        target = f"{body.tarih}|{body.slot}" if body.slot else body.tarih
         return await run_menu_tool(
-            "yenisiyle_degistir",
-            {"tarih": body.tarih, "ogun_slotu": body.slot, "istek": body.istek, "hafta": body.hafta},
+            "yenisiyle_degistir", {"ogunler": [target], "istek": body.istek, "hafta": body.hafta},
         )
 
     @api.get("/menu/tarifler")

@@ -160,19 +160,22 @@ async def test_ogun_degistir_asks_instead_of_guessing_when_ambiguous(db, setting
 
 
 @pytest.mark.asyncio
-async def test_ogun_degistir_refuses_published_plan(db, settings, toolset):
+async def test_ogun_degistir_reopens_an_approved_plan(db, settings, toolset):
+    """Telegram yok; onay yalnızca kesinleştirme. Değişiklik istenirse menü taslağa döner."""
     planner = MealPlannerService(db, settings)
     session = await planner.create_or_get_weekly_session(WEEK)
     planner.approve(session)
     session.state = SessionState.PUBLISHED
     db.commit()
+    main = next(i for i in session.meal_plan.items if i.date == WEEK and i.recipe.category == "main")
+    other = "Nohut" if main.recipe.name != "Nohut" else "Kuru Fasulye"
 
     out = await call(
-        toolset, "ogun_degistir", tarih=WEEK.isoformat(), yeni_tarif="Nohut", gerekce="deneme"
+        toolset, "ogun_degistir", tarih=WEEK.isoformat(), yeni_tarif=other, gerekce="deneme", ogun_slotu=main.meal_slot
     )
 
-    assert "değiştirilemez" in out
-    assert "/regenerate" in out
+    assert "Değiştirildi" in out and "yeniden taslağa döndü" in out
+    assert session.state == SessionState.AWAITING_APPROVAL
 
 
 @pytest.mark.asyncio
@@ -710,7 +713,9 @@ async def test_plan_kaydet_replaces_an_existing_draft(db, settings, toolset):
     first = MealPlannerService(db, settings).current_session(WEEK)
     version = first.draft_version
 
-    await call(toolset, "plan_kaydet", ogunler=full_week(db, settings, WEEK))
+    out = await call(toolset, "plan_kaydet", ogunler=full_week(db, settings, WEEK))
+    assert "zaten" in out and "uzerine_yaz" in out  # yanlışlıkla silinmez
+    await call(toolset, "plan_kaydet", ogunler=full_week(db, settings, WEEK), uzerine_yaz=True)
 
     session = MealPlannerService(db, settings).current_session(WEEK)
     assert len(session.meal_plan.items) == 7 * len(settings.planning_slots)
@@ -725,7 +730,8 @@ async def test_plan_kaydet_refuses_to_overwrite_an_approved_week(db, settings, t
 
     out = await call(toolset, "plan_kaydet", ogunler=full_week(db, settings, WEEK))
 
-    assert "üzerine yazamam" in out
+    assert "onaylı" in out and "uzerine_yaz" in out
+    assert session.state == SessionState.APPROVED
 
 
 # --- haftanin sekli esnek olmali ---------------------------------------

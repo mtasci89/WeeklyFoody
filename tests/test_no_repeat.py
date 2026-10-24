@@ -161,10 +161,10 @@ async def test_yenisiyle_degistir_puts_a_dish_that_is_new_and_allowed(library, s
     toolset, tools = toolset_for(library, settings, estimator)
 
     out = await tools["yenisiyle_degistir"].call(
-        {"tarih": DAYS[0].isoformat(), "istek": "bu olmamış, daha yenilikçi bir şey"}
+        {"ogunler": [DAYS[0].isoformat()], "istek": "bu olmamış, daha yenilikçi bir şey"}
     )
 
-    assert "Değiştirildi" in out and "Kore Usulü Bulgogi" in out and "(Kore)" in out
+    assert "Fırında Tavuk → Kore Usulü Bulgogi (Kore" in out
     main = next(i for i in session.meal_plan.items if i.date == DAYS[0] and i.meal_slot == "dinner_main")
     assert main.recipe.name == "Kore Usulü Bulgogi"
     assert main.recipe.status == RecipeStatus.CANDIDATE and len(main.recipe.ingredients) == 3
@@ -184,7 +184,7 @@ async def test_yenisiyle_degistir_works_on_the_weekly_meze_list(library, setting
     session = plan(library, [*week_rows(), (0, "hafta_meze_1", "Haydari")])
     toolset, tools = toolset_for(library, settings, FakeEstimator([idea("Muhammara", "2 adet kırmızı biber", "1 su bardağı ceviz")]))
 
-    out = await tools["yenisiyle_degistir"].call({"tarih": "HAFTA", "ogun_slotu": "hafta_meze_1"})
+    out = await tools["yenisiyle_degistir"].call({"ogunler": ["HAFTA|hafta_meze_1"]})
 
     assert "Muhammara" in out
     meze = next(i for i in session.meal_plan.items if i.meal_slot == "hafta_meze_1")
@@ -195,10 +195,10 @@ async def test_yenisiyle_degistir_works_on_the_weekly_meze_list(library, setting
 async def test_yenisiyle_degistir_explains_when_nothing_fits_or_ai_is_off(library, settings):
     plan(library, week_rows())
     _, tools = toolset_for(library, settings, FakeEstimator([idea("Fırında Tavuk")]))
-    assert "Uygun yeni öneri çıkmadı" in await tools["yenisiyle_degistir"].call({"tarih": DAYS[0].isoformat()})
+    assert "uygun yeni öneri çıkmadı" in await tools["yenisiyle_degistir"].call({"ogunler": [DAYS[0].isoformat()]})
 
     _, tools = toolset_for(library, settings, None)
-    assert "yapay zekâ kapalı" in await tools["yenisiyle_degistir"].call({"tarih": DAYS[0].isoformat()})
+    assert "yapay zekâ kapalı" in await tools["yenisiyle_degistir"].call({"ogunler": [DAYS[0].isoformat()]})
 
 
 def test_prompt_points_new_dish_requests_at_the_tool():
@@ -348,7 +348,10 @@ def test_variety_notes_spot_protein_streaks(library, settings):
     )
     other = plan(library, [(0, "dinner_main", "Fırında Tavuk"), (1, "dinner_main", "Tavuk Sote"),
                            (2, "dinner_main", "Fırında Püreli Tavuk")], week=WEEK + timedelta(days=7))
-    assert variety_notes(other) == ["Ana yemeklerde tavuk 3 gün üst üste (Pazartesi–Çarşamba)."]
+    assert variety_notes(other) == [
+        "Ana yemeklerde tavuk 3 gün üst üste (Pazartesi–Çarşamba).",
+        "'tavuk' 3 ana yemekte (Pazartesi, Salı, Çarşamba) — arka arkaya.",
+    ]
 
 
 def test_prompt_asks_the_model_to_think_not_to_obey_a_ban():
@@ -357,3 +360,73 @@ def test_prompt_asks_the_model_to_think_not_to_obey_a_ban():
     assert "## Düşünerek seç" in SYSTEM_PROMPT
     assert "yasak değil" in SYSTEM_PROMPT
     assert "Tekrar yasağı sistemce denetlenir" not in SYSTEM_PROMPT
+
+
+# --- "komple listeyi sıfırladı", "3 gün nohutlu bir şey", "Kore tavuğu değişmemiş" ---------
+
+
+@pytest.mark.asyncio
+async def test_several_new_dishes_come_from_one_request_and_differ(library, settings):
+    session = plan(library, week_rows())
+    estimator = FakeEstimator([
+        idea("Nohutlu Ispanaklı Frittata", "4 adet yumurta", "1 su bardağı nohut", icin=1, ana_malzeme="nohut"),
+        idea("Nohutlu Ispanaklı Tagine", "2 su bardağı nohut", "1 bağ ıspanak", icin=2, ana_malzeme="nohut"),
+        idea("Kuzu Tandır Dürüm", "600 gr kuzu", "4 adet lavaş", icin=2, ana_malzeme="kuzu"),
+    ])
+    _, tools = toolset_for(library, settings, estimator)
+
+    out = await tools["yenisiyle_degistir"].call(
+        {"ogunler": [f"{DAYS[3].isoformat()}|dinner_main", f"{DAYS[4].isoformat()}|dinner_main"], "istek": "yeni tarifler"}
+    )
+
+    assert len(estimator.prompts) == 1  # tek istek: öneriler birbirini görüyor
+    prompt = estimator.prompts[0]
+    assert "1) Perşembe" in prompt and "2) Cuma" in prompt and "Haftanın geri kalanı" in prompt
+    names = {i.date: i.recipe.name for i in session.meal_plan.items if i.meal_slot == "dinner_main"}
+    assert names[DAYS[3]] == "Nohutlu Ispanaklı Frittata"
+    assert names[DAYS[4]] == "Kuzu Tandır Dürüm"  # ikinci nohutlu öneri atlandı
+    assert "Kuzu Tandır Dürüm" in out
+
+
+@pytest.mark.asyncio
+async def test_new_recipes_request_does_not_wipe_the_week(library, settings):
+    plan(library, week_rows())
+    _, tools = toolset_for(library, settings)
+    rows = [f"{d.isoformat()}|dinner_main|{name}" for d, name in zip(DAYS, reversed(MAINS))]
+
+    out = await tools["plan_kaydet"].call({"ogunler": rows})
+    assert "zaten 10 öğünlük bir menü var" in out and "yenisiyle_degistir" in out
+
+    assert "kaydedildi" in await tools["plan_kaydet"].call({"ogunler": rows, "uzerine_yaz": True})
+
+
+@pytest.mark.asyncio
+async def test_active_week_is_next_week_even_when_approved_and_editing_reopens_it(library, settings):
+    """Gelecek hafta onaylanınca ajan bitmekte olan bu haftanın taslağını yeniden yazıyordu."""
+    this_week = WEEK - timedelta(days=7)
+    stale = plan(library, [(k, "dinner_main", MAINS[k]) for k in range(7)], week=this_week)
+    upcoming = plan(library, week_rows())
+    upcoming.state = SessionState.APPROVED
+    library.commit()
+    toolset, tools = toolset_for(library, settings)
+
+    out = await tools["ogun_ekle"].call({"tarih": "HAFTA", "tarif": "Haydari"})
+
+    assert toolset.touched_session_id == upcoming.id != stale.id
+    assert "yeniden taslağa döndü" in out
+    assert upcoming.state == SessionState.AWAITING_APPROVAL
+
+
+def test_variety_notes_catch_the_same_main_ingredient_in_different_dishes(library, settings):
+    from app.agent.tools import variety_notes
+
+    service = RecipeService(library)
+    for name, ingredient in [("Nohutlu Ispanaklı Frittata", "nohut"), ("Nohutlu Ispanaklı Tagine", "nohut"),
+                             ("Körili Nohutlu Hindi", "hindi")]:
+        service.upsert_recipe(RecipeInput(name=name, category="main", meal_type="dinner",
+                                          ingredients=[IngredientInput(name=ingredient, quantity=1, unit="adet")]))
+    session = plan(library, [(3, "dinner_main", "Nohutlu Ispanaklı Frittata"), (4, "dinner_main", "Nohutlu Ispanaklı Tagine"),
+                             (6, "dinner_main", "Körili Nohutlu Hindi")])
+    notes = variety_notes(session)
+    assert "'nohut' 3 ana yemekte (Perşembe, Cuma, Pazar) — arka arkaya." in notes
+    assert "'ispanak' 2 ana yemekte (Perşembe, Cuma) — arka arkaya." in notes

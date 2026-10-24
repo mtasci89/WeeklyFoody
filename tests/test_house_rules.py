@@ -124,7 +124,7 @@ async def test_dish_count_rule_allows_an_empty_day_but_not_a_short_one(db, setti
     assert "kaydedildi" in ok, ok
 
     # Ayni gunde iki yemek: kural ihlali
-    bad = await plan_kaydet.call({"ogunler": [
+    bad = await plan_kaydet.call({"uzerine_yaz": True, "ogunler": [
         f"{days[0].isoformat()}|dinner_main|Fırında Tavuk",
         f"{days[0].isoformat()}|dinner_salad|Çoban Salata",
     ]})

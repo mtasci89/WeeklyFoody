@@ -124,25 +124,25 @@ async def test_missing_calories_block_automatic_plan_without_partial_session(db,
 async def test_agent_count_ban_and_calorie_validation_precedes_writes(db,settings,toolset):
     set_rules(db,'3 farklı yemek olsun\nBalık kullanma')
     lines=weekly_lines()
-    assert 'kaydedildi' in await call(toolset,'plan_kaydet',ogunler=lines)
+    assert 'kaydedildi' in await call(toolset,'plan_kaydet',ogunler=lines,uzerine_yaz=True)
     session=MealPlannerService(db,settings).current_session(WEEK)
     before=[(i.id,i.recipe_id) for i in session.meal_plan.items]
-    assert 'kaydedilmedi' in await call(toolset,'plan_kaydet',ogunler=lines[:-1])
+    assert 'kaydedilmedi' in await call(toolset,'plan_kaydet',ogunler=lines[:-1],uzerine_yaz=True)
     fish=[line.replace('Fırında Tavuk','Izgara Balık') for line in lines]
-    assert 'yasak' in await call(toolset,'plan_kaydet',ogunler=fish)
+    assert 'yasak' in await call(toolset,'plan_kaydet',ogunler=fish,uzerine_yaz=True)
     set_rules(db,'Kişi başı öğün en fazla 400 kcal')
-    assert 'bilgisi eksik' in await call(toolset,'plan_kaydet',ogunler=lines)
+    assert 'bilgisi eksik' in await call(toolset,'plan_kaydet',ogunler=lines,uzerine_yaz=True)
     nutrient_records(db)
-    assert 'sınırını aşıyor' in await call(toolset,'plan_kaydet',ogunler=lines)
+    assert 'sınırını aşıyor' in await call(toolset,'plan_kaydet',ogunler=lines,uzerine_yaz=True)
     assert [(i.id,i.recipe_id) for i in session.meal_plan.items]==before
     set_rules(db,'Kişi başı öğün en fazla 450 kcal')
-    assert 'kaydedildi' in await call(toolset,'plan_kaydet',ogunler=lines)
+    assert 'kaydedildi' in await call(toolset,'plan_kaydet',ogunler=lines,uzerine_yaz=True)
     assert '450 kcal' in await call(toolset,'plani_getir',hafta='gelecek_hafta')
 
 
 @pytest.mark.asyncio
 async def test_agent_swap_cannot_bypass_rules(db,settings,toolset):
-    await call(toolset,'plan_kaydet',ogunler=weekly_lines())
+    await call(toolset,'plan_kaydet',ogunler=weekly_lines(),uzerine_yaz=True)
     set_rules(db,'Balık kullanma')
     result=await call(toolset,'ogun_degistir',tarih=WEEK.isoformat(),yeni_tarif='Izgara Balık',gerekce='test',ogun_slotu='dinner_main')
     assert 'kaydedilmedi' in result
@@ -287,7 +287,7 @@ def test_fish_adjectives_and_combined_exclusions(db):
 async def test_calorie_cap_is_per_person_not_household_and_unknown_display(db,settings,toolset):
     nutrient_records(db,150)
     set_rules(db,'Kişi başı öğün en fazla 450 kcal')
-    assert 'kaydedildi' in await call(toolset,'plan_kaydet',ogunler=weekly_lines())
+    assert 'kaydedildi' in await call(toolset,'plan_kaydet',ogunler=weekly_lines(),uzerine_yaz=True)
     session=MealPlannerService(db,settings).current_session(WEEK)
     for item in session.meal_plan.items: item.servings=8
     db.commit()
@@ -343,5 +343,5 @@ async def test_invalid_model_plan_falls_back_to_feasible_calorie_combination(db,
 async def test_duplicate_recipe_cannot_satisfy_three_dishes(db,settings,toolset):
     set_rules(db,'3 farklı yemek olsun')
     lines=[f'{(WEEK+timedelta(days=i)).isoformat()}|dinner_main_{j}|Fırında Tavuk' for i in range(7) for j in range(1,4)]
-    assert 'farklı yemek olmalı' in await call(toolset,'plan_kaydet',ogunler=lines)
+    assert 'farklı yemek olmalı' in await call(toolset,'plan_kaydet',ogunler=lines,uzerine_yaz=True)
     assert MealPlannerService(db,settings).current_session(WEEK) is None

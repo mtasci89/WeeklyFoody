@@ -255,11 +255,11 @@ async def test_tools_change_the_week_they_are_told(wdb, wsettings, tools):
 
 
 @pytest.mark.asyncio
-async def test_approved_plans_cannot_be_edited(wdb, wsettings, tools):
+async def test_editing_an_approved_plan_reopens_it(wdb, wsettings, tools):
     session = await weekly_plan(wdb, wsettings)
     MealPlannerService(wdb, wsettings).approve(session)
     out = await call(tools, "ogun_ekle", tarih=WEEK.isoformat(), tarif="Mercimek Çorbası")
-    assert "onaylanmış" in out
+    assert out.startswith("Eklendi") and "yeniden taslağa döndü" in out
 
 
 def test_app_channel_tells_the_agent_not_to_retype_the_menu():

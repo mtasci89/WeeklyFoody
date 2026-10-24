@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import asyncio
+
 import logging
 from collections import Counter
 from collections.abc import Callable
@@ -176,6 +178,21 @@ def variety_notes(session) -> list[str]:
     for kind, count in counts.items():
         if count >= 4:
             notes.append(f"{len(mains)} ana yemeğin {count} tanesi {kind}.")
+    # Ana malzeme sözcükleri (nohut, ıspanak, patlıcan...): ad farklı olsa da aynı şey yenmesin.
+    from app.agent.fresh import key_words
+
+    days_by_word: dict[str, list] = {}
+    for item in mains:
+        for word in key_words(item.recipe.name):
+            days_by_word.setdefault(word, []).append((item.date, item.recipe_id))
+    for word, seen in sorted(days_by_word.items()):
+        if len({recipe_id for _, recipe_id in seen}) < 2:
+            continue  # aynı yemeğin tekrarı yukarıda zaten yazıldı
+        days = sorted({day for day, _ in seen})
+        consecutive = any((b - a).days == 1 for a, b in zip(days, days[1:]))
+        if len(days) >= 3 or consecutive:
+            names = ", ".join(TR_DAY_NAMES[d.weekday()] for d in days)
+            notes.append(f"'{word}' {len(days)} ana yemekte ({names}){' — arka arkaya' if consecutive else ''}.")
     return notes
 
 
@@ -210,6 +227,10 @@ def _describe(recipe: Recipe) -> str:
     return f"{recipe.name} ({', '.join(parts)})"
 
 
+# Yeni yemek önerileri sırayla: paralel çağrılar birbirinin seçtiğini görsün.
+FRESH_LOCK = asyncio.Lock()
+
+
 class MealAgentToolset:
     """Mevcut servis katmanini Claude araclarina baglar.
 
@@ -219,6 +240,8 @@ class MealAgentToolset:
 
     # "telegram" ya da "uygulama": cevabın nasıl yazılacağını belirler.
     channel = "telegram"
+    # Onaylı menü düzenleme için yeniden açıldıysa araç sonucuna eklenecek not.
+    reopen_note = ""
 
     def __init__(self, settings: Settings, session_factory: SessionFactory, estimator=None, notifier=None):
         self.settings = settings
@@ -254,7 +277,18 @@ class MealAgentToolset:
             return planner.this_week_session()
         if hafta == "gelecek_hafta":
             return planner.current_session()
-        return planner.active_session()
+        # "aktif": üzerinde çalışılan hafta = gelecek hafta (onaylı olsa bile), yoksa bu hafta.
+        # Eskiden gelecek hafta onaylanınca bitmekte olan bu haftaya düşülüyordu ve ajan
+        # kullanıcının bakmadığı eski taslağı baştan yazıyordu.
+        return planner.current_session() or planner.this_week_session()
+
+    def _reopen(self, session) -> str:
+        """Onaylı menü değiştirilmek istenirse yeniden taslağa döner (Telegram yok; onay
+        yalnızca kesinleştirme). Kullanıcıya söylenecek notu döndürür."""
+        session.state = SessionState.AWAITING_APPROVAL
+        if session.meal_plan is not None:
+            session.meal_plan.status = "draft"
+        return " Not: Bu menü onaylıydı; değişiklik için yeniden taslağa döndü, kullanıcı tekrar onaylamalı."
 
     def _session_for(self, db: Session, hafta: str, tarih: str = "") -> WeeklyPlanningSession | None:
         """Tarih verildiyse o tarihi kapsayan hafta; yoksa `hafta`. Böylece
@@ -312,8 +346,9 @@ class MealAgentToolset:
         session = self._session_for(db, hafta, tarih)
         if session is None or not session.meal_plan:
             return None, "Bu hafta için kayıtlı plan yok. Önce plan_hazirla + plan_kaydet ile kur."
+        self.reopen_note = ""
         if session.state in (SessionState.APPROVED, SessionState.PUBLISHED):
-            return None, "Bu plan onaylanmış/yayınlanmış, değiştirilemez."
+            self.reopen_note = self._reopen(session)
         return session, None
 
     def plan_summary(self) -> str:
@@ -450,11 +485,7 @@ class MealAgentToolset:
                 session = toolset._session_for(db, hafta, tarih)
                 if not session or not session.meal_plan:
                     return "Değiştirilecek aktif bir plan yok."
-                if session.state in (SessionState.APPROVED, SessionState.PUBLISHED):
-                    return (
-                        "Bu plan onaylanmış/yayınlanmış durumda, değiştirilemez. "
-                        "Kullanıcıya /regenerate ile yeni taslak oluşturabileceğini söyle."
-                    )
+                was_final = session.state in (SessionState.APPROVED, SessionState.PUBLISHED)
                 replacement = RecipeService(db).find_recipe(yeni_tarif)
                 if not replacement:
                     return (
@@ -504,6 +535,7 @@ class MealAgentToolset:
                     MealRules.from_db(db).validate(proposed)
                 except RuleViolation as error:
                     return f"Değişiklik kaydedilmedi: {error}"
+                reopened = toolset._reopen(session) if was_final else ""
                 original_id = chosen.recipe_id
                 original_name = chosen.recipe.name
                 chosen.original_recipe_id = chosen.original_recipe_id or original_id
@@ -527,7 +559,7 @@ class MealAgentToolset:
                 )
                 return (
                     f"Değiştirildi: {tarih} {chosen.meal_slot} "
-                    f"{original_name} -> {replacement.name}. Gerekçe kaydedildi."
+                    f"{original_name} -> {replacement.name}. Gerekçe kaydedildi.{reopened}"
                     + variety_block(session)
                 )
 
@@ -617,7 +649,7 @@ class MealAgentToolset:
                 toolset.touched_session_id = session.id
                 where = "haftanın mezelerine" if weekly else f"{tarih} ({slot})"
                 logger.info("agent_meal_added session_id=%s slot=%s", session.id, slot)
-                return f"Eklendi: {recipe.name} -> {where}.{note}" + variety_block(session)
+                return f"Eklendi: {recipe.name} -> {where}.{note}{toolset.reopen_note}" + variety_block(session)
 
         @beta_async_tool
         async def ogun_cikar(
@@ -673,121 +705,162 @@ class MealAgentToolset:
                 db.commit()
                 toolset.touched_session_id = session.id
                 logger.info("agent_meal_removed session_id=%s", session.id)
-                return f"Çıkarıldı: {name} ({tarih})."
+                return f"Çıkarıldı: {name} ({tarih}).{toolset.reopen_note}"
 
         @beta_async_tool
         async def yenisiyle_degistir(
-            tarih: str,
-            ogun_slotu: str = "",
+            ogunler: list[str],
             istek: str = "",
             hafta: Literal["aktif", "bu_hafta", "gelecek_hafta"] = "aktif",
         ) -> str:
-            """Bir öğünü KÜTÜPHANEDE OLMAYAN, yepyeni bir yemekle değiştirir:
-            kaçınılacak yemekleri (kütüphane, bu hafta, son haftalar) ve ev
-            kurallarını vererek farklı mutfaklardan tarifiyle öneri üretir,
-            uygun olanı aday tarif olarak kaydedip öğüne koyar.
+            """Öğünleri KÜTÜPHANEDE OLMAYAN, yepyeni yemeklerle değiştirir. Hepsi için
+            önerileri TEK istekte alır: öneriler birbirinden ve haftanın geri
+            kalanından farklı ana malzemeli olur; kütüphane, son haftalar ve ev
+            kuralları gözetilir. Seçilenler tarifleriyle aday kaydedilip konur.
 
-            Kullanıcı "yeni", "farklı", "yenilikçi", "sıradışı", "başka bir şey",
-            "bu olmamış" dediğinde kütüphaneden seçmek yerine BUNU kullan. Birden
-            çok öğün için ayrı ayrı (paralel) çağır.
+            Kullanıcı "yeni", "farklı", "yenilikçi", "başka", "bu olmamış" dediğinde
+            kütüphaneden seçmek yerine BUNU kullan. Değişecek TÜM öğünleri tek
+            çağrıda ver; ayrı ayrı ya da paralel çağırma (öneriler birbirini görmez).
 
             Args:
-                tarih: Günün ISO tarihi ya da haftalık meze listesi için "HAFTA".
-                ogun_slotu: Hangi öğün (boşsa o günün ana yemeği).
+                ogunler: Her biri "TARİH|SLOT" (örn. "2026-10-21|dinner_main"),
+                    yalnızca "TARİH" (o günün ana yemeği) ya da haftalık meze için
+                    "HAFTA|hafta_meze_2".
                 istek: Kullanıcının sözü, örn. "daha hafif, Asya mutfağı olsun".
                 hafta: Hangi haftanın planı.
             """
-            from app.agent.fresh import SCHEMA as FRESH_SCHEMA, SOURCE as FRESH_SOURCE, as_probe, build_prompt, parse_ideas
+            from app.agent.fresh import (
+                SCHEMA as FRESH_SCHEMA, SOURCE as FRESH_SOURCE, as_probe, build_batch_prompt, key_words, parse_ideas,
+            )
 
-            toolset.calls.append(f"yenisiyle_degistir(tarih={tarih}, slot={ogun_slotu!r})")
+            toolset.calls.append(f"yenisiyle_degistir({len(ogunler)} öğün)")
             ask = getattr(toolset.estimator, "ask_json", None)
             if ask is None:
                 return "Yeni tarif üretemiyorum (yapay zekâ kapalı). tarif_ekle ile tarifi kendin kaydedip ogun_degistir kullan."
-            with toolset.session_factory() as db:
-                session, problem = toolset._editable_session(db, hafta, tarih)
-                if problem:
-                    return problem
-                items = list(session.meal_plan.items)
-                if tarih.strip().upper() == "HAFTA":
-                    pool = [i for i in items if is_weekly_slot(i.meal_slot)]
-                else:
-                    try:
-                        day = date.fromisoformat(tarih.strip())
-                    except ValueError:
-                        return f"'{tarih}' geçerli bir tarih değil. 2026-10-20 biçiminde ya da HAFTA ver."
-                    pool = [i for i in items if i.date == day and not is_weekly_slot(i.meal_slot)]
-                if ogun_slotu.strip():
-                    chosen = next((i for i in pool if i.meal_slot == ogun_slotu.strip()), None)
-                else:
-                    chosen = next((i for i in pool if course_role(i.meal_slot) == "main"), None) or (
-                        pool[0] if len(pool) == 1 else None
-                    )
-                if chosen is None:
-                    listed = ", ".join(f"{i.meal_slot}={i.recipe.name}" for i in pool) or "boş"
-                    return f"Hangi öğün? Mevcut: {listed}. ogun_slotu ver."
-                role = "meze" if is_weekly_slot(chosen.meal_slot) else course_role(chosen.meal_slot)
-                slot, replacing = chosen.meal_slot, chosen.recipe.name
-                cutoff = session.week_start - timedelta(weeks=4)
-                recent = db.scalars(
-                    select(Recipe.name).join(MealPlanItem, MealPlanItem.recipe_id == Recipe.id).where(MealPlanItem.date >= cutoff)
-                ).all()
-                library = [r.name for r in RecipeService(db).list_recipes(include_candidates=True)]
-                avoid = list(dict.fromkeys([*(i.recipe.name for i in items), *recent, *library]))[:400]
-                prefs = PreferenceService(db)
-                house = [*prefs.hard_rules(), *prefs.soft_rules()]
-                rules = MealRules.from_db(db)
-            try:
-                raw = await ask(build_prompt(role, replacing, istek, avoid, house, 3), FRESH_SCHEMA)
-            except Exception as error:
-                logger.exception("fresh_ideas_failed")
-                return f"Yeni öneri üretilemedi: {type(error).__name__}. Biraz sonra tekrar dene ya da web_ara kullan."
-            ideas = parse_ideas(raw)
-            picked = None
-            with toolset.session_factory() as db:
-                service = RecipeService(db)
-                for idea in ideas:
-                    if service.find_recipe(idea["ad"], include_inactive=True) is not None:
-                        continue
-                    if rules.excludes(as_probe(idea)):
-                        continue
-                    category = role if role in ("main", "meze", "salad", "soup") else "side"
-                    service.upsert_recipe(
-                        RecipeInput(
-                            name=idea["ad"],
-                            category=category,
-                            meal_type="dinner",
-                            ingredients=[parse_ingredient(line) for line in idea["malzemeler"]],
-                            instructions=str(idea.get("hazirlanis") or "").strip() or None,
-                            servings=max(1, int(idea.get("porsiyon") or 4)),
-                            prep_minutes=int(idea.get("hazirlik_dakika") or 0) or None,
-                            cook_minutes=int(idea.get("pisirme_dakika") or 0) or None,
-                            protein_type=str(idea.get("protein") or "").strip().casefold() or None,
-                            vegetarian=bool(idea.get("vejetaryen")),
-                            source=FRESH_SOURCE,
-                            tags=["agent-eklendi", "yeni-oneri"],
-                            status="candidate",
+            if not ogunler:
+                return "Hangi öğünler? ogunler listesine 'TARİH|SLOT' ver."
+            async with FRESH_LOCK:  # aynı anda gelen çağrılar birbirinin seçtiğini görsün
+                first_date = next((o.split("|")[0] for o in ogunler if o.split("|")[0].strip().upper() != "HAFTA"), "")
+                with toolset.session_factory() as db:
+                    session, problem = toolset._editable_session(db, hafta, first_date)
+                    if problem:
+                        return problem
+                    items = list(session.meal_plan.items)
+                    targets, problems = [], []
+                    for raw in ogunler:
+                        day_text, _, slot = (part.strip() for part in raw.partition("|"))
+                        if day_text.upper() == "HAFTA":
+                            pool = [i for i in items if is_weekly_slot(i.meal_slot)]
+                        else:
+                            try:
+                                day = date.fromisoformat(day_text)
+                            except ValueError:
+                                problems.append(f"'{raw}': tarih anlaşılmadı")
+                                continue
+                            pool = [i for i in items if i.date == day and not is_weekly_slot(i.meal_slot)]
+                        chosen = (
+                            next((i for i in pool if i.meal_slot == slot), None) if slot
+                            else next((i for i in pool if course_role(i.meal_slot) == "main"), None)
                         )
+                        if chosen is None:
+                            listed = ", ".join(f"{i.meal_slot}={i.recipe.name}" for i in pool) or "boş"
+                            problems.append(f"'{raw}' bulunamadı (o gün: {listed})")
+                        elif chosen not in [t[0] for t in targets]:
+                            targets.append((chosen, day_text))
+                    if not targets:
+                        return "Değiştirilecek öğün bulunamadı. " + "; ".join(problems)
+                    target_ids = {id(t[0]) for t in targets}
+                    rest_items = [i for i in items if id(i) not in target_ids]
+                    rest = [i.recipe.name for i in rest_items]
+                    used_keys: set[str] = set()
+                    for item in rest_items:
+                        if course_role(item.meal_slot) == "main" and not is_weekly_slot(item.meal_slot):
+                            used_keys |= key_words(item.recipe.name)
+                    spec = []
+                    for item, day_text in targets:
+                        role = "meze" if is_weekly_slot(item.meal_slot) else course_role(item.meal_slot)
+                        when = "Haftanın mezeleri" if is_weekly_slot(item.meal_slot) else (
+                            f"{TR_DAY_NAMES[item.date.weekday()]} {item.date.isoformat()}"
+                        )
+                        spec.append((role, when, item.recipe.name, item.meal_slot, day_text))
+                    cutoff = session.week_start - timedelta(weeks=4)
+                    recent = db.scalars(
+                        select(Recipe.name).join(MealPlanItem, MealPlanItem.recipe_id == Recipe.id).where(MealPlanItem.date >= cutoff)
+                    ).all()
+                    library = [r.name for r in RecipeService(db).list_recipes(include_candidates=True)]
+                    avoid = list(dict.fromkeys([*recent, *library]))[:400]
+                    prefs = PreferenceService(db)
+                    house = [*prefs.hard_rules(), *prefs.soft_rules()]
+                    rules = MealRules.from_db(db)
+                try:
+                    raw_ideas = await ask(
+                        build_batch_prompt([(r, w, old) for r, w, old, _, _ in spec], istek, avoid, house, rest),
+                        FRESH_SCHEMA,
                     )
-                    picked = idea
-                    break
-            if picked is None:
-                return (
-                    "Uygun yeni öneri çıkmadı (öneriler ya kütüphanede vardı ya da ev kuralına takıldı). "
-                    "Bir kez daha dene ya da web_ara ile ara."
-                )
-            logger.info("fresh_dish_added role=%s", role)
-            result = await ogun_degistir.call(
-                {"tarih": tarih, "yeni_tarif": picked["ad"], "ogun_slotu": slot, "hafta": hafta,
-                 "gerekce": f"Yeni bir şey istendi ({replacing} yerine): {istek or 'daha yenilikçi'}"}
-            )
-            others = [i["ad"] for i in ideas if i is not picked]
-            extra = f" Diğer fikirler (kaydedilmedi): {', '.join(others)}." if others else ""
-            return (
-                f"{result}\nYeni tarif kaydedildi: {picked['ad']}"
-                f"{' (' + picked['mutfak'] + ')' if picked.get('mutfak') else ''}"
-                f"{' — ' + picked['neden'] if picked.get('neden') else ''}.{extra} "
-                "Kullanıcı beğenirse tarif_onayla ile kalıcı listeye alınır."
-            )
+                except Exception as error:
+                    logger.exception("fresh_ideas_failed")
+                    return f"Yeni öneri üretilemedi: {type(error).__name__}. Biraz sonra tekrar dene."
+                ideas = parse_ideas(raw_ideas)
+                results: list[str] = []
+                taken: set[int] = set()
+                for number, (role, when, old, slot, day_text) in enumerate(spec, 1):
+                    picked = None
+                    with toolset.session_factory() as db:
+                        service = RecipeService(db)
+                        ranked = sorted(
+                            (k for k in range(len(ideas)) if k not in taken),
+                            key=lambda k: 0 if ideas[k].get("icin") == number else 1,
+                        )
+                        valid = [
+                            k for k in ranked
+                            if service.find_recipe(ideas[k]["ad"], include_inactive=True) is None
+                            and not rules.excludes(as_probe(ideas[k]))
+                        ]
+                        def keys_of(k):
+                            main = str(ideas[k].get("ana_malzeme") or "")
+                            return key_words(ideas[k]["ad"]) | key_words(main) | ({main.strip().casefold()} - {""})
+                        # Önce ana malzemesi haftadakilerle ve diğer seçimlerle çakışmayan.
+                        fresh_first = [k for k in valid if not (keys_of(k) & used_keys)] or valid
+                        if fresh_first:
+                            picked = fresh_first[0]
+                            idea = ideas[picked]
+                            category = role if role in ("main", "meze", "salad", "soup") else "side"
+                            service.upsert_recipe(
+                                RecipeInput(
+                                    name=idea["ad"], category=category, meal_type="dinner",
+                                    ingredients=[parse_ingredient(line) for line in idea["malzemeler"]],
+                                    instructions=str(idea.get("hazirlanis") or "").strip() or None,
+                                    servings=max(1, int(idea.get("porsiyon") or 4)),
+                                    prep_minutes=int(idea.get("hazirlik_dakika") or 0) or None,
+                                    cook_minutes=int(idea.get("pisirme_dakika") or 0) or None,
+                                    protein_type=str(idea.get("protein") or "").strip().casefold() or None,
+                                    vegetarian=bool(idea.get("vejetaryen")), source=FRESH_SOURCE,
+                                    tags=["agent-eklendi", "yeni-oneri"], status="candidate",
+                                )
+                            )
+                            taken.add(picked)
+                            used_keys |= keys_of(picked)
+                    if picked is None:
+                        results.append(f"- {when} ({old}): uygun yeni öneri çıkmadı, değişmedi.")
+                        continue
+                    idea = ideas[picked]
+                    swapped = await ogun_degistir.call(
+                        {"tarih": day_text, "yeni_tarif": idea["ad"], "ogun_slotu": slot, "hafta": hafta,
+                         "gerekce": f"Yeni bir şey istendi ({old} yerine): {istek or 'daha yenilikçi'}"}
+                    )
+                    head = swapped.split("\nÇeşitlilik")[0]
+                    if head.startswith("Değiştirildi"):
+                        extra = " — ".join(x for x in (idea.get("mutfak"), idea.get("neden")) if x)
+                        results.append(f"- {when}: {old} → {idea['ad']}{' (' + extra + ')' if extra else ''}")
+                    else:
+                        results.append(f"- {when} ({old}): {head}")
+                with toolset.session_factory() as db:
+                    final = toolset._session_for(db, hafta, first_date)
+                    tail = variety_block(final)
+            summary = "Yeni yemekler (aday tarif olarak kaydedildi, kullanıcı beğenirse tarif_onayla):\n" + "\n".join(results)
+            if problems:
+                summary += "\nAtlananlar: " + "; ".join(problems)
+            return summary + toolset.reopen_note + tail
 
         @beta_async_tool
         async def alisveris_listesi(hafta: Literal["aktif", "bu_hafta", "gelecek_hafta"] = "aktif") -> str:
@@ -1067,6 +1140,7 @@ class MealAgentToolset:
             ogunler: list[str],
             hafta: Literal["gelecek_hafta", "bu_hafta"] = "gelecek_hafta",
             notlar: str = "",
+            uzerine_yaz: bool = False,
         ) -> str:
             """Kurduğun haftalık planı kaydeder. Önce `plan_hazirla` çağır.
 
@@ -1081,6 +1155,10 @@ class MealAgentToolset:
                     Haftalık meze listesi: "HAFTA|hafta_meze_1|Haydari".
                 hafta: Hangi hafta.
                 notlar: İzlediğin mantık, bir iki cümle.
+                uzerine_yaz: O hafta için zaten bir menü varsa onu SİLİP baştan
+                    yazmak için true. Yalnızca kullanıcı açıkça "baştan kur / yeni
+                    menü / hepsini değiştir" dediyse. Birkaç yemeği değiştirmek için
+                    ogun_degistir ya da yenisiyle_degistir kullan.
             """
             toolset.calls.append(f"plan_kaydet({len(ogunler)} öğün, hafta={hafta})")
             with toolset.session_factory() as db:
@@ -1092,7 +1170,19 @@ class MealAgentToolset:
                 planner = MealPlannerService(db, toolset.settings)
                 session = planner.current_session(week_start)
                 if session and session.state in (SessionState.APPROVED, SessionState.PUBLISHED):
-                    return f"{week_start} haftası onaylanmış/yayınlanmış, üzerine yazamam."
+                    if not uzerine_yaz:
+                        return (
+                            f"{week_start} haftasının menüsü onaylı. Baştan yazmak istendiyse uzerine_yaz=true ile "
+                            "çağır (menü yeniden taslağa döner); birkaç yemek için ogun_degistir / yenisiyle_degistir kullan."
+                        )
+                    toolset._reopen(session)
+                elif session and session.meal_plan and session.meal_plan.items and not uzerine_yaz:
+                    return (
+                        f"{week_start} haftası için zaten {len(session.meal_plan.items)} öğünlük bir menü var. "
+                        "Kullanıcı birkaç yemeği değiştirmek ya da yeni tarif istiyorsa haftayı silme: "
+                        "ogun_degistir / yenisiyle_degistir / ogun_ekle / ogun_cikar kullan. Açıkça baştan "
+                        "kurulmasını istediyse uzerine_yaz=true ile tekrar çağır."
+                    )
 
                 valid_dates = {d.isoformat() for d in week_dates(week_start)}
                 valid_bases = set(toolset.settings.meal_slots)
