@@ -33,6 +33,8 @@ olduğu (VCN kuralı kullanıcının işi olabilir); CI'nın GitHub'da ilk koşu
 anahtar ve sertifika üretildi, firewalld'da 8443 açık, `app_api_started host=0.0.0.0 port=8443`,
 sunucu içinden istek 401 (beklenen). Mac'ten internet üzerinden istek **000 (ulaşılamadı)**:
 Oracle VCN güvenlik listesinde (ya da NSG'de) 8443 giriş kuralı eksik; kullanıcı ekleyecek.
+Kullanıcı kuralı ekledi ve dışarıdan erişimin çalıştığını bildirdi ("oldu"). Telefonda APK
+kurulumu ve `/uygulama` ile bağlanma henüz doğrulanmadı.
 
 **Sıradaki adım:** kullanıcı Mac'te `git pull` → `./deploy/uygulama-ac.sh`; gerekirse Oracle
 VCN'de 8443 giriş kuralı; GitHub Releases'tan `foody.apk` kur; Telegram `/uygulama` kodunu
