@@ -57,4 +57,12 @@ class MetinTest {
         assertEquals(setOf("$sali|dinner_main"), degisenAnahtarlar(sonuc.degisiklikler))
         assertEquals("Çar", kisaGun("Çarşamba"))
     }
+
+    @Test fun elleDegisiklikFarkiBulunur() {
+        val sonuc = Ornek.isBitti.sonuc!!
+        val once = Ornek.menu.plan!!
+        val sonra = sonuc.menu!!.plan!!
+        assertEquals(sonuc.degisiklikler, planFarki(once, sonra))
+        assertTrue(planFarki(null, sonra).isEmpty())
+    }
 }

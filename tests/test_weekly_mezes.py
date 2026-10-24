@@ -360,3 +360,23 @@ async def test_a_date_alone_picks_the_week_it_belongs_to(wdb, wsettings, tools):
 
     assert out.startswith("Eklendi")
     assert tools[0].touched_session_id == current.id
+
+
+@pytest.mark.asyncio
+async def test_app_sections_draft_and_approved(factory, wsettings):
+    """Uygulamanın Menü sekmesi: "Taslak" onay bekleyen planı, "Onaylı menü" onaylıyı gösterir."""
+    this_week = this_week_start(timezone="Europe/Istanbul")
+    with factory() as db:
+        current = await weekly_plan(db, wsettings, this_week)
+        MealPlannerService(db, wsettings).approve(current)
+        upcoming = await weekly_plan(db, wsettings)
+        current_id, upcoming_id = current.id, upcoming.id
+    client = TestClient(create_api_app(wsettings, factory, agent=None))
+
+    draft = client.get("/api/v1/menu", headers=AUTH, params={"hafta": "taslak"}).json()["plan"]
+    approved = client.get("/api/v1/menu", headers=AUTH, params={"hafta": "onayli"}).json()["plan"]
+    assert draft["id"] == upcoming_id and draft["onaylanabilir"] is True
+    assert approved["id"] == current_id and approved["onaylanabilir"] is False
+
+    client.post("/api/v1/menu/onayla", headers=AUTH, json={"hafta": "taslak"})
+    assert client.get("/api/v1/menu", headers=AUTH, params={"hafta": "taslak"}).json()["plan"] is None

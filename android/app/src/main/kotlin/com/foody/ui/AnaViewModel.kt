@@ -88,6 +88,9 @@ fun haftaKodu(haftaBaslangic: String, bugun: java.time.LocalDate = java.time.Loc
     }
 }
 
+/** Taslakta son yapılan değişiklik: Menü > Taslak'ta üstte gösterilir, değişen yemekler vurgulanır. */
+data class SonDegisiklik(val planId: String, val metin: String, val degisiklikler: List<Degisiklik>)
+
 class AnaViewModel(app: Application) : AndroidViewModel(app) {
     private val ayarDeposu = Ayarlar(app)
     private val _ayarlar = MutableStateFlow(ayarDeposu.oku())
@@ -96,7 +99,8 @@ class AnaViewModel(app: Application) : AndroidViewModel(app) {
     private val sunucu = Sunucu { _ayarlar.value }
     private val isaretDeposu = Isaretler(app)
 
-    private val _hafta = MutableStateFlow("aktif")
+    /** Menü sekmesinin bölümü: "taslak" (onay bekleyen) ya da "onayli". */
+    private val _hafta = MutableStateFlow("taslak")
     val hafta: StateFlow<String> = _hafta.asStateFlow()
 
     private val _menu = MutableStateFlow(Yuk<MenuCevap>())
@@ -129,6 +133,15 @@ class AnaViewModel(app: Application) : AndroidViewModel(app) {
     private val _ekler = MutableStateFlow<List<Ek>>(emptyList())
     val ekler: StateFlow<List<Ek>> = _ekler.asStateFlow()
     private var ekSayaci = 0L
+
+    private val _sonDegisiklik = MutableStateFlow<SonDegisiklik?>(null)
+    val sonDegisiklik: StateFlow<SonDegisiklik?> = _sonDegisiklik.asStateFlow()
+
+    /** Asistan taslağı değiştirince Menü > Taslak'a geçilir (her değişiklikten sonra taslak görünsün). */
+    private val _taslagaGit = kotlinx.coroutines.flow.MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    val taslagaGit: kotlinx.coroutines.flow.SharedFlow<Unit> = _taslagaGit
+
+    fun sonDegisiklikGoruldu() { _sonDegisiklik.value = null }
 
     /** Başka ekrandan asistanın yazı alanına hazır metin (ör. "Salı ana yemek için: "). */
     private val _taslak = MutableStateFlow("")
@@ -259,7 +272,20 @@ class AnaViewModel(app: Application) : AndroidViewModel(app) {
 
     /** Sohbetteki bir menü kartından Menü ekranına geçerken o kartın haftasını gösterir. */
     fun menuyuGoster(plan: Plan) {
-        if (_menu.value.veri?.plan?.haftaBaslangic != plan.haftaBaslangic) haftaSec(haftaKodu(plan.haftaBaslangic))
+        val bolum = if (plan.onaylanabilir) "taslak" else "onayli"
+        if (_hafta.value != bolum || _menu.value.veri?.plan?.id != plan.id) haftaSec(bolum)
+    }
+
+    /** Düzenleme uçları için ekrandaki planın haftası ("bu_hafta"/"gelecek_hafta"). */
+    private fun planHaftasi(): String = _menu.value.veri?.plan?.let { haftaKodu(it.haftaBaslangic) } ?: "aktif"
+
+    /** Elle yapılan değişiklikten sonra: yeni menüyü göster, farkı vurgula. */
+    private fun elleDegisti(cevap: MenuCevap, metin: String) {
+        val eski = _menu.value.veri?.plan
+        _menu.value = Yuk(veri = cevap)
+        val yeni = cevap.plan ?: return
+        val fark = planFarki(eski?.takeIf { it.id == yeni.id }, yeni)
+        if (fark.isNotEmpty()) _sonDegisiklik.value = SonDegisiklik(yeni.id, metin, fark)
     }
 
     /** Sohbetteki karttan onay: kartın haftası, ekranda hangi hafta açık olursa olsun. */
@@ -272,22 +298,22 @@ class AnaViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun ogunDegistir(tarih: String, slot: String, tarif: String) = islem {
-        val cevap = sunucu.ogunDegistir(tarih, slot, tarif, _hafta.value)
-        _menu.value = Yuk(veri = cevap)
+        val cevap = sunucu.ogunDegistir(tarih, slot, tarif, planHaftasi())
+        elleDegisti(cevap, "$tarif menüye kondu.")
         bildir("$tarif menüye kondu.")
         alisverisYenile()
     }
 
     fun ogunEkle(tarih: String, tarif: String) = islem {
-        val cevap = sunucu.ogunEkle(tarih, tarif, _hafta.value)
-        _menu.value = Yuk(veri = cevap)
+        val cevap = sunucu.ogunEkle(tarih, tarif, planHaftasi())
+        elleDegisti(cevap, cevap.mesaj ?: "$tarif eklendi.")
         bildir(cevap.mesaj ?: "$tarif eklendi.")
         alisverisYenile()
     }
 
     fun ogunCikar(tarih: String, slot: String, tarif: String) = islem {
-        val cevap = sunucu.ogunCikar(tarih, slot, _hafta.value)
-        _menu.value = Yuk(veri = cevap)
+        val cevap = sunucu.ogunCikar(tarih, slot, planHaftasi())
+        elleDegisti(cevap, "$tarif çıkarıldı.")
         bildir("$tarif çıkarıldı.")
         alisverisYenile()
     }
@@ -307,7 +333,8 @@ class AnaViewModel(app: Application) : AndroidViewModel(app) {
         if (testModu || !_ayarlar.value.hazir) return
         viewModelScope.launch {
             _alisveris.update { it.copy(yukleniyor = true, hata = null) }
-            runCatching { sunucu.alisveris(_hafta.value) }
+            // Alışveriş listesi menü sekmesinin bölümünden bağımsız: onay bekleyen taslak, yoksa bu hafta.
+            runCatching { sunucu.alisveris("aktif") }
                 .onSuccess {
                     _alisveris.value = Yuk(veri = it)
                     _isaretli.value = it.haftaBaslangic?.let(isaretDeposu::oku).orEmpty()
@@ -456,11 +483,21 @@ class AnaViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    private fun cevabiEkle(c: SohbetCevap) = _sohbet.update {
-        it + SohbetMesaji(
-            false, c.metin, kaloriOzeti = c.kaloriOzeti, planDegisti = c.planDegisti, hata = !c.ok,
-            menu = c.menu, degisiklikler = c.degisiklikler,
-        )
+    private fun cevabiEkle(c: SohbetCevap) {
+        _sohbet.update {
+            it + SohbetMesaji(
+                false, c.metin, kaloriOzeti = c.kaloriOzeti, planDegisti = c.planDegisti, hata = !c.ok,
+                menu = c.menu, degisiklikler = c.degisiklikler,
+            )
+        }
+        val plan = c.menu?.plan
+        if (c.planDegisti && plan != null && plan.onaylanabilir) {
+            // Asistan taslağı değiştirdi: Menü > Taslak güncel hâliyle açılır, değişenler vurgulu.
+            _hafta.value = "taslak"
+            _menu.value = Yuk(veri = c.menu)
+            _sonDegisiklik.value = SonDegisiklik(plan.id, c.metin, c.degisiklikler)
+            _taslagaGit.tryEmit(Unit)
+        }
     }
 
     // --- test kancası ------------------------------------------------------------------

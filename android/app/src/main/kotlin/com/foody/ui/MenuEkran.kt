@@ -52,7 +52,7 @@ import com.foody.data.Gun
 import com.foody.data.Ogun
 import com.foody.data.TarifOzet
 
-private val HAFTALAR = listOf("aktif" to "Aktif", "bu_hafta" to "Bu hafta", "gelecek_hafta" to "Gelecek hafta")
+private val BOLUMLER = listOf("taslak" to "Taslak", "onayli" to "Onaylı menü")
 
 @Composable
 fun MenuEkran(vm: AnaViewModel, tarifAc: (String) -> Unit, ayarlar: () -> Unit, asistanaGit: () -> Unit) {
@@ -61,6 +61,7 @@ fun MenuEkran(vm: AnaViewModel, tarifAc: (String) -> Unit, ayarlar: () -> Unit, 
     val hafta by vm.hafta.collectAsStateWithLifecycle()
     val isleniyor by vm.isleniyor.collectAsStateWithLifecycle()
     val tarifler by vm.tarifler.collectAsStateWithLifecycle()
+    val son by vm.sonDegisiklik.collectAsStateWithLifecycle()
     val cevap = durum.veri
     val plan = cevap?.plan
     var secilen by remember { mutableStateOf<Pair<Gun?, Ogun>?>(null) }
@@ -92,17 +93,23 @@ fun MenuEkran(vm: AnaViewModel, tarifAc: (String) -> Unit, ayarlar: () -> Unit, 
             Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            HAFTALAR.forEach { (kod, ad) -> FilterChip(selected = hafta == kod, onClick = { vm.haftaSec(kod) }, label = { Text(ad) }) }
+            BOLUMLER.forEach { (kod, ad) -> FilterChip(selected = hafta == kod, onClick = { vm.haftaSec(kod) }, label = { Text(ad) }) }
         }
         DurumKarti(durum.yukleniyor && cevap == null, durum.hata, yenile = { vm.menuYenile() })
         if (cevap != null && plan == null) {
             Kart(Modifier.padding(16.dp).fillMaxWidth()) {
-                Text("Bu hafta için menü yok.", fontWeight = FontWeight.Bold)
-                Text(
-                    "Menü her pazar kendiliğinden gelir. Beklemek istemezsen asistan kurallarına göre şimdi hazırlasın.",
-                    color = Renk.Soluk, fontSize = 14.sp,
-                )
-                Button(onClick = { vm.asistanaSor(YENI_MENU_ISTEK); asistanaGit() }) { Text("Asistan hazırlasın") }
+                if (hafta == "onayli") {
+                    Text("Henüz onaylanmış menü yok.", fontWeight = FontWeight.Bold)
+                    TextButton(onClick = { vm.haftaSec("taslak") }) { Text("Taslağa bak") }
+                } else {
+                    Text("Şu an onay bekleyen taslak yok.", fontWeight = FontWeight.Bold)
+                    Text(
+                        "Taslak her pazar kendiliğinden gelir. Beklemek istemezsen asistan kurallarına göre şimdi hazırlasın.",
+                        color = Renk.Soluk, fontSize = 14.sp,
+                    )
+                    Button(onClick = { vm.asistanaSor(YENI_MENU_ISTEK); asistanaGit() }) { Text("Asistan hazırlasın") }
+                    TextButton(onClick = { vm.haftaSec("onayli") }) { Text("Onaylı menüyü gör") }
+                }
             }
         }
         if (plan != null) Column(
@@ -110,12 +117,23 @@ fun MenuEkran(vm: AnaViewModel, tarifAc: (String) -> Unit, ayarlar: () -> Unit, 
                 .testTag("menu_listesi"),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
+            val bunun = son?.takeIf { it.planId == plan.id }
+            if (bunun != null) Kart(Modifier.fillMaxWidth().testTag("son_degisiklik"), renk = Renk.AcikYesil) {
+                Text("Son değişiklik", fontWeight = FontWeight.ExtraBold, fontSize = 15.sp, color = Renk.Yesil)
+                if (bunun.metin.isNotBlank()) Text(bunun.metin, fontSize = 14.sp, lineHeight = 20.sp, color = Renk.Murekkep)
+                DegisiklikListesi(bunun.degisiklikler, plan)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TextButton(onClick = asistanaGit) { Text("Asistana dön") }
+                    TextButton(onClick = { vm.sonDegisiklikGoruldu() }) { Text("Tamam") }
+                }
+            }
             if (cevap.kaloriSiniri != null) {
                 Etiket("Öğün sınırı: kişi başı ${binlik(cevap.kaloriSiniri.toInt())} kcal", Renk.AcikTuruncu, Renk.Turuncu)
             }
             Kart(Modifier.fillMaxWidth()) {
                 MenuTablosu(
                     cevap,
+                    degisen = bunun?.let { degisenAnahtarlar(it.degisiklikler) } ?: emptySet(),
                     tikla = { gun, ogun -> if (plan.onaylanabilir) secilen = gun to ogun else tarifAc(ogun.tarifId) },
                     mezeEkle = if (plan.onaylanabilir) { { mezeEklenecek = true } } else null,
                 )
@@ -146,7 +164,7 @@ fun MenuEkran(vm: AnaViewModel, tarifAc: (String) -> Unit, ayarlar: () -> Unit, 
     secilen?.let { (gun, ogun) ->
         val tarih = gun?.tarih ?: HAFTA
         val yer = gun?.gun ?: "Haftanın mezeleri"
-        val konu = SeciliOgun(tarih, yer, ogun.slot, ogun.rol, ogun.tarif, hafta)
+        val konu = SeciliOgun(tarih, yer, ogun.slot, ogun.rol, ogun.tarif, plan?.let { haftaKodu(it.haftaBaslangic) } ?: "aktif")
         AlertDialog(
             onDismissRequest = { secilen = null },
             title = { Text(ogun.tarif) },

@@ -150,6 +150,12 @@ menü tek bakışta görünsün.
   `hafta` alır. Sohbet cevabında `menu` ve `degisiklikler` (tur öncesi/sonrası farkı);
   uygulama kanalında ajana "menüyü metin olarak tekrar yazma" denir (`channel="uygulama"`).
 - Uygulama 1.5: Asistan ana ekran (sohbet + menü kartı), Menü sekmesi tek bakışta tablo.
+- Uygulama 1.6: Menü sekmesinde iki bölüm, "Taslak" (`/menu?hafta=taslak`: onay bekleyen
+  plan, önce gelecek hafta) ve "Onaylı menü" (`hafta=onayli`: bu haftanın onaylısı, yoksa
+  en son onaylanan). Asistan taslağı her değiştirdiğinde uygulama kendiliğinden Menü >
+  Taslak'a geçer; üstte "Son değişiklik" kutusu (asistanın sözü + değişenler), tabloda
+  değişen yemekler vurgulu. Elle düzenlemelerde fark uygulamada hesaplanır (`planFarki`).
+  Düzenleme uçlarına ekrandaki planın haftası gönderilir (`haftaKodu`).
   Testlerde `GORUNTU=<klasör>` ile `GoruntuTest` ekran görüntüsü alır.
 - Testlerin çoğu eski "her güne meze" varsayımıyla yazıldığı için `tests/conftest.py`
   `weekly_meze_count=0` kullanır; yeni davranış `tests/test_weekly_mezes.py`'de.

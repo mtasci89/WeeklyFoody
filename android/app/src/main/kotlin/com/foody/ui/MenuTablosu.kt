@@ -56,6 +56,21 @@ fun degisimAnahtari(tarih: String, slot: String) = "$tarih|$slot"
 fun degisenAnahtarlar(degisiklikler: List<Degisiklik>): Set<String> =
     degisiklikler.filter { it.yeni != null }.map { degisimAnahtari(it.tarih, it.slot) }.toSet()
 
+/** İki plan arasındaki fark (elle düzenlemeden sonra vurgulamak için). */
+fun planFarki(eski: Plan?, yeni: Plan): List<Degisiklik> {
+    fun harita(p: Plan?): Map<Pair<String, String>, String> {
+        if (p == null) return emptyMap()
+        return p.gunler.flatMap { g -> g.ogunler.map { (g.tarih to it.slot) to it.tarif } }.toMap() +
+            p.mezeler.associate { (HAFTA to it.slot) to it.tarif }
+    }
+    if (eski == null) return emptyList()
+    val once = harita(eski)
+    val sonra = harita(yeni)
+    return (once.keys + sonra.keys).distinct().sortedWith(compareBy({ it.first }, { it.second }))
+        .filter { once[it] != sonra[it] }
+        .map { Degisiklik(it.first, it.second, once[it], sonra[it]) }
+}
+
 /** "Salı · Ana yemek: Izgara Balık → Izgara Köfte", "Mezeler: + Atom", "Mezeler: − Çoban Salata" */
 fun degisiklikMetni(d: Degisiklik, plan: Plan?): String {
     val yer = if (d.tarih == HAFTA) "Mezeler" else {
@@ -227,7 +242,7 @@ fun MenuKarti(
         DegisiklikListesi(degisiklikler, plan)
         MenuTablosu(menu, degisen = degisenAnahtarlar(degisiklikler), kompakt = true)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            androidx.compose.material3.OutlinedButton(onClick = menuyuAc) { Text("Menüyü aç") }
+            androidx.compose.material3.OutlinedButton(onClick = menuyuAc) { Text(if (plan.onaylanabilir) "Taslağı aç" else "Menüyü aç") }
             if (onayla != null && plan.onaylanabilir) androidx.compose.material3.Button(onClick = onayla) { Text("Onayla") }
         }
     }

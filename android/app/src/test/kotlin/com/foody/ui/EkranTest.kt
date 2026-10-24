@@ -93,10 +93,26 @@ class EkranTest {
         kural.onNodeWithText("DEĞİŞENLER").assertExists()
         kural.onNodeWithText("Salı · Ana yemek: Izgara Balık → Izgara Köfte").assertExists()
         kural.onNodeWithText("Mezeler: − Çoban Salata").assertExists()
-        kural.onNodeWithText("Menüyü aç").performClick()
+        kural.onNodeWithText("Taslağı aç").performClick()
         assert(acilan == listOf(sonuc.menu!!.plan!!.haftaBaslangic))
         kural.onNodeWithText("Onayla").performClick()
         kural.onNodeWithText("Menü onaylansın mı?").assertExists()
+    }
+
+    @Test fun asistanTaslagiDegistirinceTaslakAcilirVeDegisenlerGorunur() {
+        val vm = vm()
+        kural.setContent { FoodyTema { Uygulama(vm) } }
+        kural.onNodeWithText("Asistana yaz…").assertExists()
+        val sonuc = Ornek.isBitti.sonuc!!
+        kural.runOnIdle { vm.ornekCevap(sonuc) }
+        // Kendiliğinden Menü > Taslak'a geçti; asistanın sözü ve değişenler üstte.
+        kural.onNodeWithTag("son_degisiklik").assertExists()
+        kural.onNodeWithText("Taslak").assertIsSelected()
+        kural.onAllNodesWithText(sonuc.metin).onFirst().assertExists()
+        kural.onAllNodesWithText("Salı · Ana yemek: Izgara Balık → Izgara Köfte").onFirst().assertExists()
+        assert(vm.menu.value.veri == sonuc.menu)
+        kural.onNodeWithText("Tamam").performClick()
+        kural.onNodeWithTag("son_degisiklik").assertDoesNotExist()
     }
 
     @Test fun yemegeDokununcaAsistandanYenilikciIstenir() {
@@ -109,7 +125,8 @@ class EkranTest {
         kural.onNodeWithText("Asistan yerine yenilikçi bir şey koysun").performClick()
 
         val giden = vm.sohbet.value.last().metin
-        assert(giden.contains("tarih=${gun.tarih}, slot=${ogun.slot}, hafta=aktif): ${ogun.tarif}")) { giden }
+        val hafta = haftaKodu(Ornek.menu.plan!!.haftaBaslangic)
+        assert(giden.contains("tarih=${gun.tarih}, slot=${ogun.slot}, hafta=$hafta): ${ogun.tarif}")) { giden }
         assert(giden.endsWith(YENILIKCI_ISTEK))
         assert(asistan == 1)
     }
@@ -157,7 +174,7 @@ class EkranTest {
         val vm = vm(menu = Ornek.menuBos)
         var asistan = 0
         kural.setContent { FoodyTema { MenuEkran(vm, tarifAc = {}, ayarlar = {}, asistanaGit = { asistan++ }) } }
-        kural.onNodeWithText("Bu hafta için menü yok.").assertExists()
+        kural.onNodeWithText("Şu an onay bekleyen taslak yok.").assertExists()
         kural.onNodeWithText("Asistan hazırlasın").performClick()
         assert(vm.sohbet.value.last().metin == YENI_MENU_ISTEK)
         assert(asistan == 1)
@@ -209,6 +226,7 @@ class EkranTest {
     @Test fun haftaSecimiVarsayilanAktif() {
         val vm = vm()
         kural.setContent { FoodyTema { MenuEkran(vm, tarifAc = {}, ayarlar = {}, asistanaGit = {}) } }
-        kural.onNodeWithText("Aktif").assertIsSelected()
+        kural.onNodeWithText("Taslak").assertIsSelected()
+        kural.onNodeWithText("Onaylı menü").assertExists()
     }
 }

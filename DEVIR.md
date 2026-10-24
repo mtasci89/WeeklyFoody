@@ -2,6 +2,22 @@
 
 Son güncelleme: **2026-10-24 — Claude**. Önce [PROJE.md](PROJE.md) dosyasını okuyun.
 
+## Son tamamlanan iş (Claude, 2026-10-24): Menü > Taslak bölümü (uygulama 1.6)
+
+Kullanıcı (1.5 kurulu, sunucu güncel): "Taslağı her değişiklik sonrası bu tabloda görmek
+istiyorum; menü içine Taslak bölümü yap, şu an hiçbir yerde göremiyorum."
+
+- Sunucu: `/menu`, `/menu/onayla` için `hafta=taslak|onayli` (`draft_session`,
+  `approved_session` in `app/api.py`); test `test_app_sections_draft_and_approved`.
+- Uygulama 1.6 (versionCode 7): Menü sekmesi "Taslak" / "Onaylı menü"; asistan taslağı
+  değiştirince otomatik Taslak'a geçiş + "Son değişiklik" kutusu + vurgu; elle düzenlemede
+  de aynı kutu. Alışveriş listesi "aktif" haftayı izler (bölümden bağımsız).
+- Düzeltme: uygulama düzenleme uçlarına "taslak" gönderiyordu (sunucu bunu kabul etmez);
+  artık planın kendi haftası gider.
+- Kontroller: Android testleri geçti (EkranTest 14, MetinTest 7), pytest 349 geçti;
+  Robolectric ekran görüntüsü gözle kontrol edildi.
+- Sıradaki adım: kullanıcı sunucuyu `/guncelle` ile güncelleyip 1.6'yı kursun.
+
 ## Son tamamlanan iş (Claude, 2026-10-24): haftalık meze listesi, asistan ana ekran (1.5)
 
 Kullanıcı 1.4'ü beğenmedi: asistan menünün altında küçük kalıyordu, değişiklikler ekrandaki

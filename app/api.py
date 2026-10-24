@@ -104,6 +104,32 @@ class RemoveIn(BaseModel):
     hafta: Literal["aktif", "bu_hafta", "gelecek_hafta"] = "aktif"
 
 
+FINAL_STATES = (SessionState.APPROVED, SessionState.PUBLISHED)
+
+
+def draft_session(planner: MealPlannerService) -> WeeklyPlanningSession | None:
+    """Uygulamadaki "Taslak": onay bekleyen plan (önce gelecek hafta, sonra bu hafta)."""
+    for session in (planner.current_session(), planner.this_week_session()):
+        if session is not None and session.state not in FINAL_STATES:
+            return session
+    return None
+
+
+def approved_session(db, planner: MealPlannerService) -> WeeklyPlanningSession | None:
+    """Uygulamadaki "Onaylı menü": bu haftanın onaylı menüsü, yoksa en son onaylanan."""
+    current = planner.this_week_session()
+    if current is not None and current.state in FINAL_STATES:
+        return current
+    from sqlalchemy import select
+
+    return db.scalar(
+        select(WeeklyPlanningSession)
+        .where(WeeklyPlanningSession.state.in_(FINAL_STATES))
+        .order_by(WeeklyPlanningSession.week_start.desc())
+        .limit(1)
+    )
+
+
 def plan_snapshot(db, settings: Settings) -> dict[str, dict[tuple[str, str], str]]:
     """Bu ve gelecek haftanın planı: {oturum: {(tarih|HAFTA, slot): tarif}}.
     Asistan turundan önce alınır; sonra neyin değiştiği gösterilir."""
@@ -271,6 +297,10 @@ def create_api_app(
             return planner.this_week_session()
         if hafta == "gelecek_hafta":
             return planner.current_session()
+        if hafta == "taslak":
+            return draft_session(planner)
+        if hafta == "onayli":
+            return approved_session(db, planner)
         return planner.active_session()
 
     def rules_json() -> dict:

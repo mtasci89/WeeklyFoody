@@ -30,6 +30,9 @@ fun Uygulama(vm: AnaViewModel) {
     val bilgi by vm.bilgi.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
 
+    // Asistan taslağı her değiştirdiğinde Menü > Taslak açılır.
+    LaunchedEffect(Unit) { vm.taslagaGit.collect { nav.ustDuzey("menu") } }
+
     LaunchedEffect(bilgi) {
         bilgi?.let { snackbar.showSnackbar(it); vm.bilgiGosterildi() }
     }

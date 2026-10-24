@@ -5,8 +5,6 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import androidx.activity.ComponentActivity
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
-import androidx.compose.ui.test.onNodeWithText
-import androidx.compose.ui.test.performClick
 import androidx.test.core.app.ApplicationProvider
 import com.foody.Ornek
 import org.junit.Rule
@@ -37,9 +35,9 @@ class GoruntuTest {
         }
         kaydet("1_asistan.png")
         vm.asistanaSor("Salı'daki balık olmamış, daha yenilikçi bir şey koy. Çoban salatayı da meze listesinden çıkar.")
-        vm.ornekCevap(Ornek.isBitti.sonuc!!.copy(metin = "Salı'ya balık yerine Izgara Köfte koydum; Çoban Salata'yı meze listesinden çıkardım."))
-        kaydet("2_asistan_degisiklik.png")
-        kural.onNodeWithText("Menü").performClick()
-        kaydet("3_menu.png")
+        kural.runOnIdle {
+            vm.ornekCevap(Ornek.isBitti.sonuc!!.copy(metin = "Salı'ya balık yerine Izgara Köfte koydum; Çoban Salata'yı meze listesinden çıkardım."))
+        }
+        kaydet("2_taslak_degisiklik.png")
     }
 }
