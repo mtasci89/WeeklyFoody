@@ -2,6 +2,30 @@
 
 Son güncelleme: **2026-10-24 — Claude**. Önce [PROJE.md](PROJE.md) dosyasını okuyun.
 
+## Son tamamlanan iş (Claude, 2026-10-24): haftalık meze listesi, asistan ana ekran (1.5)
+
+Kullanıcı 1.4'ü beğenmedi: asistan menünün altında küçük kalıyordu, değişiklikler ekrandaki
+menüye yansımıyordu, "mezeleri öğünlere ekleme" (= EKLEME) ve "mezeler günlere bölünmesin"
+istekleri yapılamıyordu. Not: önceki turda "ekleme" yanlışlıkla "ekle" diye okunmuştu.
+İki tasarım taslağı (claude.ai artifact) reddedildi; kullanıcı "asistan ön planda" ve
+"menü tek bakışta" seçti.
+
+- **Sunucu:** haftalık meze listesi, `ogun_ekle`/`ogun_cikar`, tarihten hafta bulma,
+  `hafta` parametresi, sohbet cevabında `menu` + `degisiklikler`, uygulama kanalı istemi.
+  Ayrıntı: PROJE.md > Haftalık meze listesi.
+- **Uygulama 1.5 (versionCode 6):** Asistan ana ekran (tam ekran sohbet; plan değişince
+  "Değişenler" + kompakt hafta tablosu kartı, Menüyü aç / Onayla). Menü sekmesi tek bakışta
+  tablo + haftalık mezeler; yemeğe dokun → tarif / asistan yenilikçi koysun / asistana yaz /
+  listeden değiştir / güne ekle / çıkar. Yeni dosyalar `ui/MenuTablosu.kt`, `ui/Asistan.kt`
+  (yeniden yazıldı), `ui/GoruntuTest.kt` (yalnızca `GORUNTU` ortam değişkeniyle çalışır).
+- **Kontroller:** `pytest -q` 348 geçti; Android `testDebugUnitTest` 50 test (5 canlı test
+  atlandı) geçti; `assembleRelease` başarılı; ekran görüntüleri Robolectric ile çizilip
+  gözle kontrol edildi.
+- **Doğrulanmadı:** gerçek Gemini'nin yeni araçları (ogun_ekle/ogun_cikar) doğru seçmesi.
+- **Kullanıcıya not:** sunucudaki mevcut taslak eski biçimde (günlerde meze) kalır; asistana
+  "gelecek haftanın menüsünü yeniden hazırla" demek ya da pazar planını beklemek gerekir.
+  Eski "her güne tek meze" gibi bir kural varsa Kurallar'dan silinmeli.
+
 ## Son tamamlanan iş (Claude, 2026-10-24): haftalık yeni yemekler + asistan menünün içinde
 
 Kullanıcı: "Asistanla da olsa tarif listesinden dışarı çıkmıyor, her hafta sıradışı şeyler

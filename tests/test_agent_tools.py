@@ -372,6 +372,8 @@ def test_every_tool_has_a_described_schema(toolset):
         "tarif_ara",
         "tarif_detay",
         "ogun_degistir",
+        "ogun_ekle",
+        "ogun_cikar",
         "alisveris_listesi",
         "gecmis_getir",
         "kurallari_goster",

@@ -144,7 +144,7 @@ class MealPlannerAgent:
     def _context(self, toolset: MealAgentToolset) -> str:
         hard, soft, pantry = toolset.ambient_context()
         today = datetime.now(ZoneInfo(self.settings.timezone)).date()
-        return context_block(today, toolset.plan_summary(), hard, soft, pantry)
+        return context_block(today, toolset.plan_summary(), hard, soft, pantry, channel=toolset.channel)
 
     async def aclose(self) -> None:
         """Istemcinin ag oturumunu kapatir (kisa omurlu kullanim icin: CLI)."""
@@ -203,7 +203,12 @@ class MealPlannerAgent:
         ]
 
     async def reply(
-        self, chat_id: int, message: str, images: list[Gorsel] | None = None, timeout: int | None = None
+        self,
+        chat_id: int,
+        message: str,
+        images: list[Gorsel] | None = None,
+        timeout: int | None = None,
+        channel: str = "telegram",
     ) -> AgentReply:
         images = list(images or [])
         message = message.strip() or (VARSAYILAN_GORSEL_MESAJI if images else message)
@@ -214,6 +219,7 @@ class MealPlannerAgent:
         toolset = MealAgentToolset(
             self.settings, self.session_factory, estimator=self.estimator(), notifier=self.notifier
         )
+        toolset.channel = channel
         limit = timeout or self.settings.agent_turn_timeout_seconds
         try:
             return await asyncio.wait_for(

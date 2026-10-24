@@ -116,9 +116,22 @@ class Sunucu(private val ayarlar: () -> Ayarlar.Degerler) {
         "POST", "menu/onayla", govde = buildJsonObject { put("hafta", hafta) }.toString(), cevirici = MenuCevap.serializer(),
     )
 
-    suspend fun ogunDegistir(tarih: String, slot: String, tarif: String) = cagir(
+    suspend fun ogunDegistir(tarih: String, slot: String, tarif: String, hafta: String = "aktif") = cagir(
         "POST", "menu/degistir",
-        govde = buildJsonObject { put("tarih", tarih); put("slot", slot); put("tarif", tarif) }.toString(),
+        govde = buildJsonObject { put("tarih", tarih); put("slot", slot); put("tarif", tarif); put("hafta", hafta) }.toString(),
+        cevirici = MenuCevap.serializer(),
+    )
+
+    /** Plana yemek ekler; `tarih` ISO ya da haftalık meze listesi için "HAFTA". */
+    suspend fun ogunEkle(tarih: String, tarif: String, hafta: String = "aktif") = cagir(
+        "POST", "menu/ekle",
+        govde = buildJsonObject { put("tarih", tarih); put("tarif", tarif); put("hafta", hafta) }.toString(),
+        cevirici = MenuCevap.serializer(),
+    )
+
+    suspend fun ogunCikar(tarih: String, slot: String, hafta: String = "aktif") = cagir(
+        "POST", "menu/cikar",
+        govde = buildJsonObject { put("tarih", tarih); put("slot", slot); put("hafta", hafta) }.toString(),
         cevirici = MenuCevap.serializer(),
     )
 

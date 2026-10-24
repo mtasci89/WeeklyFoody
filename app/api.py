@@ -17,6 +17,7 @@ import logging
 import secrets
 from collections import defaultdict
 from collections.abc import Callable
+from typing import Literal
 from datetime import date
 
 from fastapi import APIRouter, Depends, FastAPI, HTTPException, Request
@@ -24,7 +25,7 @@ from pydantic import BaseModel, Field
 
 from app.agent.rules import HouseRules
 from app.agent.runner import GORSEL_TURLERI, Gorsel
-from app.config import Settings
+from app.config import Settings, is_weekly_slot
 from app.db.models import Recipe, RecipeStatus, SessionState, WeeklyPlanningSession
 from app.db.session import SessionLocal
 from app.formatting import calorie_summary, course_label
@@ -84,9 +85,46 @@ class DiscoverIn(BaseModel):
 
 
 class SwapIn(BaseModel):
-    tarih: date
+    # ISO tarih ya da haftalık meze listesi için "HAFTA".
+    tarih: str = Field(min_length=1, max_length=20)
     slot: str = Field(min_length=1, max_length=64)
     tarif: str = Field(min_length=1, max_length=200)
+    hafta: Literal["aktif", "bu_hafta", "gelecek_hafta"] = "aktif"
+
+
+class AddIn(BaseModel):
+    tarih: str = Field(min_length=1, max_length=20)
+    tarif: str = Field(min_length=1, max_length=200)
+    hafta: Literal["aktif", "bu_hafta", "gelecek_hafta"] = "aktif"
+
+
+class RemoveIn(BaseModel):
+    tarih: str = Field(min_length=1, max_length=20)
+    slot: str = Field(min_length=1, max_length=64)
+    hafta: Literal["aktif", "bu_hafta", "gelecek_hafta"] = "aktif"
+
+
+def plan_snapshot(db, settings: Settings) -> dict[str, dict[tuple[str, str], str]]:
+    """Bu ve gelecek haftanın planı: {oturum: {(tarih|HAFTA, slot): tarif}}.
+    Asistan turundan önce alınır; sonra neyin değiştiği gösterilir."""
+    planner = MealPlannerService(db, settings)
+    result = {}
+    for session in {planner.this_week_session(), planner.current_session()} - {None}:
+        items = session.meal_plan.items if session.meal_plan else []
+        result[session.id] = {
+            ("HAFTA" if is_weekly_slot(i.meal_slot) else i.date.isoformat(), i.meal_slot): i.recipe.name
+            for i in items
+        }
+    return result
+
+
+def plan_changes(before: dict[tuple[str, str], str], after: dict[tuple[str, str], str]) -> list[dict]:
+    changes = []
+    for key in sorted(set(before) | set(after)):
+        old, new = before.get(key), after.get(key)
+        if old != new:
+            changes.append({"tarih": key[0], "slot": key[1], "eski": old, "yeni": new})
+    return changes
 
 
 class WeekIn(BaseModel):
@@ -147,26 +185,27 @@ def menu_json(db, session: WeeklyPlanningSession | None, settings: Settings) -> 
         return {**base, "plan": None}
     by_day: dict[date, list] = defaultdict(list)
     items = session.meal_plan.items if session.meal_plan else []
+    weekly = []
     for item in sorted(items, key=lambda i: (i.date, i.meal_slot)):
-        by_day[item.date].append(item)
+        (weekly if is_weekly_slot(item.meal_slot) else by_day[item.date]).append(item)
+
+    def meal(item) -> dict:
+        return {
+            "slot": item.meal_slot,
+            "rol": "Meze" if is_weekly_slot(item.meal_slot) else course_label(item.meal_slot),
+            "tarif_id": item.recipe.id,
+            "tarif": item.recipe.name,
+            "kategori": item.recipe.category,
+            "porsiyon": item.servings or settings.default_servings,
+            "degisti": bool(item.admin_changed),
+            # Kütüphanede olmayan, bu hafta denenecek yemek (aday tarif).
+            "yeni": item.recipe.status == RecipeStatus.CANDIDATE,
+            **_nutrition(item.recipe),
+        }
+
     days = []
     for day in week_dates(session.week_start):
-        meals = []
-        for item in by_day.get(day, []):
-            meals.append(
-                {
-                    "slot": item.meal_slot,
-                    "rol": course_label(item.meal_slot),
-                    "tarif_id": item.recipe.id,
-                    "tarif": item.recipe.name,
-                    "kategori": item.recipe.category,
-                    "porsiyon": item.servings or settings.default_servings,
-                    "degisti": bool(item.admin_changed),
-                    # Kütüphanede olmayan, bu hafta denenecek yemek (aday tarif).
-                    "yeni": item.recipe.status == RecipeStatus.CANDIDATE,
-                    **_nutrition(item.recipe),
-                }
-            )
+        meals = [meal(item) for item in by_day.get(day, [])]
         known = [m["kcal"] for m in meals if m["kcal"] is not None]
         days.append(
             {
@@ -187,6 +226,8 @@ def menu_json(db, session: WeeklyPlanningSession | None, settings: Settings) -> 
             "onaylanabilir": bool(items) and session.state not in (SessionState.APPROVED, SessionState.PUBLISHED),
             "versiyon": session.draft_version,
             "gunler": days,
+            # Günlere bölünmeyen, haftalık meze listesi (kalori toplamlarına girmez).
+            "mezeler": [meal(item) for item in weekly],
         },
     }
 
@@ -243,19 +284,32 @@ def create_api_app(
         return recipe
 
     async def agent_answer(message: str, images=None, timeout: int | None = None) -> dict:
-        reply = await get_agent().reply(chat_id, message, images=images or None, timeout=timeout)
+        agent_ = get_agent()
+        with session_factory() as db:
+            before = plan_snapshot(db, settings)
+        reply = await agent_.reply(chat_id, message, images=images or None, timeout=timeout, channel="uygulama")
         summary = ""
+        menu = None
+        changes: list[dict] = []
         if reply.plan_session_id:
             with session_factory() as db:
                 session = db.get(WeeklyPlanningSession, reply.plan_session_id)
-                if session is not None and MealRules.from_db(db).show_calories:
-                    summary = calorie_summary(session)
+                if session is not None:
+                    if MealRules.from_db(db).show_calories:
+                        summary = calorie_summary(session)
+                    # Uygulama menüyü sohbetin içinde kart olarak gösterir;
+                    # asistanın metni menüyü tekrar yazmak zorunda kalmaz.
+                    menu = menu_json(db, session, settings)
+                    after = plan_snapshot(db, settings).get(session.id, {})
+                    changes = plan_changes(before.get(session.id, {}), after)
         return {
             "metin": reply.text,
             "ok": reply.ok,
             "araclar": reply.tool_calls,
             "plan_degisti": reply.plan_session_id is not None,
             "kalori_ozeti": summary,
+            "menu": menu,
+            "degisiklikler": changes,
         }
 
     api = APIRouter(prefix="/api/v1", dependencies=[Depends(require_token)])
@@ -319,23 +373,40 @@ def create_api_app(
             logger.info("app_menu_approved session_id=%s", session.id)
             return {"mesaj": message, **menu_json(db, session, settings)}
 
-    @api.post("/menu/degistir")
-    async def swap(body: SwapIn) -> dict:
+    async def run_menu_tool(name: str, args: dict) -> dict:
+        """Uygulamadaki elle düzenleme, asistanın aynı (kural denetimli) aracıyla yapılır."""
         from app.agent.tools import MealAgentToolset
 
         estimator = None
         if settings.agent_provider == "gemini" and settings.gemini_api_key and state["agent"] is not None:
             estimator = state["agent"].estimator()
         toolset = MealAgentToolset(settings, session_factory, estimator=estimator)
-        tool = next(t for t in toolset.build() if t.name == "ogun_degistir")
-        text = await tool.call(
-            {"tarih": body.tarih.isoformat(), "yeni_tarif": body.tarif, "ogun_slotu": body.slot,
-             "gerekce": "Uygulamadan değiştirildi"}
-        )
+        tool = next(t for t in toolset.build() if t.name == name)
+        text = await tool.call(args)
         if toolset.touched_session_id is None:
             raise HTTPException(status_code=422, detail=text)
         with session_factory() as db:
             return {"mesaj": text, **menu_json(db, db.get(WeeklyPlanningSession, toolset.touched_session_id), settings)}
+
+    @api.post("/menu/degistir")
+    async def swap(body: SwapIn) -> dict:
+        return await run_menu_tool(
+            "ogun_degistir",
+            {"tarih": body.tarih, "yeni_tarif": body.tarif, "ogun_slotu": body.slot,
+             "gerekce": "Uygulamadan değiştirildi", "hafta": body.hafta},
+        )
+
+    @api.post("/menu/ekle")
+    async def add_meal(body: AddIn) -> dict:
+        return await run_menu_tool(
+            "ogun_ekle", {"tarih": body.tarih, "tarif": body.tarif, "gerekce": "Uygulamadan eklendi", "hafta": body.hafta},
+        )
+
+    @api.post("/menu/cikar")
+    async def remove_meal(body: RemoveIn) -> dict:
+        return await run_menu_tool(
+            "ogun_cikar", {"tarih": body.tarih, "tarif_veya_slot": body.slot, "hafta": body.hafta},
+        )
 
     @api.get("/tarifler")
     def recipes(durum: str = "onayli", q: str = "", kategori: str = "") -> dict:

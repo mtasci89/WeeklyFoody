@@ -7,14 +7,15 @@ import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
@@ -27,12 +28,11 @@ import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Send
 import androidx.compose.material.icons.rounded.AddPhotoAlternate
-import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.ExpandLess
-import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.PhotoCamera
 import androidx.compose.material.icons.rounded.PhotoLibrary
+import androidx.compose.material.icons.rounded.Settings
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -42,8 +42,6 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
-import androidx.compose.material3.InputChip
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -63,152 +61,133 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.FileProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.foody.data.Gorsel
+import com.foody.data.Plan
 import java.io.File
 
-/** Menünün altındaki asistan: hiç konuşulmadıysa öneriler, sonra son cevap ya da tüm sohbet. */
 private val ONERILER = listOf(
-    "Bu haftayı daha yenilikçi yap" to HAFTAYI_YENILE_ISTEK,
-    "Salı'yı daha hafif yap" to "Salı'yı daha hafif yap",
-    "Menüyü onayla ve gönder" to "Menüyü onayla ve gönder",
-    "Bu hafta kaç kalori yiyoruz?" to "Bu hafta kaç kalori yiyoruz?",
+    "Gelecek haftanın menüsünü hazırla",
+    "Menüyü daha yenilikçi yap",
+    "Salı'yı daha hafif yap",
+    "Menüyü onayla ve gönder",
 )
 
+/**
+ * Uygulamanın ana ekranı: tam ekran sohbet. Asistan planı değiştirince cevabın altında
+ * haftanın tablosu ve değişenler kart olarak çıkar; menü metin olarak okunmak zorunda kalmaz.
+ */
 @Composable
-fun AsistanPaneli(vm: AnaViewModel, acik: Boolean, acKapat: () -> Unit, modifier: Modifier = Modifier) {
+fun AsistanEkran(vm: AnaViewModel, menuyuAc: (Plan) -> Unit, ayarlar: () -> Unit) {
     val sohbet by vm.sohbet.collectAsStateWithLifecycle()
     val calisiyor by vm.asistanCalisiyor.collectAsStateWithLifecycle()
     val baslangic by vm.asistanBaslangic.collectAsStateWithLifecycle()
-    val secili by vm.secili.collectAsStateWithLifecycle()
+    val ayar by vm.ayarlar.collectAsStateWithLifecycle()
+    val menu by vm.menu.collectAsStateWithLifecycle()
+    val taslak by vm.taslak.collectAsStateWithLifecycle()
+    var girdi by rememberSaveable { mutableStateOf("") }
+    var onaylanacak by remember { mutableStateOf<Plan?>(null) }
     var simdi by remember { mutableStateOf(System.currentTimeMillis()) }
     LaunchedEffect(calisiyor) { while (calisiyor) { simdi = System.currentTimeMillis(); kotlinx.coroutines.delay(1000) } }
-    val calisiyorMetni = "Asistan çalışıyor… ${gecenSure(baslangic, simdi)}"
-
-    Column(modifier.fillMaxWidth().background(Renk.AcikYesil)) {
-        HorizontalDivider(color = Renk.Cizgi)
-        Row(
-            Modifier.fillMaxWidth().clickable(enabled = sohbet.isNotEmpty(), onClick = acKapat)
-                .padding(start = 16.dp, end = 8.dp, top = 6.dp, bottom = 2.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Icon(Icons.Rounded.AutoAwesome, contentDescription = null, tint = Renk.Yesil, modifier = Modifier.size(16.dp))
-            Text(" Asistan", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = Renk.Yesil, modifier = Modifier.weight(1f))
-            if (sohbet.isNotEmpty()) Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(if (acik) "Küçült" else "Tüm sohbet", fontSize = 12.sp, color = Renk.Yesil)
-                Icon(if (acik) Icons.Rounded.ExpandMore else Icons.Rounded.ExpandLess, contentDescription = null, tint = Renk.Yesil)
-            }
-        }
-        when {
-            acik -> SohbetListesi(vm, if (calisiyor) calisiyorMetni else null, Modifier.weight(1f))
-            calisiyor -> Calisiyor(calisiyorMetni)
-            sohbet.isEmpty() && secili.isEmpty() -> Row(
-                Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp).padding(bottom = 4.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) { ONERILER.forEach { (ad, istek) -> AssistChip(onClick = { vm.asistanaSor(istek) }, label = { Text(ad, fontSize = 12.sp) }) } }
-            sohbet.isNotEmpty() -> {
-                val son = sohbet.last()
-                Text(
-                    when {
-                        !son.kullanici -> son.metin
-                        son.metin.isNotBlank() -> "Sen: ${son.metin}"
-                        else -> "Sen: 📷 ${son.gorseller.size} fotoğraf"
-                    },
-                    Modifier.fillMaxWidth().clickable(onClick = acKapat).padding(horizontal = 16.dp).padding(bottom = 6.dp)
-                        .testTag("son_cevap"),
-                    color = if (son.hata) Renk.Kirmizi else Renk.Murekkep,
-                    fontSize = 14.sp, lineHeight = 19.sp, maxLines = 4, overflow = TextOverflow.Ellipsis,
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun Calisiyor(metin: String) {
-    Row(
-        Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
-        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
-        Text(
-            "$metin\nBaşka uygulamaya geçebilirsin; cevap burada olur, menü kendiliğinden güncellenir.",
-            color = Renk.Soluk, fontSize = 12.sp, lineHeight = 16.sp,
-        )
-    }
-}
-
-@Composable
-private fun SohbetListesi(vm: AnaViewModel, calisiyor: String?, modifier: Modifier) {
-    val sohbet by vm.sohbet.collectAsStateWithLifecycle()
+    LaunchedEffect(taslak) { if (taslak.isNotEmpty()) { girdi = taslak; vm.taslakKullanildi() } }
     val liste = rememberLazyListState()
-    LaunchedEffect(sohbet.size, calisiyor != null) { if (sohbet.isNotEmpty()) liste.animateScrollToItem(sohbet.size) }
-    LazyColumn(
-        modifier.fillMaxWidth().testTag("sohbet_listesi"), state = liste,
-        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        items(sohbet) { m ->
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                if (m.gorseller.isNotEmpty()) Row(
-                    Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.End),
-                ) { m.gorseller.forEach { Onizleme(it, 72.dp) } }
-                if (m.metin.isNotBlank()) Balon(m.kullanici, m.metin, hata = m.hata)
-                if (m.kaloriOzeti.isNotBlank()) Kart(Modifier.fillMaxWidth(), renk = Renk.AcikTuruncu) {
-                    Text(m.kaloriOzeti, fontSize = 13.sp, lineHeight = 19.sp)
+    // Yeni cevabın BAŞINA kay: metin ve değişenler önce görünsün (kartın sonu değil).
+    LaunchedEffect(sohbet.size, calisiyor) {
+        if (sohbet.isNotEmpty()) liste.animateScrollToItem(if (calisiyor) sohbet.size else sohbet.size - 1)
+    }
+    val guncel = menu.veri?.plan
+
+    Column(Modifier.fillMaxSize().imePadding()) {
+        Baslik(
+            "Asistan",
+            guncel?.let { "Menü: ${kisaTarih(it.haftaBaslangic)} – ${kisaTarih(it.haftaBitis)} · ${it.durumMetni}" },
+        ) {
+            IconButton(onClick = ayarlar) { Icon(Icons.Rounded.Settings, contentDescription = "Ayarlar") }
+        }
+        if (!ayar.hazir) {
+            Kart(Modifier.padding(16.dp).fillMaxWidth()) {
+                Text("Foody'yi sunucuna bağla", fontWeight = FontWeight.Bold, fontSize = 17.sp)
+                Text(
+                    "Telegram'da botuna /uygulama yaz. Gelen bağlantı kodunu kopyalayıp Ayarlar'a yapıştır.",
+                    color = Renk.Soluk, fontSize = 14.sp,
+                )
+                Button(onClick = ayarlar) { Text("Ayarlar'a git") }
+            }
+            return@Column
+        }
+        LazyColumn(
+            Modifier.weight(1f).fillMaxWidth().testTag("sohbet_listesi"), state = liste,
+            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 10.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            if (sohbet.isEmpty()) {
+                item {
+                    Balon(
+                        false,
+                        "Merhaba! Menüyü buradan yönetiyoruz: \"gelecek haftayı hazırla\", \"Salı'daki köfte olmamış, " +
+                            "daha yenilikçi bir şey koy\", \"meze listesine Atom ekle\" diyebilirsin. Değişen menüyü " +
+                            "burada tablo olarak gösteririm.",
+                    )
+                }
+                val m = menu.veri
+                if (m?.plan != null) item {
+                    MenuKarti(m, emptyList(), menuyuAc = { menuyuAc(m.plan!!) }, onayla = { onaylanacak = m.plan })
+                }
+            }
+            items(sohbet) { mesaj ->
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (mesaj.gorseller.isNotEmpty()) Row(
+                        Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.End),
+                    ) { mesaj.gorseller.forEach { Onizleme(it, 80.dp) } }
+                    if (mesaj.metin.isNotBlank()) Balon(mesaj.kullanici, mesaj.metin, hata = mesaj.hata)
+                    val m = mesaj.menu
+                    if (m?.plan != null) {
+                        MenuKarti(m, mesaj.degisiklikler, menuyuAc = { menuyuAc(m.plan!!) }, onayla = { onaylanacak = m.plan })
+                    }
+                    // Menü kartı varken kalori dökümü Menü ekranında; sohbeti kalabalıklaştırmaz.
+                    if (mesaj.kaloriOzeti.isNotBlank() && m?.plan == null) Kart(Modifier.fillMaxWidth(), renk = Renk.AcikTuruncu) {
+                        Text(mesaj.kaloriOzeti, fontSize = 13.sp, lineHeight = 19.sp)
+                    }
+                }
+            }
+            if (calisiyor) item {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                    Text(
+                        "Asistan çalışıyor… ${gecenSure(baslangic, simdi)}\nBaşka uygulamaya geçebilirsin; cevap burada olur.",
+                        color = Renk.Soluk, fontSize = 13.sp, lineHeight = 18.sp,
+                    )
                 }
             }
         }
-        if (calisiyor != null) item { Calisiyor(calisiyor) }
+        if (sohbet.isEmpty()) Row(
+            Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp, vertical = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) { ONERILER.forEach { o -> AssistChip(onClick = { vm.asistanaSor(o) }, label = { Text(o, fontSize = 13.sp) }) } }
+        YaziAlani(vm, girdi, { girdi = it }, gonder = { vm.asistanaSor(girdi); girdi = "" })
     }
-}
 
-/** Seçili yemekler ve onlarla yapılabilecekler; yalnızca seçim varken görünür. */
-@Composable
-fun SecimCubugu(vm: AnaViewModel, listedenSec: (SeciliOgun) -> Unit) {
-    val secili by vm.secili.collectAsStateWithLifecycle()
-    val calisiyor by vm.asistanCalisiyor.collectAsStateWithLifecycle()
-    if (secili.isEmpty()) return
-    Column(Modifier.fillMaxWidth().background(Color.White).padding(top = 6.dp)) {
-        Row(
-            Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp),
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-        ) {
-            secili.forEach { o ->
-                InputChip(
-                    selected = true, onClick = { vm.ogunSec(o) },
-                    label = { Text("${o.gun} · ${o.tarif}", fontSize = 12.sp) },
-                    trailingIcon = { Icon(Icons.Rounded.Close, contentDescription = "${o.tarif} seçimini kaldır", Modifier.size(16.dp)) },
-                )
-            }
-        }
-        Row(
-            Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Button(onClick = { vm.asistanaSor(YENILIKCI_ISTEK) }, enabled = !calisiyor) {
-                Icon(Icons.Rounded.AutoAwesome, contentDescription = null, Modifier.size(16.dp))
-                Text(" Daha yenilikçi bir şey koy", fontSize = 13.sp)
-            }
-            if (secili.size == 1) OutlinedButton(onClick = { listedenSec(secili.first()) }) { Text("Listeden seç", fontSize = 13.sp) }
-            TextButton(onClick = { vm.secimiTemizle() }) { Text("Temizle", fontSize = 13.sp) }
-        }
+    onaylanacak?.let { plan ->
+        AlertDialog(
+            onDismissRequest = { onaylanacak = null },
+            title = { Text("Menü onaylansın mı?") },
+            text = { Text("${kisaTarih(plan.haftaBaslangic)} – ${kisaTarih(plan.haftaBitis)} menüsü ve alışveriş listesi alıcılara gönderilir. Sonra değiştirilemez.") },
+            confirmButton = { TextButton(onClick = { onaylanacak = null; vm.planiOnayla(plan) }) { Text("Onayla") } },
+            dismissButton = { TextButton(onClick = { onaylanacak = null }) { Text("Vazgeç") } },
+        )
     }
 }
 
 /** Yazı alanı, fotoğraf ekleme ve gönder. */
 @Composable
-fun AsistanCubugu(vm: AnaViewModel) {
+private fun YaziAlani(vm: AnaViewModel, girdi: String, degis: (String) -> Unit, gonder: () -> Unit) {
     val calisiyor by vm.asistanCalisiyor.collectAsStateWithLifecycle()
     val ayar by vm.ayarlar.collectAsStateWithLifecycle()
     val ekler by vm.ekler.collectAsStateWithLifecycle()
-    val secili by vm.secili.collectAsStateWithLifecycle()
-    var girdi by rememberSaveable { mutableStateOf("") }
     var ekMenusu by remember { mutableStateOf(false) }
     val baglam = LocalContext.current
     // İzin istemeyen sistem fotoğraf seçicisi ve telefonun kendi kamera uygulaması:
@@ -222,6 +201,7 @@ fun AsistanCubugu(vm: AnaViewModel) {
     }
 
     Column(Modifier.fillMaxWidth().background(Color.White)) {
+        HorizontalDivider(color = Renk.Cizgi)
         if (ekler.isNotEmpty()) Row(
             Modifier.horizontalScroll(rememberScrollState()).padding(start = 16.dp, end = 16.dp, top = 6.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -267,22 +247,13 @@ fun AsistanCubugu(vm: AnaViewModel) {
                 }
             }
             OutlinedTextField(
-                girdi, { girdi = it }, Modifier.weight(1f),
-                placeholder = {
-                    Text(
-                        when {
-                            secili.isNotEmpty() -> "Seçtiklerinle ne yapayım?"
-                            ekler.isNotEmpty() -> "Fotoğrafla ne yapayım? (örn. bunları ekle)"
-                            else -> "Asistana yaz: değiştir, ekle, sor…"
-                        },
-                        fontSize = 14.sp,
-                    )
-                },
-                shape = RoundedCornerShape(24.dp), maxLines = 4, enabled = ayar.hazir,
+                girdi, degis, Modifier.weight(1f),
+                placeholder = { Text(if (ekler.isEmpty()) "Asistana yaz…" else "Fotoğrafla ne yapayım? (örn. bunları ekle)", fontSize = 15.sp) },
+                shape = RoundedCornerShape(24.dp), maxLines = 5, enabled = ayar.hazir,
             )
             IconButton(
-                onClick = { vm.asistanaSor(girdi); girdi = "" },
-                enabled = (girdi.isNotBlank() || ekler.isNotEmpty() || secili.isNotEmpty()) && !calisiyor && ayar.hazir,
+                onClick = gonder,
+                enabled = (girdi.isNotBlank() || ekler.isNotEmpty()) && !calisiyor && ayar.hazir,
                 colors = IconButtonDefaults.iconButtonColors(
                     containerColor = Renk.Yesil, contentColor = Color.White,
                     disabledContainerColor = Renk.Cizgi, disabledContentColor = Color.White,
@@ -320,12 +291,12 @@ private fun Balon(kullanici: Boolean, metin: String, hata: Boolean = false) {
         SelectionContainer {
             Text(
                 metin,
-                Modifier.widthIn(max = 320.dp)
-                    .clip(RoundedCornerShape(topStart = 18.dp, topEnd = 18.dp, bottomStart = if (kullanici) 18.dp else 6.dp, bottomEnd = if (kullanici) 6.dp else 18.dp))
+                Modifier.widthIn(max = 330.dp)
+                    .clip(RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp, bottomStart = if (kullanici) 20.dp else 6.dp, bottomEnd = if (kullanici) 6.dp else 20.dp))
                     .background(if (kullanici) Renk.Yesil else if (hata) Color(0xFFFEE2E2) else Color.White)
-                    .padding(horizontal = 14.dp, vertical = 10.dp),
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
                 color = if (kullanici) Color.White else if (hata) Renk.Kirmizi else Renk.Murekkep,
-                fontSize = 14.sp, lineHeight = 20.sp,
+                fontSize = 16.sp, lineHeight = 23.sp,
             )
         }
     }

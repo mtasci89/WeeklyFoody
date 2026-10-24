@@ -3,7 +3,7 @@
   "kalori_siniri": null,
   "kisi": 4,
   "plan": {
-    "id": "ba6e5e04-7b3a-451c-8e79-9a91b7c64519",
+    "id": "fa925dfa-a680-4901-a496-856ff1d3335f",
     "hafta_baslangic": "2026-10-26",
     "hafta_bitis": "2026-11-01",
     "durum": "AWAITING_ADMIN_FEEDBACK",
@@ -18,7 +18,7 @@
           {
             "slot": "dinner_main",
             "rol": "Ana yemek",
-            "tarif_id": "cefe7539-0eed-414a-be9c-53bb3a388d5e",
+            "tarif_id": "2b697306-aa89-469d-8a9d-413e3b2205fd",
             "tarif": "Fırında Tavuk",
             "kategori": "main",
             "porsiyon": 4,
@@ -29,35 +29,9 @@
             "tahmini": null
           },
           {
-            "slot": "dinner_meze_1",
-            "rol": "Meze/salata",
-            "tarif_id": "bec523ad-6de4-495a-8b4a-0bc46346e64f",
-            "tarif": "Haydari",
-            "kategori": "meze",
-            "porsiyon": 4,
-            "degisti": false,
-            "yeni": false,
-            "kcal": 280,
-            "protein": 9,
-            "tahmini": true
-          },
-          {
-            "slot": "dinner_meze_2",
-            "rol": "Meze/salata",
-            "tarif_id": "f2fb82ec-8280-4d8b-aa82-8882b56f085c",
-            "tarif": "Çoban Salata",
-            "kategori": "salad",
-            "porsiyon": 4,
-            "degisti": false,
-            "yeni": false,
-            "kcal": 550,
-            "protein": 18,
-            "tahmini": true
-          },
-          {
             "slot": "dinner_side",
             "rol": "Yan",
-            "tarif_id": "03e9005a-4676-4fbc-87ad-29f6563a2c1e",
+            "tarif_id": "eb21824a-b68a-4878-9a02-9272b90cf41c",
             "tarif": "Makarna",
             "kategori": "side",
             "porsiyon": 4,
@@ -77,7 +51,7 @@
           {
             "slot": "dinner_main",
             "rol": "Ana yemek",
-            "tarif_id": "a83c5de6-fba2-40a4-ad00-c8e6fa93cc2c",
+            "tarif_id": "8501eb86-2b90-4864-a10f-4f97ed4798b1",
             "tarif": "Izgara Balık",
             "kategori": "main",
             "porsiyon": 4,
@@ -88,35 +62,9 @@
             "tahmini": true
           },
           {
-            "slot": "dinner_meze_1",
-            "rol": "Meze/salata",
-            "tarif_id": "f2fb82ec-8280-4d8b-aa82-8882b56f085c",
-            "tarif": "Çoban Salata",
-            "kategori": "salad",
-            "porsiyon": 4,
-            "degisti": false,
-            "yeni": false,
-            "kcal": 550,
-            "protein": 18,
-            "tahmini": true
-          },
-          {
-            "slot": "dinner_meze_2",
-            "rol": "Meze/salata",
-            "tarif_id": "bec523ad-6de4-495a-8b4a-0bc46346e64f",
-            "tarif": "Haydari",
-            "kategori": "meze",
-            "porsiyon": 4,
-            "degisti": false,
-            "yeni": false,
-            "kcal": 280,
-            "protein": 9,
-            "tahmini": true
-          },
-          {
             "slot": "dinner_side",
             "rol": "Yan",
-            "tarif_id": "c6a56999-65de-4a43-b14e-518dc5a6235e",
+            "tarif_id": "f128ec85-b5d6-4140-9d60-6422d36c8a56",
             "tarif": "Mercimek Çorbası",
             "kategori": "soup",
             "porsiyon": 4,
@@ -127,7 +75,7 @@
             "tahmini": true
           }
         ],
-        "toplam_kcal": 1570
+        "toplam_kcal": 740
       },
       {
         "tarih": "2026-10-28",
@@ -136,7 +84,7 @@
           {
             "slot": "dinner_main",
             "rol": "Ana yemek",
-            "tarif_id": "94ab6c2b-95ad-47e1-b3fe-1219214b8219",
+            "tarif_id": "e498dcce-8aec-4570-8a62-9daee60764d0",
             "tarif": "Tavuk Fajita",
             "kategori": "main",
             "porsiyon": 4,
@@ -147,35 +95,9 @@
             "tahmini": true
           },
           {
-            "slot": "dinner_meze_1",
-            "rol": "Meze/salata",
-            "tarif_id": "bec523ad-6de4-495a-8b4a-0bc46346e64f",
-            "tarif": "Haydari",
-            "kategori": "meze",
-            "porsiyon": 4,
-            "degisti": false,
-            "yeni": false,
-            "kcal": 280,
-            "protein": 9,
-            "tahmini": true
-          },
-          {
-            "slot": "dinner_meze_2",
-            "rol": "Meze/salata",
-            "tarif_id": "f2fb82ec-8280-4d8b-aa82-8882b56f085c",
-            "tarif": "Çoban Salata",
-            "kategori": "salad",
-            "porsiyon": 4,
-            "degisti": false,
-            "yeni": false,
-            "kcal": 550,
-            "protein": 18,
-            "tahmini": true
-          },
-          {
             "slot": "dinner_side",
             "rol": "Yan",
-            "tarif_id": "03e9005a-4676-4fbc-87ad-29f6563a2c1e",
+            "tarif_id": "eb21824a-b68a-4878-9a02-9272b90cf41c",
             "tarif": "Makarna",
             "kategori": "side",
             "porsiyon": 4,
@@ -186,7 +108,7 @@
             "tahmini": true
           }
         ],
-        "toplam_kcal": 1750
+        "toplam_kcal": 920
       },
       {
         "tarih": "2026-10-29",
@@ -195,7 +117,7 @@
           {
             "slot": "dinner_main",
             "rol": "Ana yemek",
-            "tarif_id": "89c5df87-e282-4019-9f40-bba4f8cfa0e6",
+            "tarif_id": "34758df3-2c19-4c16-a85d-489c5c82c367",
             "tarif": "Kuru Fasulye",
             "kategori": "main",
             "porsiyon": 4,
@@ -206,35 +128,9 @@
             "tahmini": null
           },
           {
-            "slot": "dinner_meze_1",
-            "rol": "Meze/salata",
-            "tarif_id": "f2fb82ec-8280-4d8b-aa82-8882b56f085c",
-            "tarif": "Çoban Salata",
-            "kategori": "salad",
-            "porsiyon": 4,
-            "degisti": false,
-            "yeni": false,
-            "kcal": 550,
-            "protein": 18,
-            "tahmini": true
-          },
-          {
-            "slot": "dinner_meze_2",
-            "rol": "Meze/salata",
-            "tarif_id": "bec523ad-6de4-495a-8b4a-0bc46346e64f",
-            "tarif": "Haydari",
-            "kategori": "meze",
-            "porsiyon": 4,
-            "degisti": false,
-            "yeni": false,
-            "kcal": 280,
-            "protein": 9,
-            "tahmini": true
-          },
-          {
             "slot": "dinner_side",
             "rol": "Yan",
-            "tarif_id": "c6a56999-65de-4a43-b14e-518dc5a6235e",
+            "tarif_id": "f128ec85-b5d6-4140-9d60-6422d36c8a56",
             "tarif": "Mercimek Çorbası",
             "kategori": "soup",
             "porsiyon": 4,
@@ -254,7 +150,7 @@
           {
             "slot": "dinner_main",
             "rol": "Ana yemek",
-            "tarif_id": "a2638a29-598a-4cf8-8d26-3d810c53cd8b",
+            "tarif_id": "6550f9e8-75d3-48bb-b697-7126d92ec496",
             "tarif": "Nohut",
             "kategori": "main",
             "porsiyon": 4,
@@ -265,35 +161,9 @@
             "tahmini": true
           },
           {
-            "slot": "dinner_meze_1",
-            "rol": "Meze/salata",
-            "tarif_id": "bec523ad-6de4-495a-8b4a-0bc46346e64f",
-            "tarif": "Haydari",
-            "kategori": "meze",
-            "porsiyon": 4,
-            "degisti": false,
-            "yeni": false,
-            "kcal": 280,
-            "protein": 9,
-            "tahmini": true
-          },
-          {
-            "slot": "dinner_meze_2",
-            "rol": "Meze/salata",
-            "tarif_id": "f2fb82ec-8280-4d8b-aa82-8882b56f085c",
-            "tarif": "Çoban Salata",
-            "kategori": "salad",
-            "porsiyon": 4,
-            "degisti": false,
-            "yeni": false,
-            "kcal": 550,
-            "protein": 18,
-            "tahmini": true
-          },
-          {
             "slot": "dinner_side",
             "rol": "Yan",
-            "tarif_id": "03e9005a-4676-4fbc-87ad-29f6563a2c1e",
+            "tarif_id": "eb21824a-b68a-4878-9a02-9272b90cf41c",
             "tarif": "Makarna",
             "kategori": "side",
             "porsiyon": 4,
@@ -304,7 +174,7 @@
             "tahmini": true
           }
         ],
-        "toplam_kcal": 1690
+        "toplam_kcal": 860
       },
       {
         "tarih": "2026-10-31",
@@ -313,7 +183,7 @@
           {
             "slot": "dinner_main",
             "rol": "Ana yemek",
-            "tarif_id": "a8ac18ab-e29e-4558-ab7b-a8f0a1ef0d63",
+            "tarif_id": "a1acc605-1338-4429-b0ce-8aac98c5db83",
             "tarif": "Sebze Yemeği",
             "kategori": "main",
             "porsiyon": 4,
@@ -324,35 +194,9 @@
             "tahmini": null
           },
           {
-            "slot": "dinner_meze_1",
-            "rol": "Meze/salata",
-            "tarif_id": "f2fb82ec-8280-4d8b-aa82-8882b56f085c",
-            "tarif": "Çoban Salata",
-            "kategori": "salad",
-            "porsiyon": 4,
-            "degisti": false,
-            "yeni": false,
-            "kcal": 550,
-            "protein": 18,
-            "tahmini": true
-          },
-          {
-            "slot": "dinner_meze_2",
-            "rol": "Meze/salata",
-            "tarif_id": "bec523ad-6de4-495a-8b4a-0bc46346e64f",
-            "tarif": "Haydari",
-            "kategori": "meze",
-            "porsiyon": 4,
-            "degisti": false,
-            "yeni": false,
-            "kcal": 280,
-            "protein": 9,
-            "tahmini": true
-          },
-          {
             "slot": "dinner_side",
             "rol": "Yan",
-            "tarif_id": "c6a56999-65de-4a43-b14e-518dc5a6235e",
+            "tarif_id": "f128ec85-b5d6-4140-9d60-6422d36c8a56",
             "tarif": "Mercimek Çorbası",
             "kategori": "soup",
             "porsiyon": 4,
@@ -372,7 +216,7 @@
           {
             "slot": "dinner_main",
             "rol": "Ana yemek",
-            "tarif_id": "cefe7539-0eed-414a-be9c-53bb3a388d5e",
+            "tarif_id": "2b697306-aa89-469d-8a9d-413e3b2205fd",
             "tarif": "Fırında Tavuk",
             "kategori": "main",
             "porsiyon": 4,
@@ -383,35 +227,9 @@
             "tahmini": null
           },
           {
-            "slot": "dinner_meze_1",
-            "rol": "Meze/salata",
-            "tarif_id": "bec523ad-6de4-495a-8b4a-0bc46346e64f",
-            "tarif": "Haydari",
-            "kategori": "meze",
-            "porsiyon": 4,
-            "degisti": false,
-            "yeni": false,
-            "kcal": 280,
-            "protein": 9,
-            "tahmini": true
-          },
-          {
-            "slot": "dinner_meze_2",
-            "rol": "Meze/salata",
-            "tarif_id": "f2fb82ec-8280-4d8b-aa82-8882b56f085c",
-            "tarif": "Çoban Salata",
-            "kategori": "salad",
-            "porsiyon": 4,
-            "degisti": false,
-            "yeni": false,
-            "kcal": 550,
-            "protein": 18,
-            "tahmini": true
-          },
-          {
             "slot": "dinner_side",
             "rol": "Yan",
-            "tarif_id": "03e9005a-4676-4fbc-87ad-29f6563a2c1e",
+            "tarif_id": "eb21824a-b68a-4878-9a02-9272b90cf41c",
             "tarif": "Makarna",
             "kategori": "side",
             "porsiyon": 4,
@@ -423,6 +241,34 @@
           }
         ],
         "toplam_kcal": null
+      }
+    ],
+    "mezeler": [
+      {
+        "slot": "hafta_meze_1",
+        "rol": "Meze",
+        "tarif_id": "5659272f-d7a4-4a4c-8327-df2b6fe42c55",
+        "tarif": "Haydari",
+        "kategori": "meze",
+        "porsiyon": 4,
+        "degisti": false,
+        "yeni": false,
+        "kcal": 280,
+        "protein": 9,
+        "tahmini": true
+      },
+      {
+        "slot": "hafta_meze_2",
+        "rol": "Meze",
+        "tarif_id": "0a9c364c-2304-4a04-83a3-8a14a56ecfde",
+        "tarif": "Çoban Salata",
+        "kategori": "salad",
+        "porsiyon": 4,
+        "degisti": false,
+        "yeni": false,
+        "kcal": 550,
+        "protein": 18,
+        "tahmini": true
       }
     ]
   }

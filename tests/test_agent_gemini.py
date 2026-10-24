@@ -225,7 +225,7 @@ async def test_request_declares_every_tool_with_its_json_schema(db, settings, se
     decls = declarations(request)
     assert set(decls) == {
         "plan_hazirla", "plan_kaydet", "plani_getir", "tarif_ara", "tarif_detay", "ogun_degistir",
-        "alisveris_listesi", "gecmis_getir", "kurallari_goster", "kural_ekle", "kural_sil",
+        "ogun_ekle", "ogun_cikar", "alisveris_listesi", "gecmis_getir", "kurallari_goster", "kural_ekle", "kural_sil",
         "besin_degeri_kaydet", "menuyu_onayla", "kiler", "tarif_ekle", "aday_tarifler",
         "tarif_onayla", "tarif_cikar", WEB_TOOL_NAME,
     }
@@ -542,7 +542,7 @@ async def test_typing_indicator_stays_on_for_the_whole_turn(settings):
             actions.append(chat_id)
 
     class SlowAgent:
-        async def reply(self, chat_id, message, images=None, timeout=None):
+        async def reply(self, chat_id, message, images=None, timeout=None, channel="telegram"):
             await asyncio.sleep(9)  # 4 sn araliklarla en az 3 gosterge
             return AgentReply(text="Menü hazır.")
 

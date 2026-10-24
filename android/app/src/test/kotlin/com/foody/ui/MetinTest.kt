@@ -31,16 +31,30 @@ class MetinTest {
         assertEquals(listOf("Soğanı kavur.", "Etleri ekle!", "Pişir"), adimlar("Soğanı kavur. Etleri ekle!\nPişir"))
     }
 
-    @Test fun seciliYemeklerTarihVeSlotuylaGider() {
-        val secili = listOf(
-            SeciliOgun("2026-10-27", "Salı", "dinner_main", "Ana yemek", "Izgara Köfte"),
-            SeciliOgun("2026-10-29", "Perşembe", "dinner_meze", "Meze/salata", "Haydari"),
-        )
-        val metin = seciliMesaj(secili, YENILIKCI_ISTEK)
-        assertTrue(metin.startsWith("Seçtiğim yemekler:\n- Salı Ana yemek (2026-10-27, dinner_main): Izgara Köfte"))
-        assertTrue(metin.contains("- Perşembe Meze/salata (2026-10-29, dinner_meze): Haydari"))
+    @Test fun seciliYemekTarihSlotVeHaftaylaGider() {
+        val konu = SeciliOgun("2026-10-27", "Salı", "dinner_main", "Ana yemek", "Izgara Köfte", "gelecek_hafta")
+        val metin = seciliMesaj(listOf(konu), YENILIKCI_ISTEK)
+        assertTrue(metin.startsWith("Menüde seçtiğim yemek:\n- Salı Ana yemek (tarih=2026-10-27, slot=dinner_main, hafta=gelecek_hafta): Izgara Köfte"))
         assertTrue(metin.endsWith(YENILIKCI_ISTEK))
         assertTrue(YENILIKCI_ISTEK.contains("internet"))
         assertEquals("selam", seciliMesaj(emptyList(), "selam"))
+    }
+
+    @Test fun haftaKoduTariheGore() {
+        val cumartesi = java.time.LocalDate.parse("2026-10-24")
+        assertEquals("bu_hafta", haftaKodu("2026-10-19", cumartesi))
+        assertEquals("gelecek_hafta", haftaKodu("2026-10-26", cumartesi))
+        assertEquals("aktif", haftaKodu("2026-10-12", cumartesi))
+        assertEquals("aktif", haftaKodu("bozuk", cumartesi))
+    }
+
+    @Test fun degisikliklerOkunurYazilir() {
+        val sonuc = Ornek.isBitti.sonuc!!
+        val plan = sonuc.menu!!.plan
+        val satirlar = sonuc.degisiklikler.map { degisiklikMetni(it, plan) }
+        assertEquals(listOf("Salı · Ana yemek: Izgara Balık → Izgara Köfte", "Mezeler: − Çoban Salata"), satirlar)
+        val sali = plan!!.gunler[1].tarih
+        assertEquals(setOf("$sali|dinner_main"), degisenAnahtarlar(sonuc.degisiklikler))
+        assertEquals("Çar", kisaGun("Çarşamba"))
     }
 }

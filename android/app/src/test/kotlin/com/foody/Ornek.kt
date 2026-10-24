@@ -28,4 +28,6 @@ object Ornek {
     val kurallar by lazy { oku("kurallar", KuralCevap.serializer()) }
     val durum by lazy { oku("durum", com.foody.data.DurumCevap.serializer()) }
     val sohbet by lazy { oku("sohbet", SohbetCevap.serializer()) }
+    /** Asistanın gerçek araçlarla menüyü değiştirdiği bir iş: Salı ana yemek değişti, bir meze çıktı. */
+    val isBitti by lazy { oku("is_bitti", com.foody.data.IsDurumu.serializer()) }
 }

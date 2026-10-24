@@ -244,6 +244,8 @@ async def test_all_tools_are_offered_to_the_model(db, settings, session_factory)
         "tarif_ara",
         "tarif_detay",
         "ogun_degistir",
+        "ogun_ekle",
+        "ogun_cikar",
         "alisveris_listesi",
         "gecmis_getir",
         "kurallari_goster",

@@ -8,13 +8,16 @@ import androidx.lifecycle.viewModelScope
 import com.foody.data.Alisveris
 import com.foody.data.Ayarlar
 import com.foody.data.BaglantiKodu
+import com.foody.data.Degisiklik
 import com.foody.data.DurumCevap
+import com.foody.data.SohbetCevap
 import com.foody.data.Ek
 import com.foody.data.Gorsel
 import com.foody.data.IsBekleyici
 import com.foody.data.Isaretler
 import com.foody.data.KuralCevap
 import com.foody.data.MenuCevap
+import com.foody.data.Plan
 import com.foody.data.Sunucu
 import com.foody.data.TarifDetay
 import com.foody.data.TarifOzet
@@ -44,14 +47,24 @@ data class SohbetMesaji(
     val kaloriOzeti: String = "",
     val planDegisti: Boolean = false,
     val hata: Boolean = false,
+    /** Asistan planı değiştirdiyse güncel menü ve neyin değiştiği (sohbette tablo olarak gösterilir). */
+    val menu: MenuCevap? = null,
+    val degisiklikler: List<Degisiklik> = emptyList(),
 )
 
-/** Menüde asistana "bunlar hakkında" diye işaretlenen öğün. */
-data class SeciliOgun(val tarih: String, val gun: String, val slot: String, val rol: String, val tarif: String)
+/** Menüde asistana konu edilen öğün. `tarih` ISO ya da haftalık meze listesi için "HAFTA". */
+data class SeciliOgun(
+    val tarih: String,
+    val gun: String,
+    val slot: String,
+    val rol: String,
+    val tarif: String,
+    val hafta: String = "aktif",
+)
 
-/** Seçili yemeklerle birlikte gönderilecek yenilik isteği. */
+/** Seçili yemekle birlikte gönderilecek yenilik isteği. */
 const val YENILIKCI_ISTEK =
-    "Bunlar olmamış. Yerlerine daha yenilikçi, sıradışı şeyler koy; tarif listesine ve internetteki tariflere bak, kurallarıma uy."
+    "Bu olmamış. Yerine daha yenilikçi, sıradışı bir şey koy; tarif listesine ve internetteki tariflere bak, kurallarıma uy."
 
 /** Hiçbir yemek seçili değilken haftanın tamamı için yenilik isteği. */
 const val HAFTAYI_YENILE_ISTEK =
@@ -60,8 +73,19 @@ const val HAFTAYI_YENILE_ISTEK =
 /** Asistana giden metin: seçili yemekler (tarih ve slotuyla) + kullanıcının yazdığı. */
 fun seciliMesaj(secili: List<SeciliOgun>, metin: String): String {
     if (secili.isEmpty()) return metin
-    val satirlar = secili.joinToString("\n") { "- ${it.gun} ${it.rol} (${it.tarih}, ${it.slot}): ${it.tarif}" }
-    return "Seçtiğim yemekler:\n$satirlar\n\n$metin".trim()
+    val satirlar = secili.joinToString("\n") { "- ${it.gun} ${it.rol} (tarih=${it.tarih}, slot=${it.slot}, hafta=${it.hafta}): ${it.tarif}" }
+    return "Menüde seçtiğim yemek:\n$satirlar\n\n$metin".trim()
+}
+
+/** Plan haftasının sunucudaki adı: içinde bulunduğumuz hafta "bu_hafta", sonrası "gelecek_hafta". */
+fun haftaKodu(haftaBaslangic: String, bugun: java.time.LocalDate = java.time.LocalDate.now()): String {
+    val pazartesi = bugun.with(java.time.DayOfWeek.MONDAY)
+    val bas = runCatching { java.time.LocalDate.parse(haftaBaslangic) }.getOrNull() ?: return "aktif"
+    return when {
+        bas == pazartesi -> "bu_hafta"
+        bas.isAfter(pazartesi) -> "gelecek_hafta"
+        else -> "aktif"
+    }
 }
 
 class AnaViewModel(app: Application) : AndroidViewModel(app) {
@@ -106,9 +130,9 @@ class AnaViewModel(app: Application) : AndroidViewModel(app) {
     val ekler: StateFlow<List<Ek>> = _ekler.asStateFlow()
     private var ekSayaci = 0L
 
-    /** Menüde asistana konu olarak seçilen öğünler. */
-    private val _secili = MutableStateFlow<List<SeciliOgun>>(emptyList())
-    val secili: StateFlow<List<SeciliOgun>> = _secili.asStateFlow()
+    /** Başka ekrandan asistanın yazı alanına hazır metin (ör. "Salı ana yemek için: "). */
+    private val _taslak = MutableStateFlow("")
+    val taslak: StateFlow<String> = _taslak.asStateFlow()
 
     private val _baglanti = MutableStateFlow(Yuk<DurumCevap>())
     val baglanti: StateFlow<Yuk<DurumCevap>> = _baglanti.asStateFlow()
@@ -128,12 +152,11 @@ class AnaViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun bilgiGosterildi() { _bilgi.value = null }
-    fun ogunSec(o: SeciliOgun) = _secili.update { liste ->
-        if (liste.any { it.tarih == o.tarih && it.slot == o.slot }) liste.filterNot { it.tarih == o.tarih && it.slot == o.slot }
-        else liste + o
-    }
+    fun taslakAyarla(metin: String) { _taslak.value = metin }
+    fun taslakKullanildi() { _taslak.value = "" }
 
-    fun secimiTemizle() { _secili.value = emptyList() }
+    /** Menüdeki bir yemek için asistandan daha yenilikçi bir şey ister. */
+    fun yenilikciIste(o: SeciliOgun) = asistanaSor(seciliMesaj(listOf(o), YENILIKCI_ISTEK))
 
     private fun bildir(metin: String) { _bilgi.value = metin }
 
@@ -212,7 +235,6 @@ class AnaViewModel(app: Application) : AndroidViewModel(app) {
     // --- menü ------------------------------------------------------------------
 
     fun haftaSec(hafta: String) {
-        _secili.value = emptyList()
         _hafta.value = hafta
         menuYenile()
         alisverisYenile()
@@ -235,10 +257,38 @@ class AnaViewModel(app: Application) : AndroidViewModel(app) {
         alisverisYenile()
     }
 
+    /** Sohbetteki bir menü kartından Menü ekranına geçerken o kartın haftasını gösterir. */
+    fun menuyuGoster(plan: Plan) {
+        if (_menu.value.veri?.plan?.haftaBaslangic != plan.haftaBaslangic) haftaSec(haftaKodu(plan.haftaBaslangic))
+    }
+
+    /** Sohbetteki karttan onay: kartın haftası, ekranda hangi hafta açık olursa olsun. */
+    fun planiOnayla(plan: Plan) = islem {
+        val cevap = sunucu.menuyuOnayla(haftaKodu(plan.haftaBaslangic))
+        if (_menu.value.veri?.plan?.haftaBaslangic == plan.haftaBaslangic) _menu.value = Yuk(veri = cevap)
+        bildir(cevap.mesaj ?: "Menü onaylandı.")
+        menuYenile()
+        alisverisYenile()
+    }
+
     fun ogunDegistir(tarih: String, slot: String, tarif: String) = islem {
-        val cevap = sunucu.ogunDegistir(tarih, slot, tarif)
+        val cevap = sunucu.ogunDegistir(tarih, slot, tarif, _hafta.value)
         _menu.value = Yuk(veri = cevap)
         bildir("$tarif menüye kondu.")
+        alisverisYenile()
+    }
+
+    fun ogunEkle(tarih: String, tarif: String) = islem {
+        val cevap = sunucu.ogunEkle(tarih, tarif, _hafta.value)
+        _menu.value = Yuk(veri = cevap)
+        bildir(cevap.mesaj ?: "$tarif eklendi.")
+        alisverisYenile()
+    }
+
+    fun ogunCikar(tarih: String, slot: String, tarif: String) = islem {
+        val cevap = sunucu.ogunCikar(tarih, slot, _hafta.value)
+        _menu.value = Yuk(veri = cevap)
+        bildir("$tarif çıkarıldı.")
         alisverisYenile()
     }
 
@@ -380,9 +430,8 @@ class AnaViewModel(app: Application) : AndroidViewModel(app) {
 
     fun asistanaSor(metin: String) {
         val ekler = _ekler.value
-        if ((metin.isBlank() && ekler.isEmpty() && _secili.value.isEmpty()) || _asistanCalisiyor.value) return
-        val soru = seciliMesaj(_secili.value, metin.trim())
-        _secili.value = emptyList()
+        if ((metin.isBlank() && ekler.isEmpty()) || _asistanCalisiyor.value) return
+        val soru = metin.trim()
         _sohbet.update { it + SohbetMesaji(true, soru, gorseller = ekler.map { e -> e.onizleme }) }
         _ekler.value = emptyList()
         if (testModu) return
@@ -397,7 +446,7 @@ class AnaViewModel(app: Application) : AndroidViewModel(app) {
                 )
             }
                 .onSuccess { c ->
-                    _sohbet.update { it + SohbetMesaji(false, c.metin, kaloriOzeti = c.kaloriOzeti, planDegisti = c.planDegisti, hata = !c.ok) }
+                    cevabiEkle(c)
                     if (c.planDegisti) { menuYenile(); alisverisYenile() }
                     // Asistan kural ya da tarif eklemiş olabilir.
                     kurallariYenile(); tarifleriYenile()
@@ -407,7 +456,18 @@ class AnaViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    private fun cevabiEkle(c: SohbetCevap) = _sohbet.update {
+        it + SohbetMesaji(
+            false, c.metin, kaloriOzeti = c.kaloriOzeti, planDegisti = c.planDegisti, hata = !c.ok,
+            menu = c.menu, degisiklikler = c.degisiklikler,
+        )
+    }
+
     // --- test kancası ------------------------------------------------------------------
+
+    /** Ekran testleri için: asistanın bir cevabını sohbete ekler. */
+    @VisibleForTesting
+    fun ornekCevap(c: SohbetCevap) = cevabiEkle(c)
 
     /** Ekran testleri için: sunucuya gitmeden hazır veriyi gösterir. */
     @VisibleForTesting

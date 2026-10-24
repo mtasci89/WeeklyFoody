@@ -9,6 +9,7 @@ import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -40,16 +41,20 @@ class EkranTest {
             )
         }
 
-    @Test fun menudenTumEkranlaraGezinme() {
+    @Test fun acilisAsistanSonraTumEkranlar() {
         val vm = vm()
         kural.setContent { FoodyTema { Uygulama(vm) } }
+        // Ana ekran asistan: sohbet alanı ve güncel menünün tablosu.
+        kural.onNodeWithText("Asistana yaz…").assertExists()
+        kural.onNodeWithTag("menu_karti").assertExists()
+        kural.onAllNodesWithText("Haftanın mezeleri").onFirst().assertExists()
+
+        kural.onNodeWithText("Menü").performClick()
         val plan = Ornek.menu.plan!!
-        kural.onAllNodesWithText("Menü").assertCountEquals(2) // başlık + alt menü
+        kural.onNodeWithTag("menu_listesi").assertExists()
         kural.onAllNodesWithText(plan.gunler.first().ogunler.first().tarif).onFirst().assertExists()
-        kural.onNodeWithTag("menu_listesi").performScrollToNode(hasText("Menüyü onayla"))
-        kural.onNodeWithText("Menüyü onayla").assertExists()
-        // Asistan ayrı sekme değil, menünün içinde.
-        kural.onNodeWithText("Asistana yaz: değiştir, ekle, sor…").assertExists()
+        kural.onAllNodesWithText(plan.mezeler.first().tarif).onFirst().assertExists()
+        kural.onNodeWithText("Menüyü onayla").performScrollTo().assertExists()
 
         kural.onNodeWithText("Alışveriş").performClick()
         val ilk = Ornek.alisveris.gruplar.first().kalemler.first()
@@ -65,6 +70,66 @@ class EkranTest {
         kural.onNodeWithText("Kurallar").performClick()
         kural.onNodeWithText("Mutfakta az bulaşık çıksın").assertExists()
         kural.onNodeWithText("SİSTEM NE YAPIYOR").performScrollTo().assertExists()
+    }
+
+    @Test fun menudeMezelerGunlereBolunmez() {
+        val plan = Ornek.menu.plan!!
+        assert(plan.mezeler.isNotEmpty())
+        assert(plan.gunler.flatMap { it.ogunler }.none { it.slot.contains("meze") })
+        val vm = vm()
+        kural.setContent { FoodyTema { MenuEkran(vm, tarifAc = {}, ayarlar = {}, asistanaGit = {}) } }
+        kural.onNodeWithText("Haftanın mezeleri").assertExists()
+        kural.onNodeWithContentDescription("Meze ekle").assertExists()
+        kural.onNodeWithText("yeni").assertExists() // Tavuk Fajita: bu hafta denenecek
+    }
+
+    @Test fun asistaninDegistirdigiMenuSohbetteTabloOlarakGorunur() {
+        val vm = vm()
+        val sonuc = Ornek.isBitti.sonuc!!
+        vm.ornekCevap(sonuc)
+        val acilan = mutableListOf<String>()
+        kural.setContent { FoodyTema { AsistanEkran(vm, menuyuAc = { acilan += it.haftaBaslangic }, ayarlar = {}) } }
+        kural.onNodeWithText(sonuc.metin).assertExists()
+        kural.onNodeWithText("DEĞİŞENLER").assertExists()
+        kural.onNodeWithText("Salı · Ana yemek: Izgara Balık → Izgara Köfte").assertExists()
+        kural.onNodeWithText("Mezeler: − Çoban Salata").assertExists()
+        kural.onNodeWithText("Menüyü aç").performClick()
+        assert(acilan == listOf(sonuc.menu!!.plan!!.haftaBaslangic))
+        kural.onNodeWithText("Onayla").performClick()
+        kural.onNodeWithText("Menü onaylansın mı?").assertExists()
+    }
+
+    @Test fun yemegeDokununcaAsistandanYenilikciIstenir() {
+        val vm = vm()
+        var asistan = 0
+        kural.setContent { FoodyTema { MenuEkran(vm, tarifAc = {}, ayarlar = {}, asistanaGit = { asistan++ }) } }
+        val gun = Ornek.menu.plan!!.gunler.first()
+        val ogun = gun.ogunler.first()
+        kural.onAllNodesWithTag("yemek_${ogun.slot}").onFirst().performClick()
+        kural.onNodeWithText("Asistan yerine yenilikçi bir şey koysun").performClick()
+
+        val giden = vm.sohbet.value.last().metin
+        assert(giden.contains("tarih=${gun.tarih}, slot=${ogun.slot}, hafta=aktif): ${ogun.tarif}")) { giden }
+        assert(giden.endsWith(YENILIKCI_ISTEK))
+        assert(asistan == 1)
+    }
+
+    @Test fun yemekIslemleriTumSecenekleriSunar() {
+        val tiklanan = mutableListOf<String>()
+        kural.setContent {
+            FoodyTema {
+                OgunIslemleri(
+                    "Salı · Ana yemek",
+                    tarifiAc = { tiklanan += "tarif" }, yenilikci = { tiklanan += "yeni" }, asistanaYaz = { tiklanan += "yaz" },
+                    listedenDegistir = { tiklanan += "liste" }, cikar = { tiklanan += "cikar" },
+                    gunuEkle = { tiklanan += "gun" },
+                )
+            }
+        }
+        listOf("Tarifi aç", "Asistana başka bir şey söyle", "Listeden değiştir", "Bu güne yan yemek / çorba ekle", "Menüden çıkar").forEach {
+            kural.onNodeWithText(it).performClick()
+        }
+        assert(tiklanan == listOf("tarif", "yaz", "liste", "gun", "cikar"))
     }
 
     @Test fun tarifDetayiMalzemeleriVeAdimlariGosterir() {
@@ -88,48 +153,14 @@ class EkranTest {
         assert(secilen == listOf(oneri.first().ad))
     }
 
-    @Test fun menuYoksaAsistanMenuKurar() {
+    @Test fun menuYoksaAsistanHazirlar() {
         val vm = vm(menu = Ornek.menuBos)
-        kural.setContent { FoodyTema { Uygulama(vm) } }
+        var asistan = 0
+        kural.setContent { FoodyTema { MenuEkran(vm, tarifAc = {}, ayarlar = {}, asistanaGit = { asistan++ }) } }
         kural.onNodeWithText("Bu hafta için menü yok.").assertExists()
-        kural.onNodeWithText("Asistan menü kursun").performClick()
-        kural.onNodeWithTag("son_cevap").assertTextContains("Sen: $YENI_MENU_ISTEK")
-    }
-
-    @Test fun yemekSecilipDahaYenilikciIstenir() {
-        val vm = vm()
-        kural.setContent { FoodyTema { Uygulama(vm) } }
-        val gun = Ornek.menu.plan!!.gunler.first()
-        val ogun = gun.ogunler.first()
-        kural.onNodeWithContentDescription("${ogun.tarif} seç").performClick()
-        kural.onNodeWithText("${gun.gun} · ${ogun.tarif}").assertExists()
-        kural.onNodeWithText("Seçtiklerinle ne yapayım?").assertExists()
-        kural.onNodeWithText(" Daha yenilikçi bir şey koy").performClick()
-
-        val giden = vm.sohbet.value.last().metin
-        assert(giden.contains("(${gun.tarih}, ${ogun.slot}): ${ogun.tarif}")) { giden }
-        assert(giden.endsWith(YENILIKCI_ISTEK))
-        assert(vm.secili.value.isEmpty())
-        kural.onNodeWithText("${gun.gun} · ${ogun.tarif}").assertDoesNotExist()
-        kural.onNodeWithTag("son_cevap").assertExists()
-    }
-
-    @Test fun tekSecimdeListedenDegistirmeAcilir() {
-        val vm = vm()
-        kural.setContent { FoodyTema { MenuEkran(vm, tarifAc = {}, ayarlar = {}) } }
-        val ogun = Ornek.menu.plan!!.gunler.first().ogunler.first()
-        kural.onNodeWithContentDescription("${ogun.tarif} seç").performClick()
-        kural.onNodeWithText("Listeden seç").assertExists()
-        kural.onNodeWithText("Temizle").performClick()
-        kural.onNodeWithText("Listeden seç").assertDoesNotExist()
-        assert(vm.secili.value.isEmpty())
-    }
-
-    @Test fun yeniYemekEtiketlenir() {
-        val vm = vm()
-        kural.setContent { FoodyTema { MenuEkran(vm, tarifAc = {}, ayarlar = {}) } }
-        kural.onNodeWithTag("menu_listesi").performScrollToNode(hasText("Tavuk Fajita"))
-        kural.onNodeWithText("✨ yeni").assertExists()
+        kural.onNodeWithText("Asistan hazırlasın").performClick()
+        assert(vm.sohbet.value.last().metin == YENI_MENU_ISTEK)
+        assert(asistan == 1)
     }
 
     @Test fun baglantiYoksaKurulumKartiCikar() {
@@ -145,23 +176,20 @@ class EkranTest {
     @Test fun asistanaFotografEklenipMetinsizGonderilebilir() {
         val vm = vm()
         vm.ornekEkle(com.foody.data.Ek(7, byteArrayOf(1), android.graphics.Bitmap.createBitmap(8, 8, android.graphics.Bitmap.Config.ARGB_8888)))
-        kural.setContent { FoodyTema { MenuEkran(vm, tarifAc = {}, ayarlar = {}) } }
+        kural.setContent { FoodyTema { AsistanEkran(vm, menuyuAc = {}, ayarlar = {}) } }
         kural.onNodeWithContentDescription("Fotoğraf ekle").assertExists()
         kural.onNodeWithContentDescription("Fotoğrafı çıkar").assertExists()
         kural.onNodeWithText("Fotoğrafla ne yapayım? (örn. bunları ekle)").assertExists()
         kural.onNodeWithContentDescription("Gönder").assertIsEnabled().performClick()
         // Bekleyen ek temizlenir; gönderilen fotoğraf sohbette görünür.
         kural.onNodeWithContentDescription("Fotoğrafı çıkar").assertDoesNotExist()
-        kural.onNodeWithTag("son_cevap").assertTextContains("Sen: 📷 1 fotoğraf")
-        kural.onNodeWithText("Tüm sohbet").performClick()
         kural.onNodeWithContentDescription("Eklenen fotoğraf").assertExists()
-        kural.onNodeWithTag("sohbet_listesi").assertExists()
     }
 
     @Test fun eklenenFotografCikarilabilir() {
         val vm = vm()
         vm.ornekEkle(com.foody.data.Ek(9, byteArrayOf(1), android.graphics.Bitmap.createBitmap(8, 8, android.graphics.Bitmap.Config.ARGB_8888)))
-        kural.setContent { FoodyTema { MenuEkran(vm, tarifAc = {}, ayarlar = {}) } }
+        kural.setContent { FoodyTema { AsistanEkran(vm, menuyuAc = {}, ayarlar = {}) } }
         kural.onNodeWithContentDescription("Fotoğrafı çıkar").performClick()
         kural.onNodeWithContentDescription("Eklenen fotoğraf").assertDoesNotExist()
         kural.onNodeWithContentDescription("Gönder").assertIsNotEnabled()
@@ -180,7 +208,7 @@ class EkranTest {
 
     @Test fun haftaSecimiVarsayilanAktif() {
         val vm = vm()
-        kural.setContent { FoodyTema { MenuEkran(vm, tarifAc = {}, ayarlar = {}) } }
+        kural.setContent { FoodyTema { MenuEkran(vm, tarifAc = {}, ayarlar = {}, asistanaGit = {}) } }
         kural.onNodeWithText("Aktif").assertIsSelected()
     }
 }

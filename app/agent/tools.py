@@ -10,7 +10,7 @@ from anthropic import beta_async_tool
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.config import Settings, base_meal_slot, course_role
+from app.config import WEEKLY_BASE, Settings, base_meal_slot, course_role, is_weekly_slot
 from app.db.models import (
     MealPlanItem,
     PantryItem,
@@ -53,10 +53,17 @@ def render_plan(session: WeeklyPlanningSession | None) -> str:
         f"Hafta: {session.week_start} - {session.week_end} (durum: {session.state.value}, versiyon: {session.draft_version})"
     ]
     by_day: dict[date, list[MealPlanItem]] = {}
+    weekly = []
     for item in sorted(session.meal_plan.items, key=lambda i: (i.date, i.meal_slot)):
-        by_day.setdefault(item.date, []).append(item)
-    for day, items in by_day.items():
-        lines.append(f"\n{day.isoformat()} {TR_DAY_NAMES[day.weekday()]}:")
+        if is_weekly_slot(item.meal_slot):
+            weekly.append(item)
+        else:
+            by_day.setdefault(item.date, []).append(item)
+    sections = [(f"{day.isoformat()} {TR_DAY_NAMES[day.weekday()]}:", items) for day, items in by_day.items()]
+    if weekly:
+        sections.append(("HAFTANIN MEZELERİ (tarih=HAFTA, günlere bağlı değil):", weekly))
+    for title, items in sections:
+        lines.append(f"\n{title}")
         for item in items:
             servings = f", {item.servings} kişi" if item.servings else ""
             changed = " [admin değiştirdi]" if item.admin_changed else ""
@@ -115,6 +122,13 @@ def selector_matches_role(db: Session, recipe: Recipe, role: str) -> bool:
     return CandidateSelector(db)._matches_course_role(recipe, role)
 
 
+def role_for_category(category: str | None) -> str:
+    category = (category or "main").casefold()
+    if category in {"main", "meze", "salad", "soup"}:
+        return category
+    return "side"
+
+
 def _describe(recipe: Recipe) -> str:
     effort = (recipe.prep_minutes or 0) + (recipe.cook_minutes or 0)
     parts = [f"kategori={recipe.category}", f"durum={recipe.status.value}"]
@@ -135,6 +149,9 @@ class MealAgentToolset:
     Her arac kendi veritabani oturumunu acar; anlama isini model yapar, yazma
     isini bu deterministik fonksiyonlar yapar.
     """
+
+    # "telegram" ya da "uygulama": cevabın nasıl yazılacağını belirler.
+    channel = "telegram"
 
     def __init__(self, settings: Settings, session_factory: SessionFactory, estimator=None, notifier=None):
         self.settings = settings
@@ -166,6 +183,33 @@ class MealAgentToolset:
         if hafta == "gelecek_hafta":
             return planner.current_session()
         return planner.active_session()
+
+    def _session_for(self, db: Session, hafta: str, tarih: str = "") -> WeeklyPlanningSession | None:
+        """Tarih verildiyse o tarihi kapsayan hafta; yoksa `hafta`. Böylece
+        ekranda bakılan haftanın bir günü söylendiğinde doğru plan değişir."""
+        if hafta == "aktif" and tarih.strip() and tarih.strip().upper() != "HAFTA":
+            try:
+                day = date.fromisoformat(tarih.strip())
+            except ValueError:
+                day = None
+            if day is not None:
+                found = db.scalar(
+                    select(WeeklyPlanningSession).where(
+                        WeeklyPlanningSession.week_start <= day, WeeklyPlanningSession.week_end >= day
+                    )
+                )
+                if found is not None:
+                    return found
+        return self._resolve_session(db, hafta)
+
+    def _editable_session(self, db: Session, hafta: str, tarih: str = ""):
+        """Değiştirilebilir plan oturumu ya da kullanıcıya söylenecek sorun."""
+        session = self._session_for(db, hafta, tarih)
+        if session is None or not session.meal_plan:
+            return None, "Bu hafta için kayıtlı plan yok. Önce plan_hazirla + plan_kaydet ile kur."
+        if session.state in (SessionState.APPROVED, SessionState.PUBLISHED):
+            return None, "Bu plan onaylanmış/yayınlanmış, değiştirilemez."
+        return session, None
 
     def plan_summary(self) -> str:
         with self.session_factory() as db:
@@ -266,12 +310,19 @@ class MealAgentToolset:
                 return "\n".join(lines)
 
         @beta_async_tool
-        async def ogun_degistir(tarih: str, yeni_tarif: str, gerekce: str, ogun_slotu: str = "") -> str:
+        async def ogun_degistir(
+            tarih: str,
+            yeni_tarif: str,
+            gerekce: str,
+            ogun_slotu: str = "",
+            hafta: Literal["aktif", "bu_hafta", "gelecek_hafta"] = "aktif",
+        ) -> str:
             """Plandaki bir öğünü başka bir tarifle değiştirir. Onaylanmış veya
             yayınlanmış planlar değiştirilemez.
 
             Args:
-                tarih: Değişecek günün ISO tarihi, örn. 2026-10-20.
+                tarih: Değişecek günün ISO tarihi, örn. 2026-10-20. Haftalık
+                    meze listesindeki bir mezeyse "HAFTA".
                 yeni_tarif: Yerine konacak tarifin adı. Kütüphanede (onaylı ya da
                     aday) bulunmalı; yeni bir yemekse önce `tarif_ekle` ile kaydet.
                 gerekce: Bu değişikliği neden yaptığın. Kaydedilir ve ileride
@@ -279,14 +330,19 @@ class MealAgentToolset:
                 ogun_slotu: Günde birden fazla öğün varsa hangisi, örn.
                     dinner_main. Boş bırakılırsa yeni tarifin kategorisine uyan
                     öğün seçilir.
+                hafta: Hangi haftanın planı. Kullanıcı ekranda baktığı haftayı
+                    ya da "bu hafta"/"gelecek hafta" diye belirtirse ona uy.
             """
-            toolset.calls.append(f"ogun_degistir(tarih={tarih}, yeni_tarif={yeni_tarif!r}, slot={ogun_slotu!r})")
-            try:
-                target = date.fromisoformat(tarih.strip())
-            except ValueError:
-                return f"'{tarih}' geçerli bir ISO tarih değil. 2026-10-20 biçiminde ver."
+            toolset.calls.append(f"ogun_degistir(tarih={tarih}, yeni_tarif={yeni_tarif!r}, slot={ogun_slotu!r}, hafta={hafta})")
+            weekly_target = tarih.strip().upper() == "HAFTA"
+            target = None
+            if not weekly_target:
+                try:
+                    target = date.fromisoformat(tarih.strip())
+                except ValueError:
+                    return f"'{tarih}' geçerli bir ISO tarih değil. 2026-10-20 biçiminde ya da HAFTA ver."
             with toolset.session_factory() as db:
-                session = toolset._resolve_session(db, "aktif")
+                session = toolset._session_for(db, hafta, tarih)
                 if not session or not session.meal_plan:
                     return "Değiştirilecek aktif bir plan yok."
                 if session.state in (SessionState.APPROVED, SessionState.PUBLISHED):
@@ -300,7 +356,15 @@ class MealAgentToolset:
                         f"'{yeni_tarif}' kütüphanede yok. tarif_ara ile doğru adı bul; yeni bir yemekse "
                         "önce tarif_ekle ile kaydet, sonra tekrar çağır."
                     )
-                day_items = [i for i in session.meal_plan.items if i.date == target]
+                if weekly_target:
+                    day_items = [i for i in session.meal_plan.items if is_weekly_slot(i.meal_slot)]
+                    target = session.week_start
+                    if not day_items:
+                        return "Bu planda haftalık meze listesi yok. Eklemek için ogun_ekle(tarih=\"HAFTA\") kullan."
+                else:
+                    day_items = [
+                        i for i in session.meal_plan.items if i.date == target and not is_weekly_slot(i.meal_slot)
+                    ]
                 if not day_items:
                     return f"{tarih} planda yok. Plan {session.week_start} - {session.week_end} arasını kapsıyor."
                 if ogun_slotu:
@@ -357,6 +421,146 @@ class MealAgentToolset:
                     f"Değiştirildi: {tarih} {chosen.meal_slot} "
                     f"{original_name} -> {replacement.name}. Gerekçe kaydedildi."
                 )
+
+        @beta_async_tool
+        async def ogun_ekle(
+            tarih: str,
+            tarif: str,
+            gerekce: str = "",
+            rol: Literal["", "main", "meze", "salad", "side", "soup"] = "",
+            hafta: Literal["aktif", "bu_hafta", "gelecek_hafta"] = "aktif",
+        ) -> str:
+            """Plana bir yemek EKLER; mevcut öğünlere dokunmaz. Bütün haftayı
+            yeniden yazmadan "Salı'ya çorba ekle", "meze listesine Atom ekle"
+            gibi istekler için. Birkaç güne eklenecekse her gün için ayrı
+            (paralel) çağır.
+
+            Args:
+                tarih: Günün ISO tarihi (2026-10-20) ya da haftalık meze
+                    listesi için "HAFTA".
+                tarif: Eklenecek tarifin adı (kütüphanede ya da aday). Yeni bir
+                    yemekse önce tarif_ekle ile kaydet.
+                gerekce: Neden eklendiği, kısaca.
+                rol: Boşsa tarifin kategorisinden çıkarılır.
+                hafta: Hangi haftanın planı.
+            """
+            toolset.calls.append(f"ogun_ekle(tarih={tarih}, tarif={tarif!r}, hafta={hafta})")
+            with toolset.session_factory() as db:
+                session, problem = toolset._editable_session(db, hafta, tarih)
+                if problem:
+                    return problem
+                recipe = RecipeService(db).find_recipe(tarif)
+                if recipe is None:
+                    return f"'{tarif}' kütüphanede yok. tarif_ara ile adı doğrula; yeni bir yemekse önce tarif_ekle ile kaydet."
+                role = rol or role_for_category(recipe.category)
+                rules = MealRules.from_db(db)
+                weekly_mode = rules.weekly_meze_target(toolset.settings) > 0
+                weekly = tarih.strip().upper() == "HAFTA" or (weekly_mode and role == "meze")
+                items = list(session.meal_plan.items) if session.meal_plan else []
+                note = ""
+                if weekly:
+                    day = session.week_start
+                    if tarih.strip().upper() != "HAFTA":
+                        note = " Mezeler bu evde günlere bölünmüyor; haftalık meze listesine ekledim."
+                    from app.planner.mezes import next_weekly_slot
+
+                    slot = next_weekly_slot({i.meal_slot for i in items}, "meze")
+                    if any(is_weekly_slot(i.meal_slot) and i.recipe_id == recipe.id for i in items):
+                        return f"{recipe.name} zaten haftanın mezelerinde."
+                else:
+                    try:
+                        day = date.fromisoformat(tarih.strip())
+                    except ValueError:
+                        return f"'{tarih}' geçerli bir tarih değil. 2026-10-20 biçiminde ya da HAFTA ver."
+                    if day not in week_dates(session.week_start):
+                        return f"{tarih} bu planın haftasında değil ({session.week_start} - {session.week_end})."
+                    base = toolset.settings.meal_slots[0] if toolset.settings.meal_slots else "dinner"
+                    taken = {i.meal_slot for i in items if i.date == day}
+                    if any(i.date == day and i.recipe_id == recipe.id for i in items):
+                        return f"{recipe.name} o gün zaten var."
+                    slot = f"{base}_{role}"
+                    index = 1
+                    while slot in taken:
+                        index += 1
+                        slot = f"{base}_{role}_{index}"
+                if not weekly and not selector_matches_role(db, recipe, role):
+                    return f"'{recipe.name}' ({recipe.category}) {role} rolüne uymuyor."
+                proposed = [(i.date, i.meal_slot, i.recipe) for i in items] + [(day, slot, recipe)]
+                await toolset._ensure_nutrition(db, [recipe])
+                try:
+                    rules.validate(proposed)
+                except RuleViolation as error:
+                    return f"Eklenmedi: {error}"
+                if session.meal_plan is None:
+                    session.meal_plan = MealPlan(session=session, status="draft")
+                    db.flush()
+                session.meal_plan.items.append(
+                    MealPlanItem(date=day, meal_slot=slot, recipe_id=recipe.id, admin_changed=True,
+                                 change_reason=gerekce or None)
+                )
+                session.state = SessionState.AWAITING_APPROVAL
+                session.draft_version += 1
+                db.commit()
+                toolset.touched_session_id = session.id
+                where = "haftanın mezelerine" if weekly else f"{tarih} ({slot})"
+                logger.info("agent_meal_added session_id=%s slot=%s", session.id, slot)
+                return f"Eklendi: {recipe.name} -> {where}.{note}"
+
+        @beta_async_tool
+        async def ogun_cikar(
+            tarih: str,
+            tarif_veya_slot: str,
+            gerekce: str = "",
+            hafta: Literal["aktif", "bu_hafta", "gelecek_hafta"] = "aktif",
+        ) -> str:
+            """Plandan bir yemeği ÇIKARIR (yerine bir şey koymaz).
+
+            Args:
+                tarih: Günün ISO tarihi ya da haftalık meze listesi için "HAFTA".
+                tarif_veya_slot: Çıkarılacak yemeğin adı ya da slotu.
+                gerekce: Neden, kısaca.
+                hafta: Hangi haftanın planı.
+            """
+            toolset.calls.append(f"ogun_cikar(tarih={tarih}, {tarif_veya_slot!r}, hafta={hafta})")
+            with toolset.session_factory() as db:
+                session, problem = toolset._editable_session(db, hafta, tarih)
+                if problem:
+                    return problem
+                items = list(session.meal_plan.items) if session.meal_plan else []
+                if tarih.strip().upper() == "HAFTA":
+                    pool = [i for i in items if is_weekly_slot(i.meal_slot)]
+                else:
+                    try:
+                        day = date.fromisoformat(tarih.strip())
+                    except ValueError:
+                        return f"'{tarih}' geçerli bir tarih değil. 2026-10-20 biçiminde ya da HAFTA ver."
+                    pool = [i for i in items if i.date == day and not is_weekly_slot(i.meal_slot)]
+                needle = normalize_name(tarif_veya_slot)
+                chosen = next(
+                    (i for i in pool if i.meal_slot == tarif_veya_slot.strip() or normalize_name(i.recipe.name) == needle),
+                    None,
+                )
+                if chosen is None:
+                    listed = ", ".join(f"{i.meal_slot}={i.recipe.name}" for i in pool) or "boş"
+                    return f"'{tarif_veya_slot}' orada yok. Mevcut: {listed}"
+                remaining = [(i.date, i.meal_slot, i.recipe) for i in items if i is not chosen]
+                try:
+                    MealRules.from_db(db).validate(remaining)
+                except RuleViolation as error:
+                    return f"Çıkarılmadı: {error}"
+                name = chosen.recipe.name
+                session.meal_plan.items.remove(chosen)
+                if gerekce.strip():
+                    FeedbackService(db).record(
+                        gerekce, session_id=session.id, original_recipe_id=chosen.recipe_id,
+                        context={"date": chosen.date.isoformat(), "meal_slot": chosen.meal_slot, "source": "agent"},
+                    )
+                session.state = SessionState.AWAITING_APPROVAL
+                session.draft_version += 1
+                db.commit()
+                toolset.touched_session_id = session.id
+                logger.info("agent_meal_removed session_id=%s", session.id)
+                return f"Çıkarıldı: {name} ({tarih})."
 
         @beta_async_tool
         async def alisveris_listesi(hafta: Literal["aktif", "bu_hafta", "gelecek_hafta"] = "aktif") -> str:
@@ -576,6 +780,14 @@ class MealAgentToolset:
                     "",
                     "Aday havuzu (rol başına, puan sırasına göre):",
                 ]
+                meze_target = rules.weekly_meze_target(toolset.settings)
+                if meze_target > 0:
+                    lines.append(
+                        f"MEZELER GÜNLERE BÖLÜNMEZ: haftada {meze_target} mezelik ayrı bir liste kur. "
+                        f"plan_kaydet'te her biri 'HAFTA|{WEEKLY_BASE}_meze_1|Haydari' biçiminde "
+                        f"({WEEKLY_BASE}_meze_1 ... {WEEKLY_BASE}_meze_{meze_target}). Günlük öğünlere meze koyma; "
+                        "aşağıdaki meze havuzundan seç."
+                    )
                 lines.extend(["Kalıcı kurallar:", *rules.summary()])
                 for base in toolset.settings.meal_slots:
                     lines.append(f"\nÖğün: {base}")
@@ -638,7 +850,8 @@ class MealAgentToolset:
                 ogunler: Her satır "TARİH|SLOT|TARİF ADI". Örn:
                     "2026-10-20|dinner_main|Fırında Tavuk". Slot: dinner_main,
                     dinner_meze, dinner_salad, dinner_side, dinner_soup; aynı
-                    rolden iki tane varsa dinner_meze_1, dinner_meze_2.
+                    rolden iki tane varsa dinner_side_1, dinner_side_2.
+                    Haftalık meze listesi: "HAFTA|hafta_meze_1|Haydari".
                 hafta: Hangi hafta.
                 notlar: İzlediğin mantık, bir iki cümle.
             """
@@ -656,6 +869,8 @@ class MealAgentToolset:
 
                 valid_dates = {d.isoformat() for d in week_dates(week_start)}
                 valid_bases = set(toolset.settings.meal_slots)
+                rules = MealRules.from_db(db)
+                meze_target = rules.weekly_meze_target(toolset.settings)
                 service = RecipeService(db)
                 parsed: dict[tuple[str, str], Recipe] = {}
                 problems: list[str] = []
@@ -665,12 +880,22 @@ class MealAgentToolset:
                         problems.append(f"'{raw}' üç alan değil (TARİH|SLOT|TARİF)")
                         continue
                     iso, slot, recipe_name = parts
+                    if iso.upper() == "HAFTA" or is_weekly_slot(slot):
+                        if not is_weekly_slot(slot):
+                            slot = f"{WEEKLY_BASE}_meze_{sum(1 for _, sl in parsed if is_weekly_slot(sl)) + 1}"
+                        iso = week_start.isoformat()
+                    elif meze_target > 0 and course_role(slot) == "meze":
+                        problems.append(
+                            f"'{raw}': mezeler bu evde günlere bölünmüyor; 'HAFTA|{WEEKLY_BASE}_meze_N|{recipe_name}' "
+                            "biçiminde haftalık listeye yaz"
+                        )
+                        continue
                     if iso not in valid_dates:
                         problems.append(
                             f"'{iso}' bu haftanın dışında ({week_start} - {week_end(week_start)})"
                         )
                         continue
-                    if base_meal_slot(slot) not in valid_bases:
+                    if base_meal_slot(slot) not in valid_bases | {WEEKLY_BASE}:
                         problems.append(
                             f"'{slot}' tanınmıyor; slot adı "
                             f"{'/'.join(sorted(valid_bases))} ile başlamalı (örn. dinner_main)"
@@ -691,7 +916,7 @@ class MealAgentToolset:
                         )
                         continue
                     role = course_role(slot)
-                    if not selector_matches_role(db, recipe, role):
+                    if not is_weekly_slot(slot) and not selector_matches_role(db, recipe, role):
                         problems.append(
                             f"'{recipe.name}' ({recipe.category}) {slot} rolüne uymuyor; "
                             f"uygun kategoriler: {', '.join(allowed_categories_for_role(role))}"
@@ -711,7 +936,7 @@ class MealAgentToolset:
                 try:
                     # Yalnizca yazilan ogunler denetlenir: "pazar disaridayiz" gibi
                     # bos birakilan bir gun, yemek sayisi kuralini ihlal etmez.
-                    MealRules.from_db(db).validate(
+                    rules.validate(
                         [(date.fromisoformat(iso), slot, recipe) for (iso, slot), recipe in parsed.items()]
                     )
                 except RuleViolation as error:
@@ -749,7 +974,8 @@ class MealAgentToolset:
                     "agent_plan_saved session_id=%s week_start=%s items=%s",
                     session.id, week_start, len(parsed),
                 )
-                per_day = Counter(iso for iso, _ in parsed)
+                per_day = Counter(iso for iso, slot in parsed if not is_weekly_slot(slot))
+                weekly_count = sum(1 for _, slot in parsed if is_weekly_slot(slot))
                 new_names = [r.name for r in parsed.values() if r.status == RecipeStatus.CANDIDATE]
                 target = MealRules.from_db(db).new_dish_target(toolset.settings)
                 empty = sorted(valid_dates - set(per_day))
@@ -759,6 +985,8 @@ class MealAgentToolset:
                 ]
                 if empty:
                     summary.append("Öğün yazılmayan günler: " + ", ".join(empty))
+                if weekly_count or meze_target:
+                    summary.append(f"Haftanın mezeleri: {weekly_count} (hedef {meze_target}).")
                 if new_names:
                     summary.append("Yeni yemekler (aday, menüde 'yeni' görünür): " + ", ".join(new_names))
                 if len(new_names) < target:
@@ -952,6 +1180,8 @@ class MealAgentToolset:
             tarif_ara,
             tarif_detay,
             ogun_degistir,
+            ogun_ekle,
+            ogun_cikar,
             alisveris_listesi,
             gecmis_getir,
             kurallari_goster,

@@ -73,6 +73,9 @@ class Settings(BaseSettings):
     # Her haftaki menüye kütüphanede olmayan kaç yeni yemek girsin. Ev
     # kuralı ("her hafta 3 sıradışı yemek olsun") bunu ezer.
     weekly_new_dishes: int = Field(default=2, ge=0, le=7)
+    # Mezeler günlere bölünmez: haftalık ayrı bir liste olur (bu kadar meze).
+    # 0: eski davranış, mezeler her güne dağıtılır. Ev kuralı bunu ezer.
+    weekly_meze_count: int = Field(default=4, ge=0, le=10)
 
     recipe_discovery_enabled: bool = True
     recipe_discovery_day: str = "saturday"
@@ -177,6 +180,15 @@ class Settings(BaseSettings):
         if self.courses_per_day <= 1:
             return self.meal_slots
         return [f"{slot}_{course}" for slot in self.meal_slots for course in range(1, self.courses_per_day + 1)]
+
+
+# Haftalık listedeki (günlere bağlı olmayan) yemeklerin slot ön eki:
+# "hafta_meze_1". Tarihleri haftanın ilk günüdür ama hiçbir güne ait değildir.
+WEEKLY_BASE = "hafta"
+
+
+def is_weekly_slot(slot: str) -> bool:
+    return base_meal_slot(slot) == WEEKLY_BASE
 
 
 def base_meal_slot(slot: str) -> str:

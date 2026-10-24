@@ -131,6 +131,29 @@ sıradışı tariflere baksın, ev kurallarına uysun.
   zorunlu web araması, kural denetimi, `tarif_ekle` + `ogun_degistir`, gerekçe kaydı).
   `plan_hazirla` hedef sayıyı ve denenmemiş adayları verir; `plan_kaydet` eksikse uyarır.
 
+## Haftalık meze listesi ve menü düzenleme (2026-10-24, uygulama 1.5)
+
+Kullanıcı: "mezeleri öğünlere ekleme", "mezeler günlere bölünmesin"; asistan ön planda,
+menü tek bakışta görünsün.
+
+- Mezeler günlere bölünmez: plan öğesi slotu `hafta_meze_N`, tarihi haftanın ilk günü
+  (`config.WEEKLY_BASE`, `is_weekly_slot`). Hiçbir öğüne sayılmaz (kalori, yemek sayısı),
+  alışverişe bir kez girer. Sayı `WEEKLY_MEZE_COUNT` (varsayılan 4; 0 = eski, her güne);
+  ev kuralı ezer: "mezeler günlere bölünmesin", "haftada 3 meze", "mezeler günlere
+  dağıtılsın" (`parse_weekly_mezes`). Bu kipte günlük şekilden meze rolü çıkar
+  (`settings_for_plan`); otomatik plan listeyi `app/planner/mezes.py` ile doldurur.
+- Ajan araçları: `ogun_ekle` / `ogun_cikar` (haftayı baştan yazmadan), `ogun_degistir`
+  tarih="HAFTA" ve `hafta` parametresi; tarih verilirse o tarihin haftası seçilir
+  (eskiden hep "aktif" hafta değişiyordu). `plan_kaydet` "HAFTA|hafta_meze_1|Ad" alır,
+  günlük meze satırını reddeder.
+- API: menü JSON'unda `plan.mezeler`; `POST /menu/ekle`, `/menu/cikar`; `/menu/degistir`
+  `hafta` alır. Sohbet cevabında `menu` ve `degisiklikler` (tur öncesi/sonrası farkı);
+  uygulama kanalında ajana "menüyü metin olarak tekrar yazma" denir (`channel="uygulama"`).
+- Uygulama 1.5: Asistan ana ekran (sohbet + menü kartı), Menü sekmesi tek bakışta tablo.
+  Testlerde `GORUNTU=<klasör>` ile `GoruntuTest` ekran görüntüsü alır.
+- Testlerin çoğu eski "her güne meze" varsayımıyla yazıldığı için `tests/conftest.py`
+  `weekly_meze_count=0` kullanır; yeni davranış `tests/test_weekly_mezes.py`'de.
+
 ## Foody uygulaması (android/, 2026-10-19)
 
 Mimari: Financia/Cal-Track tarzı yerel Android uygulaması, ama veri ve zekâ sunucuda.

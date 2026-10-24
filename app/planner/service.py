@@ -44,8 +44,10 @@ class MealPlannerService:
             self.db.add(session)
             self.db.flush()
         self._persist_plan(session, output, status="draft")
+        from app.planner.mezes import fill_weekly_mezes
         from app.planner.novelty import add_new_dishes
 
+        fill_weekly_mezes(self.db, self.settings, session)
         await add_new_dishes(self.db, self.settings, session)
         session.state = SessionState.AWAITING_ADMIN_FEEDBACK
         session.draft_version += 1 if regenerate else 0

@@ -10,7 +10,7 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import date
 
-from app.config import base_meal_slot
+from app.config import base_meal_slot, is_weekly_slot
 
 
 def normalize(text: str) -> str:
@@ -26,6 +26,38 @@ FOOD_GROUPS = {
 
 _NUMBER_WORDS = [('bir', 1), ('iki', 2), ('uc', 3), ('dort', 4), ('bes', 5), ('alti', 6), ('yedi', 7)]
 _NEW_WORDS = r'(?:yeni|siradisi|degisik|denenmemis|ilginc|farkli)'
+
+
+def parse_weekly_mezes(text: str) -> int | None:
+    """"mezeler günlere bölünmesin" -> -1, "haftada 4 meze olsun" -> 4,
+    "mezeler günlere dağıtılsın" -> 0. `text` normalize edilmiş olmalı."""
+    for word, number in _NUMBER_WORDS:
+        text = re.sub(r'\b' + word + r'\b', str(number), text)
+    if re.fullmatch(
+        r'mezeler(?:i)?\s+(?:her\s+)?(?:gunlere|ogunlere|gune)\s+(?:dagitilsin|bolunsun|ayrilsin|dagit|bol|koy)',
+        text,
+    ):
+        return 0
+    count = re.fullmatch(
+        r'(?:haftada|haftalik|her\s+hafta)\s+(?:en\s+az\s+)?(\d+)\s+(?:tane\s+|cesit\s+|farkli\s+)?meze'
+        r'(?:\s+(?:olsun|hazirla|hazirlansin|yap|yeter|yeterli))?',
+        text,
+    )
+    if count:
+        value = int(count[1])
+        if not 0 <= value <= 10:
+            raise RuleViolation('Haftalık meze sayısı 0 ile 10 arasında olmalı.')
+        return value
+    if re.fullmatch(
+        r'(?:mezeler(?:i)?\s+)?(?:(?:gunlere|ogunlere|gun\s+gun|gunlere\s+gore)\s+)?'
+        r'(?:bolunmesin|bolme|dagitilmasin|dagitma|ayrilmasin|ayirma|ayrismasin)'
+        r'(?:\s*,?\s*haftalik\s+(?:ayri\s+)?(?:liste\s+)?olsun)?',
+        text,
+    ) and 'meze' in text:
+        return -1
+    if re.fullmatch(r'mezeler(?:i)?\s+haftalik(?:\s+(?:ayri\s+)?(?:bir\s+)?(?:liste|listede))?(?:\s+(?:olsun|hazirlansin|tut))?', text):
+        return -1
+    return None
 
 
 def parse_new_dishes(text: str) -> int | None:
@@ -73,6 +105,9 @@ class MealRules:
     # Her hafta menüye girecek, kütüphanede olmayan yeni yemek sayısı.
     # None: kural yok, ayardaki varsayılan (WEEKLY_NEW_DISHES) geçerli.
     new_dishes: int | None = None
+    # Haftalık meze listesi: None kural yok (ayar geçerli), -1 "haftalık olsun"
+    # (sayı ayardan), 0 mezeler günlere dağıtılır, N haftada N meze.
+    weekly_mezes: int | None = None
     advisory: list[str] = field(default_factory=list)
 
     @classmethod
@@ -88,6 +123,10 @@ class MealRules:
         caps = []
         for rule, strict in [(r, True) for r in hard] + [(r, False) for r in soft]:
             text = normalize(rule).strip(' .!').replace('kalroi', 'kalori')
+            mezes = parse_weekly_mezes(text)
+            if mezes is not None:
+                result.weekly_mezes = mezes
+                continue
             novelty = parse_new_dishes(text)
             if novelty is not None:
                 result.new_dishes = novelty
@@ -144,6 +183,14 @@ class MealRules:
         result.max_kcal = min(caps) if caps else None
         return result
 
+    def weekly_meze_target(self, settings) -> int:
+        """Haftalık meze listesinin uzunluğu; 0 ise mezeler günlere dağıtılır."""
+        if self.weekly_mezes is None:
+            return settings.weekly_meze_count
+        if self.weekly_mezes < 0:
+            return settings.weekly_meze_count or 4
+        return self.weekly_mezes
+
     def new_dish_target(self, settings) -> int:
         """Bu hafta menüye girecek yeni yemek sayısı: ev kuralı yoksa ayar."""
         return self.new_dishes if self.new_dishes is not None else settings.weekly_new_dishes
@@ -153,11 +200,20 @@ class MealRules:
         return any(re.search(r'(?<!\w)' + re.escape(term) + r'(?:li|lu|i|u|a|e|in|un)?(?!\w)', text) for term in self.excluded)
 
     def settings_for_plan(self, settings):
+        weekly = self.weekly_meze_target(settings) > 0
         if self.dishes_per_meal is None:
-            return settings
-        # Keep a main, then a salad/meze, then a side; more dishes add mezes.
-        roles = ['main', 'meze', 'side'][:self.dishes_per_meal]
-        roles += ['meze'] * max(0, self.dishes_per_meal - 3)
+            if not weekly:
+                return settings
+            # Mezeler haftalık listede: günlük şekilden çıkar.
+            roles = [r for r in settings.meal_course_roles if r != 'meze'] or ['main']
+            return settings.model_copy(update={'meal_course_roles': roles})
+        if weekly:
+            roles = ['main', 'side', 'soup'][:self.dishes_per_meal]
+            roles += ['side'] * max(0, self.dishes_per_meal - 3)
+        else:
+            # Keep a main, then a salad/meze, then a side; more dishes add mezes.
+            roles = ['main', 'meze', 'side'][:self.dishes_per_meal]
+            roles += ['meze'] * max(0, self.dishes_per_meal - 3)
         return settings.model_copy(update={'meal_course_roles': roles})
 
     def summary(self) -> list[str]:
@@ -170,6 +226,13 @@ class MealRules:
             lines.append(f'Kişi başı öğün toplamı en fazla {self.max_kcal:g} kcal; kalori verisi eksikse plan kaydedilmez.')
         if self.show_calories:
             lines.append('Menüde kişi başı kalori gösterilir; eksik değerler belirtilir.')
+        if self.weekly_mezes is not None:
+            if self.weekly_mezes == 0:
+                lines.append('Mezeler günlere dağıtılır.')
+            elif self.weekly_mezes > 0:
+                lines.append(f'Mezeler günlere bölünmez: haftada {self.weekly_mezes} mezelik ayrı liste.')
+            else:
+                lines.append('Mezeler günlere bölünmez: haftalık ayrı liste.')
         if self.new_dishes:
             lines.append(f'Her hafta menüde en az {self.new_dishes} yeni (kütüphanede olmayan) yemek olur.')
         elif self.new_dishes == 0:
@@ -184,6 +247,8 @@ class MealRules:
         for day, slot, recipe in rows:
             if self.excludes(recipe):
                 raise RuleViolation(f'Kalıcı yasakla çelişen tarif: {recipe.name}.')
+            if is_weekly_slot(slot):
+                continue  # haftalık meze listesi hiçbir öğüne sayılmaz
             groups[day, base_meal_slot(slot)].append(recipe)
         if self.dishes_per_meal:
             for key in set(groups) | set(expected_meals):

@@ -63,7 +63,7 @@ class FakeAgent:
 
         self.store = Store()
 
-    async def reply(self, chat_id, message, images=None, timeout=None):
+    async def reply(self, chat_id, message, images=None, timeout=None, channel="telegram"):
         self.messages.append(message)
         return FakeReply("Tamam, hazırladım.", self.plan_session_id)
 
@@ -368,7 +368,7 @@ def _wait(client, job_id, tries=200):
 
 
 class SlowAgent(FakeAgent):
-    async def reply(self, chat_id, message, images=None, timeout=None):
+    async def reply(self, chat_id, message, images=None, timeout=None, channel="telegram"):
         import asyncio
 
         self.timeouts = getattr(self, "timeouts", []) + [timeout]

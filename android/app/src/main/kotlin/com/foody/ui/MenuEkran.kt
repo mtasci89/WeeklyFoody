@@ -55,21 +55,21 @@ import com.foody.data.TarifOzet
 private val HAFTALAR = listOf("aktif" to "Aktif", "bu_hafta" to "Bu hafta", "gelecek_hafta" to "Gelecek hafta")
 
 @Composable
-fun MenuEkran(vm: AnaViewModel, tarifAc: (String) -> Unit, ayarlar: () -> Unit) {
+fun MenuEkran(vm: AnaViewModel, tarifAc: (String) -> Unit, ayarlar: () -> Unit, asistanaGit: () -> Unit) {
     val durum by vm.menu.collectAsStateWithLifecycle()
     val ayar by vm.ayarlar.collectAsStateWithLifecycle()
     val hafta by vm.hafta.collectAsStateWithLifecycle()
     val isleniyor by vm.isleniyor.collectAsStateWithLifecycle()
     val tarifler by vm.tarifler.collectAsStateWithLifecycle()
-    val secili by vm.secili.collectAsStateWithLifecycle()
-    val calisiyor by vm.asistanCalisiyor.collectAsStateWithLifecycle()
     val cevap = durum.veri
     val plan = cevap?.plan
-    var degisecek by remember { mutableStateOf<SeciliOgun?>(null) }
+    var secilen by remember { mutableStateOf<Pair<Gun?, Ogun>?>(null) }
+    var degisecek by remember { mutableStateOf<Pair<Gun?, Ogun>?>(null) }
+    var eklenecek by remember { mutableStateOf<Gun?>(null) }
+    var mezeEklenecek by remember { mutableStateOf(false) }
     var onaySor by rememberSaveable { mutableStateOf(false) }
-    var sohbetAcik by rememberSaveable { mutableStateOf(false) }
 
-    Column(Modifier.fillMaxSize().imePadding()) {
+    Column(Modifier.fillMaxSize()) {
         Baslik(
             "Menü",
             plan?.let { "${kisaTarih(it.haftaBaslangic)} – ${kisaTarih(it.haftaBitis)} · ${it.durumMetni}" },
@@ -94,55 +94,45 @@ fun MenuEkran(vm: AnaViewModel, tarifAc: (String) -> Unit, ayarlar: () -> Unit) 
         ) {
             HAFTALAR.forEach { (kod, ad) -> FilterChip(selected = hafta == kod, onClick = { vm.haftaSec(kod) }, label = { Text(ad) }) }
         }
-        Column(Modifier.weight(if (sohbetAcik) 0.8f else 1f).fillMaxWidth()) {
-            DurumKarti(durum.yukleniyor && cevap == null, durum.hata, yenile = { vm.menuYenile() })
-            if (cevap != null && plan == null) {
-                Kart(Modifier.padding(16.dp).fillMaxWidth()) {
-                    Text("Bu hafta için menü yok.", fontWeight = FontWeight.Bold)
-                    Text(
-                        "Menü her pazar kendiliğinden gelir. Beklemek istemezsen asistan kurallarına göre şimdi kursun.",
-                        color = Renk.Soluk, fontSize = 14.sp,
-                    )
-                    Button(onClick = { vm.asistanaSor(YENI_MENU_ISTEK) }, enabled = !calisiyor) { Text("Asistan menü kursun") }
-                }
-            }
-            if (plan != null) LazyColumn(
-                Modifier.fillMaxSize().testTag("menu_listesi"),
-                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                if (plan.onaylanabilir) item {
-                    Text(
-                        "Beğenmediğin yemeklere dokunup seç, asistana ne yapacağını söyle (örn. \"daha yenilikçi bir şey koy\"). " +
-                            "✨ yeni: bu hafta ilk kez denenen yemek.",
-                        color = Renk.Soluk, fontSize = 12.sp, lineHeight = 16.sp,
-                    )
-                }
-                if (cevap.kaloriSiniri != null) item {
-                    Etiket("Öğün sınırı: kişi başı ${binlik(cevap.kaloriSiniri.toInt())} kcal", Renk.AcikTuruncu, Renk.Turuncu)
-                }
-                items(plan.gunler, key = { it.tarih }) { gun ->
-                    GunKarti(
-                        gun, cevap.kaloriGoster, cevap.kaloriSiniri,
-                        secilebilir = plan.onaylanabilir,
-                        secili = secili,
-                        tarifAc = tarifAc,
-                        sec = { ogun -> vm.ogunSec(SeciliOgun(gun.tarih, gun.gun, ogun.slot, ogun.rol, ogun.tarif)) },
-                    )
-                }
-                if (plan.onaylanabilir) item {
-                    Button(onClick = { onaySor = true }, Modifier.fillMaxWidth(), enabled = !isleniyor) {
-                        if (isleniyor) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp) else Text("Menüyü onayla")
-                    }
-                }
+        DurumKarti(durum.yukleniyor && cevap == null, durum.hata, yenile = { vm.menuYenile() })
+        if (cevap != null && plan == null) {
+            Kart(Modifier.padding(16.dp).fillMaxWidth()) {
+                Text("Bu hafta için menü yok.", fontWeight = FontWeight.Bold)
+                Text(
+                    "Menü her pazar kendiliğinden gelir. Beklemek istemezsen asistan kurallarına göre şimdi hazırlasın.",
+                    color = Renk.Soluk, fontSize = 14.sp,
+                )
+                Button(onClick = { vm.asistanaSor(YENI_MENU_ISTEK); asistanaGit() }) { Text("Asistan hazırlasın") }
             }
         }
-        AsistanPaneli(
-            vm, acik = sohbetAcik, acKapat = { sohbetAcik = !sohbetAcik },
-            modifier = if (sohbetAcik) Modifier.weight(1.2f) else Modifier,
-        )
-        SecimCubugu(vm, listedenSec = { degisecek = it })
-        AsistanCubugu(vm)
+        if (plan != null) Column(
+            Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 8.dp)
+                .testTag("menu_listesi"),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            if (cevap.kaloriSiniri != null) {
+                Etiket("Öğün sınırı: kişi başı ${binlik(cevap.kaloriSiniri.toInt())} kcal", Renk.AcikTuruncu, Renk.Turuncu)
+            }
+            Kart(Modifier.fillMaxWidth()) {
+                MenuTablosu(
+                    cevap,
+                    tikla = { gun, ogun -> if (plan.onaylanabilir) secilen = gun to ogun else tarifAc(ogun.tarifId) },
+                    mezeEkle = if (plan.onaylanabilir) { { mezeEklenecek = true } } else null,
+                )
+            }
+            if (plan.onaylanabilir) {
+                Text(
+                    "Bir yemeğe dokun: tarifini aç, değiştir, çıkar, o güne yemek ekle ya da asistan yerine yenilikçi bir şey bulsun. " +
+                        "Daha büyük değişiklikleri Asistan'a yaz.",
+                    color = Renk.Soluk, fontSize = 13.sp, lineHeight = 18.sp,
+                )
+                Button(onClick = { onaySor = true }, Modifier.fillMaxWidth(), enabled = !isleniyor) {
+                    if (isleniyor) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp) else Text("Menüyü onayla")
+                }
+            } else {
+                Text("Yemeğe dokun: tarifi ve malzemeleri.", color = Renk.Soluk, fontSize = 13.sp)
+            }
+        }
     }
 
     if (onaySor) AlertDialog(
@@ -153,79 +143,102 @@ fun MenuEkran(vm: AnaViewModel, tarifAc: (String) -> Unit, ayarlar: () -> Unit) 
         dismissButton = { TextButton(onClick = { onaySor = false }) { Text("Vazgeç") } },
     )
 
-    degisecek?.let { o ->
-        val ogun = plan?.gunler?.firstOrNull { it.tarih == o.tarih }?.ogunler?.firstOrNull { it.slot == o.slot }
-        if (ogun == null) degisecek = null
-        else DegistirPenceresi(
-            o.gun, ogun, tarifler.kutuphane,
-            kapat = { degisecek = null },
-            sec = { tarif -> degisecek = null; vm.secimiTemizle(); vm.ogunDegistir(o.tarih, o.slot, tarif) },
+    secilen?.let { (gun, ogun) ->
+        val tarih = gun?.tarih ?: HAFTA
+        val yer = gun?.gun ?: "Haftanın mezeleri"
+        val konu = SeciliOgun(tarih, yer, ogun.slot, ogun.rol, ogun.tarif, hafta)
+        AlertDialog(
+            onDismissRequest = { secilen = null },
+            title = { Text(ogun.tarif) },
+            text = {
+                OgunIslemleri(
+                    yer = "$yer · ${ogun.rol}",
+                    tarifiAc = { secilen = null; tarifAc(ogun.tarifId) },
+                    yenilikci = { secilen = null; vm.yenilikciIste(konu); asistanaGit() },
+                    asistanaYaz = {
+                        secilen = null
+                        vm.taslakAyarla(seciliMesaj(listOf(konu), ""))
+                        asistanaGit()
+                    },
+                    listedenDegistir = { secilen = null; degisecek = gun to ogun },
+                    gunuEkle = gun?.let { g -> { secilen = null; eklenecek = g } },
+                    cikar = { secilen = null; vm.ogunCikar(tarih, ogun.slot, ogun.tarif) },
+                )
+            },
+            confirmButton = {},
+            dismissButton = { TextButton(onClick = { secilen = null }) { Text("Vazgeç") } },
         )
+    }
+
+    degisecek?.let { (gun, ogun) ->
+        val havuz = tarifler.kutuphane + tarifler.adaylar
+        SecimPenceresi(
+            baslik = "${gun?.gun ?: "Haftanın mezeleri"} · ${ogun.rol}",
+            kapat = { degisecek = null },
+        ) { DegistirIcerik(ogun, havuz) { tarif -> degisecek = null; vm.ogunDegistir(gun?.tarih ?: HAFTA, ogun.slot, tarif) } }
+    }
+
+    eklenecek?.let { gun ->
+        val havuz = (tarifler.kutuphane + tarifler.adaylar).filter { it.kategori in YAN_KATEGORILER }
+        SecimPenceresi(baslik = "${gun.gun} günü ekle", kapat = { eklenecek = null }) {
+            TarifSecici("Yan yemek, çorba ya da salata:", havuz) { tarif -> eklenecek = null; vm.ogunEkle(gun.tarih, tarif) }
+        }
+    }
+
+    if (mezeEklenecek) {
+        val havuz = (tarifler.kutuphane + tarifler.adaylar).filter { it.kategori == "meze" || it.kategori == "salad" }
+        SecimPenceresi(baslik = "Haftanın mezelerine ekle", kapat = { mezeEklenecek = false }) {
+            TarifSecici("Meze seç:", havuz) { tarif -> mezeEklenecek = false; vm.ogunEkle(HAFTA, tarif) }
+        }
     }
 }
 
 const val YENI_MENU_ISTEK = "Bu hafta için kurallarıma göre yeni bir menü hazırla; birkaç yeni, sıradışı yemek de olsun."
 
+private val YAN_KATEGORILER = setOf("side", "soup", "salad", "grain", "pasta", "pilaf")
+
+/** Bir yemeğe dokununca çıkan seçenekler; testler pencere olmadan doğrudan bunu çizer. */
 @Composable
-private fun GunKarti(
-    gun: Gun,
-    kaloriGoster: Boolean,
-    sinir: Double?,
-    secilebilir: Boolean,
-    secili: List<SeciliOgun>,
-    tarifAc: (String) -> Unit,
-    sec: (Ogun) -> Unit,
+fun OgunIslemleri(
+    yer: String,
+    tarifiAc: () -> Unit,
+    yenilikci: () -> Unit,
+    asistanaYaz: () -> Unit,
+    listedenDegistir: () -> Unit,
+    cikar: () -> Unit,
+    gunuEkle: (() -> Unit)? = null,
 ) {
-    Kart(Modifier.fillMaxWidth()) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(gun.gun, fontWeight = FontWeight.ExtraBold, fontSize = 16.sp, modifier = Modifier.weight(1f))
-            Text(kisaTarih(gun.tarih), color = Renk.Soluk, fontSize = 13.sp)
-        }
-        if (gun.ogunler.isEmpty()) {
-            Text("Boş gün (dışarıda yemek)", color = Renk.Soluk, fontSize = 14.sp)
-        }
-        gun.ogunler.forEachIndexed { i, ogun ->
-            if (i > 0) HorizontalDivider(color = Renk.Cizgi)
-            val isaretli = secili.any { it.tarih == gun.tarih && it.slot == ogun.slot }
-            Row(
-                Modifier.fillMaxWidth()
-                    .background(if (isaretli) Renk.AcikYesil else androidx.compose.ui.graphics.Color.Transparent)
-                    .clickable { if (secilebilir) sec(ogun) else tarifAc(ogun.tarifId) }
-                    .padding(vertical = 2.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                if (secilebilir) Icon(
-                    if (isaretli) Icons.Rounded.CheckCircle else Icons.Rounded.RadioButtonUnchecked,
-                    contentDescription = if (isaretli) "${ogun.tarif} seçili" else "${ogun.tarif} seç",
-                    tint = if (isaretli) Renk.Yesil else Renk.Cizgi,
-                    modifier = Modifier.padding(end = 8.dp).size(20.dp),
-                )
-                Column(Modifier.weight(1f)) {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Text(ogun.rol, fontSize = 11.sp, color = Renk.Soluk, fontWeight = FontWeight.SemiBold)
-                        if (ogun.yeni) Text(
-                            "✨ yeni", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Renk.Turuncu,
-                            modifier = Modifier.background(Renk.AcikTuruncu, RoundedCornerShape(6.dp)).padding(horizontal = 5.dp),
-                        )
-                    }
-                    Text(ogun.tarif, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                }
-                if (kaloriGoster || ogun.kcal != null) Text(kcalMetni(ogun.kcal, ogun.tahmini), fontSize = 12.sp, color = Renk.Soluk)
-                IconButton(onClick = { tarifAc(ogun.tarifId) }) {
-                    Icon(Icons.Rounded.MenuBook, contentDescription = "${ogun.tarif} tarifi", tint = Renk.Yesil)
-                }
-            }
-        }
-        val toplam = gun.toplamKcal
-        if (kaloriGoster && gun.ogunler.isNotEmpty()) {
-            val asti = toplam != null && sinir != null && toplam > sinir
-            Etiket(
-                if (toplam != null) "Kişi başı toplam ~${binlik(toplam)} kcal" else "Toplam kalori bilinmiyor",
-                if (asti) Renk.AcikTuruncu else Renk.AcikYesil,
-                if (asti) Renk.Kirmizi else Renk.Yesil,
-            )
-        }
+    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Text(yer, color = Renk.Soluk, fontSize = 13.sp)
+        IslemDugmesi("Tarifi aç", tarifiAc)
+        IslemDugmesi("Asistan yerine yenilikçi bir şey koysun", yenilikci, vurgulu = true)
+        IslemDugmesi("Asistana başka bir şey söyle", asistanaYaz)
+        IslemDugmesi("Listeden değiştir", listedenDegistir)
+        if (gunuEkle != null) IslemDugmesi("Bu güne yan yemek / çorba ekle", gunuEkle)
+        IslemDugmesi("Menüden çıkar", cikar, tehlikeli = true)
     }
+}
+
+@Composable
+private fun IslemDugmesi(metin: String, tikla: () -> Unit, vurgulu: Boolean = false, tehlikeli: Boolean = false) {
+    TextButton(onClick = tikla, Modifier.fillMaxWidth()) {
+        Text(
+            metin, Modifier.fillMaxWidth(), fontSize = 15.sp,
+            fontWeight = if (vurgulu) FontWeight.Bold else FontWeight.Medium,
+            color = if (tehlikeli) Renk.Kirmizi else Renk.Yesil,
+        )
+    }
+}
+
+@Composable
+private fun SecimPenceresi(baslik: String, kapat: () -> Unit, icerik: @Composable () -> Unit) {
+    AlertDialog(
+        onDismissRequest = kapat,
+        title = { Text(baslik) },
+        text = icerik,
+        confirmButton = {},
+        dismissButton = { TextButton(onClick = kapat) { Text("Vazgeç") } },
+    )
 }
 
 /** Bir öğünün yerine konabilecek tarifler: önce aynı türden olanlar. */
@@ -235,30 +248,27 @@ fun degisimAdaylari(ogun: Ogun, tarifler: List<TarifOzet>, ara: String): List<Ta
         .filter { ara.isBlank() || it.ad.contains(ara.trim(), ignoreCase = true) }
 }
 
-@Composable
-private fun DegistirPenceresi(gunAdi: String, ogun: Ogun, tarifler: List<TarifOzet>, kapat: () -> Unit, sec: (String) -> Unit) {
-    AlertDialog(
-        onDismissRequest = kapat,
-        title = { Text("$gunAdi · ${ogun.rol}") },
-        text = { DegistirIcerik(ogun, tarifler, sec) },
-        confirmButton = {},
-        dismissButton = { TextButton(onClick = kapat) { Text("Vazgeç") } },
-    )
-}
-
 /** Pencerenin içeriği; testler pencere olmadan doğrudan bunu çizer. */
 @Composable
 fun DegistirIcerik(ogun: Ogun, tarifler: List<TarifOzet>, sec: (String) -> Unit) {
+    TarifSecici("${ogun.tarif} yerine:", tarifler.filter { it.id != ogun.tarifId }, ilkKategori = ogun.kategori, sec = sec)
+}
+
+/** Aranabilir tarif listesi; `ilkKategori` verilirse önce o türden olanlar. */
+@Composable
+fun TarifSecici(aciklama: String, tarifler: List<TarifOzet>, ilkKategori: String? = null, sec: (String) -> Unit) {
     var ara by rememberSaveable { mutableStateOf("") }
-    val havuz = degisimAdaylari(ogun, tarifler, ara)
+    val ayniTur = if (ilkKategori != null) tarifler.filter { it.kategori == ilkKategori } else emptyList()
+    val havuz = ayniTur.ifEmpty { tarifler }.filter { ara.isBlank() || it.ad.contains(ara.trim(), ignoreCase = true) }
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("${ogun.tarif} yerine:", color = Renk.Soluk, fontSize = 13.sp)
+        Text(aciklama, color = Renk.Soluk, fontSize = 13.sp)
         OutlinedTextField(ara, { ara = it }, Modifier.fillMaxWidth(), placeholder = { Text("Tarif ara") }, singleLine = true)
         // Pencere içinde tembel liste yerine sınırlı, düz bir liste: arama zaten daraltır.
         Column(Modifier.heightIn(max = 320.dp).verticalScroll(rememberScrollState())) {
             havuz.take(60).forEach { t ->
                 Row(Modifier.fillMaxWidth().clickable { sec(t.ad) }.padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text(t.ad, Modifier.weight(1f), fontSize = 15.sp)
+                    if (t.aday) Text("yeni ", fontSize = 11.sp, color = Renk.Turuncu, fontWeight = FontWeight.Bold)
                     if (t.kcal != null) Text(kcalMetni(t.kcal, t.tahmini), fontSize = 12.sp, color = Renk.Soluk)
                 }
             }

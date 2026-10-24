@@ -149,13 +149,14 @@ fun DurumKarti(yukleniyor: Boolean, hata: String?, yenile: () -> Unit, modifier:
     }
 }
 
-/** Alt menü: Menü (asistan menünün içinde) · Alışveriş · Tarifler · Kurallar */
+/** Alt menü: Asistan (ana ekran) · Menü · Alışveriş · Tarifler · Kurallar */
 @Composable
 fun AltMenu(secili: String, sec: (String) -> Unit) {
     Row(
         Modifier.fillMaxWidth().background(Color.White).height(72.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        MenuOgesi(Icons.Rounded.AutoAwesome, "Asistan", secili == "asistan", Modifier.weight(1f)) { sec("asistan") }
         MenuOgesi(Icons.Rounded.Restaurant, "Menü", secili == "menu", Modifier.weight(1f)) { sec("menu") }
         MenuOgesi(Icons.Rounded.ShoppingCart, "Alışveriş", secili == "alisveris", Modifier.weight(1f)) { sec("alisveris") }
         MenuOgesi(Icons.Rounded.MenuBook, "Tarifler", secili == "tarifler", Modifier.weight(1f)) { sec("tarifler") }

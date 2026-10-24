@@ -22,6 +22,9 @@ def settings(tmp_path: Path) -> Settings:
         meal_slots=["dinner"],
         llm_provider="rule",
         openai_api_key="",
+        # Eski testler mezeleri günlere dağıtılmış varsayar; haftalık meze
+        # listesi tests/test_weekly_mezes.py'de ayrıca denetlenir.
+        weekly_meze_count=0,
     )
 
 

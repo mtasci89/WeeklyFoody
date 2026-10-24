@@ -187,7 +187,7 @@ async def test_agent_reply_gets_a_system_calorie_summary(settings, monkeypatch):
     HouseRules(Session).add("Kalorilerini de yaz yanına")
 
     class Agent:
-        async def reply(self, chat_id, message, images=None, timeout=None):
+        async def reply(self, chat_id, message, images=None, timeout=None, channel="telegram"):
             return AgentReply(text="Menü hazır.", plan_session_id=session_id)
 
     class Bot:

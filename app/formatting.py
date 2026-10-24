@@ -40,14 +40,19 @@ def format_meal_plan(session: WeeklyPlanningSession, final: bool = False) -> str
     from app.recipes.nutrition import nutrition_text
     db = object_session(session)
     rules = MealRules.from_db(db) if db is not None else MealRules()
+    from app.config import is_weekly_slot
     by_date = defaultdict(list)
+    weekly = []
     for item in sorted(session.meal_plan.items, key=lambda i: (i.date, i.meal_slot)):
-        by_date[item.date].append(item)
-    for day, items in by_date.items():
-        lines.append(f"*{TR_DAY_NAMES[day.weekday()]}*")
+        (weekly if is_weekly_slot(item.meal_slot) else by_date[item.date]).append(item)
+    sections = [(TR_DAY_NAMES[day.weekday()], items) for day, items in by_date.items()]
+    if weekly:
+        sections.append(("Haftanın mezeleri", weekly))
+    for title, items in sections:
+        lines.append(f"*{title}*")
         for item in items:
             servings = f" ({item.servings} kişi)" if item.servings else ""
-            label = course_label(item.meal_slot)
+            label = "Meze" if is_weekly_slot(item.meal_slot) else course_label(item.meal_slot)
             nutrition = f" — {nutrition_text(item.recipe)}" if rules.show_calories else ""
             new = " ✨ yeni" if item.recipe.status.value == "candidate" else ""
             lines.append(f"• {label}: {item.recipe.name}{new}{servings}{nutrition}")
@@ -136,8 +141,11 @@ def nutrition_plan_lines(session, rules=None, details=True) -> list[str]:
         rules = MealRules.from_db(db) if db is not None else MealRules()
     if not rules.show_calories or not session.meal_plan:
         return []
+    from app.config import is_weekly_slot
     groups = defaultdict(list)
     for item in sorted(session.meal_plan.items, key=lambda i: (i.date, i.meal_slot)):
+        if is_weekly_slot(item.meal_slot):
+            continue  # haftalık mezeler hiçbir öğüne sayılmaz
         groups[item.date, base_meal_slot(item.meal_slot)].append(item.recipe)
     lines = ["Kişi başı öğün besin değerleri (her yemekten bir porsiyon):"]
     for (day, meal), recipes in groups.items():
@@ -159,10 +167,12 @@ def calorie_summary(session) -> str:
 
     if session is None or not session.meal_plan or not session.meal_plan.items:
         return ""
+    from app.config import is_weekly_slot
     by_day = defaultdict(list)
     for item in sorted(session.meal_plan.items, key=lambda i: (i.date, i.meal_slot)):
-        by_day[item.date].append(item.recipe)
-    lines = ["🔥 Kişi başı kalori (tahmini, her yemekten bir porsiyon):"]
+        if not is_weekly_slot(item.meal_slot):
+            by_day[item.date].append(item.recipe)
+    lines = ["🔥 Kişi başı kalori (tahmini, her yemekten bir porsiyon; haftalık mezeler hariç):"]
     for day, recipes in by_day.items():
         known = [r for r in recipes if r.nutrition and r.nutrition.calories_kcal is not None]
         parts = ", ".join(

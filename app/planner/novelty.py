@@ -10,7 +10,7 @@ import logging
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.config import Settings, course_role
+from app.config import WEEKLY_BASE, Settings, course_role, is_weekly_slot
 from app.db.models import MealPlanItem, Recipe, RecipeStatus, WeeklyPlanningSession
 
 logger = logging.getLogger(__name__)
@@ -55,20 +55,26 @@ async def add_new_dishes(db: Session, settings: Settings, session: WeeklyPlannin
     from app.planner.candidate_selector import CandidateSelector
 
     selector = CandidateSelector(db)
-    days = sorted({i.date for i in items})
+    def key(item):
+        # Haftalık meze listesi kendi başına bir "gün" sayılır.
+        return WEEKLY_BASE if is_weekly_slot(item.meal_slot) else item.date
+
+    days = sorted({i.date for i in items if not is_weekly_slot(i.meal_slot)})
     order = [days[k] for k in DAY_ORDER if k < len(days)]
+    if any(is_weekly_slot(i.meal_slot) for i in items):
+        order.append(WEEKLY_BASE)
     added: list[str] = []
     for recipe in pool:
         if len(added) >= missing:
             break
-        busy = {i.date for i in items if is_new(i.recipe)}
+        busy = {key(i) for i in items if is_new(i.recipe)}
         for day in order:
             if day in busy:
                 continue
             slot_item = next(
                 (
                     i for i in sorted(items, key=lambda i: i.meal_slot)
-                    if i.date == day and selector._matches_course_role(recipe, course_role(i.meal_slot))
+                    if key(i) == day and selector._matches_course_role(recipe, course_role(i.meal_slot))
                 ),
                 None,
             )

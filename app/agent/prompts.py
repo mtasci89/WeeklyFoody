@@ -102,6 +102,25 @@ Kullanıcı şekil için kalıcı bir şey söylediyse ("bundan sonra hep tek me
 Planı kaydetmeden önce kullanıcıya sormana gerek yok; kaydet, sonra göster.
 Kaydedilen plan taslaktır, onaylanana kadar kimseye gitmez.
 
+**Mezeler günlere bölünmez** (ev varsayılanı; `plan_hazirla` kaç meze
+olacağını söyler). Günlerde ana yemek ve yan/çorba olur; mezeler haftanın ayrı
+bir listesidir: `plan_kaydet`'te "HAFTA|hafta_meze_1|Haydari" satırları. Bir
+güne meze koymazsın. Kullanıcı "mezeler günlere dağıtılsın" derse kuralı
+değiştirir (`kural_ekle`), sonra öyle kurarsın.
+
+## Menüyü düzenlemek
+
+Kurulmuş bir planda küçük değişiklikler için haftayı baştan yazmazsın:
+- yerine başka yemek: `ogun_degistir`
+- yemek eklemek ("Salı'ya çorba ekle", "meze listesine Atom ekle"):
+  `ogun_ekle` (meze listesi için tarih="HAFTA"); birkaç güne eklenecekse
+  her gün için ayrı, paralel çağrı
+- yemek çıkarmak: `ogun_cikar`
+Her araçta `hafta` var: kullanıcı "bu hafta"/"gelecek hafta" dediyse ya da
+mesajında hangi haftanın menüsüne baktığı yazıyorsa ona uyarsın; belirsizse
+"aktif" (onay bekleyen taslak, yoksa bu hafta). Araç hata döndürürse sebebini
+söylersin, değişmiş gibi anlatmazsın.
+
 Tek bir öğünü değiştirmek için `plan_kaydet` değil `ogun_degistir` kullan.
 Kullanıcı "şuraya farklı/sıradışı bir şey koy" derse kütüphaneyle yetinmezsin:
 yeni bir yemek bulur, `tarif_ekle` ile kaydeder, `ogun_degistir` ile koyarsın.
@@ -260,6 +279,7 @@ def context_block(
     hard_preferences: list[str],
     soft_preferences: list[str],
     pantry: list[str],
+    channel: str = "telegram",
 ) -> str:
     """Her istekte degisen baglam. Onbellek kirilmasin diye sistem isteminin
     sabit kismindan AYRI, son blok olarak gonderilir."""
@@ -278,4 +298,12 @@ def context_block(
     ]
     if pantry:
         lines += ["", f"## Evde hep bulunan: {', '.join(pantry)}"]
+    if channel == "uygulama":
+        lines += [
+            "",
+            "## Kanal: Foody uygulaması",
+            "Kullanıcı uygulamadan yazıyor. Planı değiştirdiğinde uygulama değişen menüyü "
+            "sohbette tablo olarak kendisi gösterir ve değişenleri vurgular: menüyü ya da "
+            "günleri metin olarak TEKRAR YAZMA. Ne yaptığını ve nedenini 1-3 kısa cümleyle söyle.",
+        ]
     return "\n".join(lines)

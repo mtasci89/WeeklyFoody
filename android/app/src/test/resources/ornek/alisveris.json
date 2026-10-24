@@ -27,12 +27,12 @@
         {
           "anahtar": "dereotu|demet",
           "ad": "dereotu",
-          "metin": "7 demet dereotu"
+          "metin": "1 demet dereotu"
         },
         {
           "anahtar": "domates|adet",
           "ad": "domates",
-          "metin": "33 adet domates"
+          "metin": "15 adet domates"
         },
         {
           "anahtar": "havuç|adet",
@@ -57,7 +57,7 @@
         {
           "anahtar": "salatalık|adet",
           "ad": "salatalık",
-          "metin": "14 adet salatalık"
+          "metin": "2 adet salatalık"
         },
         {
           "anahtar": "soğan|adet",
@@ -72,7 +72,7 @@
         {
           "anahtar": "yoğurt|g",
           "ad": "yoğurt",
-          "metin": "2,8 kg yoğurt"
+          "metin": "400 g yoğurt"
         }
       ]
     },

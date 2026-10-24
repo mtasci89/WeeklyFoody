@@ -46,6 +46,8 @@ data class Plan(
     val onaylanabilir: Boolean = false,
     val versiyon: Int = 0,
     val gunler: List<Gun> = emptyList(),
+    /** Günlere bölünmeyen, haftalık meze listesi (tarih "HAFTA" ile değiştirilir). */
+    val mezeler: List<Ogun> = emptyList(),
 )
 
 @Serializable
@@ -149,7 +151,14 @@ data class SohbetCevap(
     val araclar: List<String> = emptyList(),
     @SerialName("plan_degisti") val planDegisti: Boolean = false,
     @SerialName("kalori_ozeti") val kaloriOzeti: String = "",
+    /** Asistan planı değiştirdiyse güncel menü ve değişenler. */
+    val menu: MenuCevap? = null,
+    val degisiklikler: List<Degisiklik> = emptyList(),
 )
+
+/** Asistan turunda değişen bir öğün. `tarih` ISO ya da "HAFTA"; eklenen için `eski`, çıkarılan için `yeni` boş. */
+@Serializable
+data class Degisiklik(val tarih: String, val slot: String, val eski: String? = null, val yeni: String? = null)
 
 @Serializable
 data class GecmisMesaj(val kullanici: Boolean, val metin: String)

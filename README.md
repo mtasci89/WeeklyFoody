@@ -180,7 +180,8 @@ haftalık bildirimler, bağlantı kodu).
 
 | Ekran | Ne yapar |
 | --- | --- |
-| Menü + Asistan | Haftanın günleri, öğünler, kişi başı kalori, ✨ yeni yemekler; onay. Asistan menünün altında: beğenmediğin yemekleri seç → "Daha yenilikçi bir şey koy" (tariflere ve internete bakar, kurallara uyar) ya da yaz. Menü kur, değiştir, onayla; kural ve kiler yönet. Fotoğraf eklenebilir: yemek listesi → tarifleri ekler, tarif sayfası → tarifi kaydeder |
+| Asistan (ana ekran) | Tam ekran sohbet: menü kur, değiştir, onayla; kural ve kiler yönet; fotoğraf ekle. Asistan menüyü değiştirince cevabın altında haftanın tablosu ve "Değişenler" kartı çıkar (Menüyü aç / Onayla) |
+| Menü | Haftanın tek bakışta tablosu (gün başına ana + yan), altında haftalık meze listesi; ✨ yeni yemekler. Yemeğe dokun: tarif, asistan yenilikçi bir şey koysun, listeden değiştir, güne ekle, çıkar; mezelere +; onay |
 | Alışveriş | Kategorili liste, alınanları işaretleme, paylaşma |
 | Tarifler | Kütüphane ve adaylar; web'de tarif arama; adayı onaylama/çıkarma; tarif detayı (kişi sayısına göre) |
 | Kurallar | Ev kurallarını ekleme/silme, sistemin neyi denetlediği |

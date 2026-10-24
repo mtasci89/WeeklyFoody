@@ -20,7 +20,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 
-private val ALT_MENU = setOf("menu", "alisveris", "tarifler", "kurallar")
+private val ALT_MENU = setOf("asistan", "menu", "alisveris", "tarifler", "kurallar")
 
 @Composable
 fun Uygulama(vm: AnaViewModel) {
@@ -44,12 +44,22 @@ fun Uygulama(vm: AnaViewModel) {
             }
         },
     ) { ic ->
-        NavHost(nav, startDestination = "menu", modifier = Modifier.fillMaxSize().padding(ic)) {
+        // Asistan ana ekran: menü kurmak ve değiştirmek sohbetle yapılır. Menü sekmesi
+        // haftayı tek bakışta gösterir; küçük düzenlemeler orada elle de yapılabilir.
+        NavHost(nav, startDestination = "asistan", modifier = Modifier.fillMaxSize().padding(ic)) {
+            composable("asistan") {
+                AsistanEkran(
+                    vm,
+                    menuyuAc = { plan -> vm.menuyuGoster(plan); nav.ustDuzey("menu") },
+                    ayarlar = { nav.navigate("ayarlar") },
+                )
+            }
             composable("menu") {
                 MenuEkran(
                     vm,
                     tarifAc = { id -> nav.navigate("tarif/$id") },
                     ayarlar = { nav.navigate("ayarlar") },
+                    asistanaGit = { nav.ustDuzey("asistan") },
                 )
             }
             composable("alisveris") { AlisverisEkran(vm) }

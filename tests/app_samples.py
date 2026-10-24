@@ -28,8 +28,10 @@ class _Reply:
 
 
 class _Agent:
-    def __init__(self, plan_session_id):
+    def __init__(self, plan_session_id, settings=None, session_factory=None):
         self.plan_session_id = plan_session_id
+        self.settings = settings
+        self.session_factory = session_factory
 
         class Store:
             def history(self, chat_id):
@@ -40,8 +42,25 @@ class _Agent:
 
         self.store = Store()
 
-    async def reply(self, chat_id, message, images=None, timeout=None):
+    async def reply(self, chat_id, message, images=None, timeout=None, channel="telegram"):
+        if message == DEGISTIR and self.session_factory is not None:
+            # Gercek araclarla bir degisiklik: uygulama "degisenler" kartini
+            # gercek bir cevapla sinasin.
+            from app.agent.tools import MealAgentToolset
+
+            toolset = MealAgentToolset(self.settings, self.session_factory)
+            tools = {t.name: t for t in toolset.build()}
+            plan = toolset._resolve_session(self.session_factory(), "aktif")
+            tuesday = sorted({i.date for i in plan.meal_plan.items})[1]
+            await tools["ogun_degistir"].call(
+                {"tarih": tuesday.isoformat(), "yeni_tarif": "Izgara Köfte", "gerekce": "ornek",
+                 "ogun_slotu": "dinner_main"}
+            )
+            await tools["ogun_cikar"].call({"tarih": "HAFTA", "tarif_veya_slot": "Çoban Salata"})
         return _Reply(self.plan_session_id)
+
+
+DEGISTIR = "Salı'daki balığı köfte yap, çoban salatayı çıkar"
 
 
 def build_samples(workdir: Path) -> dict[str, object]:
@@ -89,7 +108,7 @@ def build_samples(workdir: Path) -> dict[str, object]:
     HouseRules(Session).add("Kalorilerini de yaz yanına")
     HouseRules(Session).add("Mutfakta az bulaşık çıksın")
 
-    client = TestClient(create_api_app(settings, Session, agent=_Agent(session_id)))
+    client = TestClient(create_api_app(settings, Session, agent=_Agent(session_id, settings, Session)))
     auth = {"Authorization": f"Bearer {TOKEN}"}
     library = client.get("/api/v1/tarifler", headers=auth).json()
     tavuk = next(r for r in library["tarifler"] if r["ad"] == "Fırında Tavuk")
@@ -108,7 +127,7 @@ def build_samples(workdir: Path) -> dict[str, object]:
     }
     # Arka plan isi: baslat, sonra bitene kadar sor (TestClient baglami acik kalmali).
     with client:
-        started = client.post("/api/v1/sohbet/baslat", headers=auth, json={"mesaj": "menü"}).json()
+        started = client.post("/api/v1/sohbet/baslat", headers=auth, json={"mesaj": DEGISTIR}).json()
         samples["is_baslat"] = {**started, "is": "ornek-is"}
         for _ in range(200):
             body = client.get(f"/api/v1/is/{started['is']}", headers=auth).json()
