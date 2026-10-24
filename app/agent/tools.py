@@ -79,6 +79,7 @@ def render_plan(session: WeeklyPlanningSession | None) -> str:
 
     lines.append("")
     lines.extend(nutrition_plan_lines(session, MealRules(show_calories=True), details=False))
+    lines.append(variety_block(session))
     return "\n".join(lines)
 
 
@@ -120,6 +121,72 @@ KNOWN_ROLES = {"main", "meze", "salad", "side", "soup"}
 def selector_matches_role(db: Session, recipe: Recipe, role: str) -> bool:
     """Kategori/rol esleme kuralini tek yerden kullan."""
     return CandidateSelector(db)._matches_course_role(recipe, role)
+
+
+PROTEIN_WORDS = [
+    ("balık", ("balık", "somon", "levrek", "çipura", "hamsi", "uskumru", "palamut", "ton ", "karides", "fish")),
+    ("tavuk", ("tavuk", "hindi", "chicken")),
+    ("kırmızı et", ("dana", "kuzu", "kıyma", "köfte", "bonfile", "biftek", "et sote", "etli", "beef", "lamb", "bulgogi")),
+    ("baklagil", ("nohut", "fasulye", "mercimek", "barbunya", "bakla", "legume")),
+    ("yumurta", ("yumurta", "menemen", "shakshuka", "egg")),
+]
+PROTEIN_TYPES = {"chicken": "tavuk", "fish": "balık", "beef": "kırmızı et", "lamb": "kırmızı et",
+                 "legumes": "baklagil", "egg": "yumurta", "eggs": "yumurta"}
+
+
+def protein_of(recipe) -> str:
+    """Ana yemeğin protein grubu: kayıtlı türden, yoksa adından/malzemesinden."""
+    kind = PROTEIN_TYPES.get((recipe.protein_type or "").casefold())
+    if kind:
+        return kind
+    text = " ".join([recipe.name, *(i.ingredient.name for i in recipe.ingredients)]).casefold()
+    return next((label for label, words in PROTEIN_WORDS if any(w in text for w in words)), "")
+
+
+def variety_notes(session) -> list[str]:
+    """Haftanın çeşitlilik gözlemleri. KURAL DEĞİL: modele düşünmesi için verilir
+    (kullanıcı "kural değil, modelin düşünmesini bekliyorum" dedi)."""
+    if session is None or not session.meal_plan:
+        return []
+    daily = sorted((i for i in session.meal_plan.items if not is_weekly_slot(i.meal_slot)), key=lambda i: (i.date, i.meal_slot))
+    notes: list[str] = []
+    by_recipe: dict[str, list] = {}
+    for item in daily:
+        by_recipe.setdefault(item.recipe_id, []).append(item)
+    for items in by_recipe.values():
+        if len(items) > 1:
+            days = [i.date for i in items]
+            consecutive = any((b - a).days == 1 for a, b in zip(days, days[1:]))
+            names = ", ".join(TR_DAY_NAMES[d.weekday()] for d in days)
+            notes.append(f"{items[0].recipe.name} {len(items)} kez var ({names}){' — arka arkaya' if consecutive else ''}.")
+    mains = [i for i in daily if course_role(i.meal_slot) == "main"]
+    proteins = [(i.date, protein_of(i.recipe)) for i in mains]
+    run: list = []
+    for day, kind in proteins + [(None, None)]:
+        if run and kind == run[-1][1] and day is not None and (day - run[-1][0]).days == 1:
+            run.append((day, kind))
+            continue
+        if len(run) >= 3 and run[0][1]:
+            notes.append(
+                f"Ana yemeklerde {run[0][1]} {len(run)} gün üst üste "
+                f"({TR_DAY_NAMES[run[0][0].weekday()]}–{TR_DAY_NAMES[run[-1][0].weekday()]})."
+            )
+        run = [(day, kind)] if day is not None else []
+    counts = Counter(kind for _, kind in proteins if kind)
+    for kind, count in counts.items():
+        if count >= 4:
+            notes.append(f"{len(mains)} ana yemeğin {count} tanesi {kind}.")
+    return notes
+
+
+def variety_block(session) -> str:
+    notes = variety_notes(session)
+    if not notes:
+        return "\nÇeşitlilik: göze batan tekrar yok."
+    return (
+        "\nÇeşitlilik gözlemleri (kural değil; kullanıcının isteğine göre sen karar ver, gerekirse "
+        "cevap vermeden önce düzelt):\n" + "\n".join(f"- {n}" for n in notes)
+    )
 
 
 def role_for_category(category: str | None) -> str:
@@ -456,6 +523,7 @@ class MealAgentToolset:
                 return (
                     f"Değiştirildi: {tarih} {chosen.meal_slot} "
                     f"{original_name} -> {replacement.name}. Gerekçe kaydedildi."
+                    + variety_block(session)
                 )
 
         @beta_async_tool
@@ -544,7 +612,7 @@ class MealAgentToolset:
                 toolset.touched_session_id = session.id
                 where = "haftanın mezelerine" if weekly else f"{tarih} ({slot})"
                 logger.info("agent_meal_added session_id=%s slot=%s", session.id, slot)
-                return f"Eklendi: {recipe.name} -> {where}.{note}"
+                return f"Eklendi: {recipe.name} -> {where}.{note}" + variety_block(session)
 
         @beta_async_tool
         async def ogun_cikar(
@@ -1181,6 +1249,7 @@ class MealAgentToolset:
                     "menü ve alışveriş listesi gider."
                 )
                 summary.append(render_plan(session))
+                summary.append(variety_block(session))
                 return "\n".join(summary)
 
         @beta_async_tool

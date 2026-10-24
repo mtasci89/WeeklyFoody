@@ -420,6 +420,8 @@ def create_api_app(
         toolset = MealAgentToolset(settings, session_factory, estimator=estimator)
         tool = next(t for t in toolset.build() if t.name == name)
         text = await tool.call(args)
+        # Çeşitlilik gözlemleri modele yöneliktir; uygulamaya kısa sonucu göster.
+        text = text.split("\nÇeşitlilik")[0].strip()
         if toolset.touched_session_id is None:
             raise HTTPException(status_code=422, detail=text)
         with session_factory() as db:

@@ -841,3 +841,35 @@ async def test_image_without_text_gets_a_default_question(db, settings, session_
     await agent.reply(chat_id=1, message="  ", images=[Gorsel("image/jpeg", b"jpg")])
 
     assert client.requests[0]["contents"][-1].parts[-1].text == VARSAYILAN_GORSEL_MESAJI
+
+
+# --- düşünme seviyesi --------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_agent_turns_ask_the_model_to_think_hard(db, settings, session_factory):
+    """Kullanıcı: "kural değil, modelin düşünmesini bekliyorum"."""
+    client = FakeGeminiClient([text_response("tamam")])
+    agent = make_agent(settings, session_factory, client)
+
+    await agent.reply(chat_id=1, message="menüyü çeşitlendir")
+
+    thinking = client.requests[0]["config"].thinking_config
+    assert thinking is not None and thinking.thinking_level == "HIGH"
+
+
+@pytest.mark.asyncio
+async def test_a_model_without_thinking_levels_is_retried_without_it(db, settings, session_factory):
+    unsupported = errors.ClientError(
+        400, {"error": {"code": 400, "status": "INVALID_ARGUMENT", "message": "Thinking level is not supported for this model."}}
+    )
+    client = FakeGeminiClient([unsupported, text_response("tamam"), text_response("yine tamam")])
+    agent = make_agent(settings, session_factory, client)
+
+    first = await agent.reply(chat_id=1, message="a")
+    second = await agent.reply(chat_id=1, message="b")
+
+    assert first.text == "tamam" and second.text == "yine tamam"
+    assert client.requests[0]["config"].thinking_config is not None
+    assert client.requests[1]["config"].thinking_config is None
+    assert client.requests[2]["config"].thinking_config is None  # hatırlandı

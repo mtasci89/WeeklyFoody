@@ -102,6 +102,8 @@ class GeminiBackend:
         self.settings = settings
         # model -> time.monotonic() degeri; o zamana kadar zincirde atlanir.
         self._cooldown_until: dict[str, float] = {}
+        # Düşünme seviyesi ayarını kabul etmeyen modeller (ayarsız istenir).
+        self._no_thinking: set[str] = set()
         self.client = client or genai.Client(
             api_key=settings.gemini_api_key,
             # Ucretsiz katmanin dakikalik siniri dusuk ve bir kullanici mesaji
@@ -158,9 +160,27 @@ class GeminiBackend:
         for index in range(start, len(models)):
             model = models[index]
             try:
-                response = await self.client.aio.models.generate_content(
-                    model=model, contents=contents, config=config
-                )
+                use = config
+                if model in self._no_thinking and getattr(config, "thinking_config", None) is not None:
+                    use = config.model_copy(update={"thinking_config": None})
+                try:
+                    response = await self.client.aio.models.generate_content(
+                        model=model, contents=contents, config=use
+                    )
+                except Exception as error:
+                    # Düşünme seviyesini desteklemeyen model: ayarsız tekrar dene, hatırla.
+                    if (
+                        getattr(error, "code", None) == 400
+                        and "think" in str(error).lower()
+                        and getattr(use, "thinking_config", None) is not None
+                    ):
+                        self._no_thinking.add(model)
+                        logger.warning("agent_thinking_unsupported model=%s", model)
+                        response = await self.client.aio.models.generate_content(
+                            model=model, contents=contents, config=use.model_copy(update={"thinking_config": None})
+                        )
+                    else:
+                        raise
             except Exception as error:
                 if not should_fall_back(error):
                     raise
@@ -206,6 +226,11 @@ class GeminiBackend:
             # fonksiyonlari bekliyor, bizim araclarimiz async nesne.
             automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True),
             max_output_tokens=self.settings.agent_max_tokens,
+            thinking_config=(
+                types.ThinkingConfig(thinking_level=self.settings.gemini_thinking_level.upper())
+                if self.settings.gemini_thinking_level.strip()
+                else None
+            ),
         )
         contents: list[types.Content] = [
             *history_to_contents(history),

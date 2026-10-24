@@ -2,6 +2,19 @@
 
 Son güncelleme: **2026-10-24 — Claude**. Önce [PROJE.md](PROJE.md) dosyasını okuyun.
 
+## Son tamamlanan iş (Claude, 2026-10-25): yasak yerine düşünen model
+
+Kullanıcı tekrar yasağına: "Kural değil, modelin bunu düşünmesini bekliyorum, böylesi çok
+aptalca!" Değişiklik (yalnızca sunucu; uygulama 1.8 aynı):
+- `NO_REPEAT_MEALS` varsayılanı false: araçlar tekrar yüzünden reddetmez.
+- `variety_notes` / `variety_block` (`app/agent/tools.py`): ogun_degistir, ogun_ekle,
+  plan_kaydet ve plani_getir sonucuna "Çeşitlilik gözlemleri (kural değil...)" ekler; uygulamaya
+  giden mesajlardan API keser.
+- İstemde "## Düşünerek seç" bölümü; Gemini isteklerinde `ThinkingConfig(thinking_level=HIGH)`
+  (`GEMINI_THINKING_LEVEL`), 400 "thinking" hatasında o model için ayarsız tekrar ve hatırlama.
+- Kontroller: pytest 370 geçti. **Doğrulanmadı:** düşünme seviyesinin gerçek modelde cevap
+  süresine etkisi (turlar uzayabilir) ve çeşitliliğe gerçek etkisi.
+
 ## Son tamamlanan iş (Claude, 2026-10-25): tekrar yasağı, yepyeni yemek, Telegram'sız onay, PDF (1.8)
 
 Kullanıcı: "Dünyada başka yemek yok mu? 2 gün arka arkaya aynı yemek; yeni tarif diyorum hâlâ

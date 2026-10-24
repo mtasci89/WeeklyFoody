@@ -25,6 +25,10 @@ class Settings(BaseSettings):
     gemini_api_key: str = ""
     # gemini-2.5-flash yeni kullanicilara kapatildi; API bunu oneriyor.
     gemini_model: str = "gemini-3.8-flash"
+    # Modelin cevap vermeden önce ne kadar düşüneceği (minimal/low/medium/high;
+    # boş: modelin varsayılanı). Menü kurmak muhakeme ister; desteklemeyen yedek
+    # model olursa istek düşünme ayarı olmadan tekrarlanır.
+    gemini_thinking_level: str = "high"
     # Ana model mesgul (503), kotasi dolmus (429) ya da kapatilmis (404) ise
     # sirayla denenecek modeller. Ucretsiz katmanda her modelin kotasi ve yuku
     # ayri. Hangilerinin calistigini `python -m app.cli check-agent` gosterir.
@@ -76,9 +80,10 @@ class Settings(BaseSettings):
     # Mezeler günlere bölünmez: haftalık ayrı bir liste olur (bu kadar meze).
     # 0: eski davranış, mezeler her güne dağıtılır. Ev kuralı bunu ezer.
     weekly_meze_count: int = Field(default=4, ge=0, le=10)
-    # Ajan/elle düzenlemede tekrar yasağı: aynı ana yemek haftada bir kez,
-    # hiçbir yemek arka arkaya iki gün. (Küçük kütüphaneli eski testler kapatır.)
-    no_repeat_meals: bool = True
+    # Tekrar YASAĞI (isteğe bağlı, varsayılan kapalı): kullanıcı kural değil
+    # modelin düşünmesini istedi. Kapalıyken araçlar reddetmez; her değişiklikten
+    # sonra modele "çeşitlilik gözlemleri" verilir, kararı model verir.
+    no_repeat_meals: bool = False
     # Menü Telegram'dan GİTMEZ: onay, pazar taslağı ve keşif mesajları yalnızca
     # uygulamada. (Kullanıcı: "Telegram kullanmayacağım, app yaptık.")
     # Bağlantı kodu ve güncelleme bildirimleri bundan etkilenmez.

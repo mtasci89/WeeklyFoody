@@ -310,3 +310,50 @@ async def test_app_button_puts_a_brand_new_dish_without_chat(factory, app_settin
     dish = next(m for m in monday["ogunler"] if m["slot"] == slot)
     assert dish["tarif"] == "Tavuklu Pad Thai" and dish["yeni"] is True
     assert "Tavuklu Pad Thai" in body["mesaj"]
+
+
+# --- yasak değil, düşünmesi için bilgi -----------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_by_default_repeats_are_not_blocked_but_pointed_out(library, settings):
+    """Kullanıcı: "Kural değil, modelin bunu düşünmesini bekliyorum". Varsayılan: reddetme,
+    gözlemi modele ver."""
+    plan(library, week_rows())
+    toolset = MealAgentToolset(settings.model_copy(update={"no_repeat_meals": False}), toolset_for(library, settings)[0].session_factory)
+    tools = {t.name: t for t in toolset.build()}
+
+    out = await tools["ogun_degistir"].call(
+        {"tarih": DAYS[1].isoformat(), "yeni_tarif": "Fırında Tavuk", "gerekce": "x", "ogun_slotu": "dinner_main"}
+    )
+
+    assert "Değiştirildi" in out
+    assert "Çeşitlilik gözlemleri (kural değil" in out
+    assert "Fırında Tavuk 2 kez var (Pazartesi, Salı) — arka arkaya" in out
+
+
+def test_variety_notes_spot_protein_streaks(library, settings):
+    from app.agent.tools import variety_notes
+
+    rows = [(k, "dinner_main", name) for k, name in enumerate(["Fırında Tavuk", "Kuru Fasulye", "Izgara Köfte"])]
+    session = plan(library, rows)
+    assert variety_notes(session) == []
+    RecipeService(library).upsert_recipe(
+        RecipeInput(name="Tavuk Sote", category="main", meal_type="dinner",
+                    ingredients=[IngredientInput(name="tavuk göğsü", quantity=1, unit="adet")])
+    )
+    RecipeService(library).upsert_recipe(
+        RecipeInput(name="Fırında Püreli Tavuk", category="main", meal_type="dinner",
+                    ingredients=[IngredientInput(name="tavuk but", quantity=1, unit="adet")])
+    )
+    other = plan(library, [(0, "dinner_main", "Fırında Tavuk"), (1, "dinner_main", "Tavuk Sote"),
+                           (2, "dinner_main", "Fırında Püreli Tavuk")], week=WEEK + timedelta(days=7))
+    assert variety_notes(other) == ["Ana yemeklerde tavuk 3 gün üst üste (Pazartesi–Çarşamba)."]
+
+
+def test_prompt_asks_the_model_to_think_not_to_obey_a_ban():
+    from app.agent.prompts import SYSTEM_PROMPT
+
+    assert "## Düşünerek seç" in SYSTEM_PROMPT
+    assert "yasak değil" in SYSTEM_PROMPT
+    assert "Tekrar yasağı sistemce denetlenir" not in SYSTEM_PROMPT

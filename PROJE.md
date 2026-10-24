@@ -162,8 +162,12 @@ menü tek bakışta görünsün.
 
 ## Tekrar yasağı, yepyeni yemek, Telegram'sız onay, PDF (2026-10-25, uygulama 1.8)
 
-- `NO_REPEAT_MEALS` (varsayılan açık): ajan ve elle düzenlemede aynı ana yemek haftada bir
-  kez, hiçbir yemek arka arkaya iki gün (hafta geçişi dahil). Otomatik planlayıcıya uygulanmaz.
+- Tekrarlar YASAK DEĞİL (kullanıcı: "kural değil, modelin düşünmesini bekliyorum"):
+  `variety_notes` her değişiklikten sonra araç sonucuna "Çeşitlilik gözlemleri" ekler (aynı
+  yemek iki kez / arka arkaya, aynı protein 3+ gün, 4+ ana yemek aynı protein); istemdeki
+  "Düşünerek seç" bölümü modelden haftayı bütün olarak tartmasını ister. Gemini
+  `GEMINI_THINKING_LEVEL=high` ile çağrılır (desteklemeyen modelde ayarsız tekrar).
+  İsteğe bağlı sert yasak: `NO_REPEAT_MEALS=true` (varsayılan kapalı).
 - `yenisiyle_degistir` (`app/agent/fresh.py`, API `POST /menu/yenisi`): kütüphanede olmayan
   yemeği tarifiyle üretip öğüne koyar; "yeni/farklı/başka" isteklerinde ajan bunu kullanır.
 - `TELEGRAM_MENU_MESSAGES` (varsayılan kapalı): menü, onay ve keşif Telegram'a gitmez; kullanıcı
