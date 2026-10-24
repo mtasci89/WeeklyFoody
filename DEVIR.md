@@ -29,6 +29,11 @@ API (3/3: veri okundu, yanlış pin ve yanlış anahtar reddedildi).
 **Doğrulanmadı:** gerçek telefonda kurulum ve kullanım; Oracle'da 8443'ün dışarıya açık
 olduğu (VCN kuralı kullanıcının işi olabilir); CI'nın GitHub'da ilk koşusu (push sonrası bakılacak).
 
+**Durum (2026-10-24, kullanıcının çıktısıyla doğrulandı):** `./deploy/uygulama-ac.sh` çalıştı:
+anahtar ve sertifika üretildi, firewalld'da 8443 açık, `app_api_started host=0.0.0.0 port=8443`,
+sunucu içinden istek 401 (beklenen). Mac'ten internet üzerinden istek **000 (ulaşılamadı)**:
+Oracle VCN güvenlik listesinde (ya da NSG'de) 8443 giriş kuralı eksik; kullanıcı ekleyecek.
+
 **Sıradaki adım:** kullanıcı Mac'te `git pull` → `./deploy/uygulama-ac.sh`; gerekirse Oracle
 VCN'de 8443 giriş kuralı; GitHub Releases'tan `foody.apk` kur; Telegram `/uygulama` kodunu
 Ayarlar'a yapıştır.
