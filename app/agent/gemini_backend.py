@@ -189,6 +189,7 @@ class GeminiBackend:
         history: list[dict],
         message: str,
         calls_log: list[str],
+        images: list[tuple[str, bytes]] | None = None,
     ) -> tuple[str, str | None]:
         """Bir kullanici mesajini sonuna kadar isler.
 
@@ -208,7 +209,13 @@ class GeminiBackend:
         )
         contents: list[types.Content] = [
             *history_to_contents(history),
-            types.Content(role="user", parts=[types.Part(text=message)]),
+            types.Content(
+                role="user",
+                parts=[
+                    *(types.Part.from_bytes(data=data, mime_type=mime) for mime, data in images or []),
+                    types.Part(text=message),
+                ],
+            ),
         ]
         searches = 0
         last_finish = None

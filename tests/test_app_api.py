@@ -63,7 +63,7 @@ class FakeAgent:
 
         self.store = Store()
 
-    async def reply(self, chat_id, message):
+    async def reply(self, chat_id, message, images=None):
         self.messages.append(message)
         return FakeReply("Tamam, hazırladım.", self.plan_session_id)
 

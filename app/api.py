@@ -11,6 +11,8 @@ imzali sertifika) yayinlanir; uygulama sertifikanin acik anahtarini sabitler
 from __future__ import annotations
 
 import asyncio
+import base64
+import binascii
 import logging
 import secrets
 from collections import defaultdict
@@ -21,6 +23,7 @@ from fastapi import APIRouter, Depends, FastAPI, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from app.agent.rules import HouseRules
+from app.agent.runner import GORSEL_TURLERI, Gorsel
 from app.config import Settings
 from app.db.models import Recipe, RecipeStatus, SessionState, WeeklyPlanningSession
 from app.db.session import SessionLocal
@@ -65,8 +68,15 @@ class RulesIn(BaseModel):
     metin: str = Field(max_length=20000)
 
 
+class ImageIn(BaseModel):
+    mime: str = Field(max_length=40)
+    # base64; telefon gondermeden once kucultur (~1600 px JPEG), 6 MB ust sinir.
+    veri: str = Field(min_length=8, max_length=8_000_000)
+
+
 class ChatIn(BaseModel):
-    mesaj: str = Field(min_length=1, max_length=4000)
+    mesaj: str = Field(default="", max_length=4000)
+    gorseller: list[ImageIn] = Field(default_factory=list, max_length=4)
 
 
 class DiscoverIn(BaseModel):
@@ -209,7 +219,7 @@ def create_api_app(
 
             if not MealPlannerAgent.available(settings):
                 raise HTTPException(status_code=503, detail="Asistan kapalı ya da Gemini anahtarı yok.")
-            state["agent"] = MealPlannerAgent(settings, session_factory)
+            state["agent"] = MealPlannerAgent(settings, session_factory, notifier=notifier)
         return state["agent"]
 
     def resolve(db, hafta: str) -> WeeklyPlanningSession | None:
@@ -230,8 +240,8 @@ def create_api_app(
             raise HTTPException(status_code=404, detail="Tarif bulunamadı.")
         return recipe
 
-    async def agent_answer(message: str) -> dict:
-        reply = await get_agent().reply(chat_id, message)
+    async def agent_answer(message: str, images=None) -> dict:
+        reply = await get_agent().reply(chat_id, message, images=images or None)
         summary = ""
         if reply.plan_session_id:
             with session_factory() as db:
@@ -403,7 +413,17 @@ def create_api_app(
 
     @api.post("/sohbet")
     async def chat(body: ChatIn) -> dict:
-        return await agent_answer(body.mesaj)
+        images = []
+        for image in body.gorseller:
+            if image.mime not in GORSEL_TURLERI:
+                raise HTTPException(status_code=422, detail=f"Desteklenmeyen görsel türü: {image.mime}")
+            try:
+                images.append(Gorsel(image.mime, base64.b64decode(image.veri, validate=True)))
+            except (binascii.Error, ValueError) as error:
+                raise HTTPException(status_code=422, detail="Görsel bozuk geldi, tekrar dene.") from error
+        if not body.mesaj.strip() and not images:
+            raise HTTPException(status_code=422, detail="Boş mesaj gönderilemez.")
+        return await agent_answer(body.mesaj, images)
 
     @api.post("/kesif")
     async def discover(body: DiscoverIn) -> dict:

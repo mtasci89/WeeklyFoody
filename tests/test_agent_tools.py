@@ -378,6 +378,8 @@ def test_every_tool_has_a_described_schema(toolset):
         "kural_ekle",
         "kural_sil",
         "besin_degeri_kaydet",
+        "menuyu_onayla",
+        "kiler",
         "tarif_ekle",
         "aday_tarifler",
         "tarif_onayla",

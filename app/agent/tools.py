@@ -31,7 +31,7 @@ from app.planner.scorer import CandidateScorer
 from app.planner.service import MealPlannerService, allowed_categories_for_role
 from app.agent.rules import HouseRules
 from app.recipes.importer import IngredientInput, RecipeInput
-from app.recipes.service import RecipeService
+from app.recipes.service import RecipeService, normalize_name
 from app.shopping.service import ShoppingListService
 from app.shopping.units import format_shopping_quantity, to_base
 
@@ -134,9 +134,11 @@ class MealAgentToolset:
     isini bu deterministik fonksiyonlar yapar.
     """
 
-    def __init__(self, settings: Settings, session_factory: SessionFactory, estimator=None):
+    def __init__(self, settings: Settings, session_factory: SessionFactory, estimator=None, notifier=None):
         self.settings = settings
         self.session_factory = session_factory
+        # Onaylanan menuyu alicilara gonderen Telegram baglantisi; yoksa yalnizca onaylanir.
+        self.notifier = notifier
         self.rules = HouseRules(session_factory)
         self.calls: list[str] = []
         # Kural kalori istiyorsa eksik degerleri tek istekte tahmin eder
@@ -852,6 +854,64 @@ class MealAgentToolset:
                     return f"'{tarif_adi.strip()}' pasifleştirildi."
                 return f"'{tarif_adi}' bulunamadı."
 
+        @beta_async_tool
+        async def menuyu_onayla() -> str:
+            """Aktif taslak menüyü onaylar; alıcılar tanımlıysa menü ve alışveriş
+            listesi onlara Telegram'dan gönderilir. Onaylanan menü artık
+            değiştirilemez. YALNIZCA kullanıcı bu mesajda açıkça onaylamak
+            istediğini söylediyse çağır ("onayla", "tamam bu olsun, gönder");
+            kendi başına asla çağırma.
+            """
+            toolset.calls.append("menuyu_onayla()")
+            from app.workflow import WeeklyWorkflowService
+
+            with toolset.session_factory() as db:
+                session = toolset._resolve_session(db, "aktif")
+                if session is None or not session.meal_plan or not session.meal_plan.items:
+                    return "Onaylanacak bir menü yok."
+                if session.state in (SessionState.APPROVED, SessionState.PUBLISHED):
+                    return f"{session.week_start} haftasının menüsü zaten onaylı."
+                try:
+                    MealPlannerService(db, toolset.settings).approve(session)
+                except RuleViolation as error:
+                    return f"Onaylanamadı, kurallara uymayan bir şey var: {error}"
+                toolset.touched_session_id = session.id
+                logger.info("agent_menu_approved session_id=%s", session.id)
+                if toolset.notifier is None or not toolset.settings.all_recipient_ids:
+                    return f"{session.week_start} haftasının menüsü onaylandı."
+                try:
+                    await WeeklyWorkflowService(db, toolset.settings, toolset.notifier).publish_final(session)
+                except Exception:
+                    logger.exception("agent_publish_failed session_id=%s", session.id)
+                    return "Menü onaylandı ama alıcılara gönderilemedi; kullanıcıya söyle."
+                return f"{session.week_start} haftasının menüsü onaylandı ve alıcılara Telegram'dan gönderildi."
+
+        @beta_async_tool
+        async def kiler(islem: Literal["goster", "ekle", "cikar"] = "goster", malzemeler: list[str] = []) -> str:
+            """Evde hep bulunan malzemeler (kiler): alışveriş listesine girmezler.
+
+            Args:
+                islem: "goster" listeler, "ekle" ekler, "cikar" çıkarır.
+                malzemeler: Eklenecek ya da çıkarılacak malzeme adları, örn.
+                    ["tuz", "zeytinyağı"].
+            """
+            toolset.calls.append(f"kiler({islem}, {len(malzemeler)})")
+            with toolset.session_factory() as db:
+                names = [n for n in (normalize_name(m) for m in malzemeler) if n]
+                if islem == "ekle":
+                    for name in names:
+                        if db.scalar(select(PantryItem).where(PantryItem.ingredient_name == name)) is None:
+                            db.add(PantryItem(ingredient_name=name))
+                    db.commit()
+                elif islem == "cikar":
+                    for name in names:
+                        item = db.scalar(select(PantryItem).where(PantryItem.ingredient_name == name))
+                        if item is not None:
+                            db.delete(item)
+                    db.commit()
+                current = [p.ingredient_name for p in db.scalars(select(PantryItem).order_by(PantryItem.ingredient_name))]
+                return ("Kilerde: " + ", ".join(current)) if current else "Kiler boş."
+
         return [
             plan_hazirla,
             plan_kaydet,
@@ -869,4 +929,6 @@ class MealAgentToolset:
             aday_tarifler,
             tarif_onayla,
             tarif_cikar,
+            menuyu_onayla,
+            kiler,
         ]

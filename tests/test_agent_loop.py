@@ -250,6 +250,8 @@ async def test_all_tools_are_offered_to_the_model(db, settings, session_factory)
         "kural_ekle",
         "kural_sil",
         "besin_degeri_kaydet",
+        "menuyu_onayla",
+        "kiler",
         "tarif_ekle",
         "aday_tarifler",
         "tarif_onayla",
@@ -493,3 +495,22 @@ async def test_failures_tell_the_user_what_went_wrong(db, settings, session_fact
         assert needle in explain_failure(error), f"{cls.__name__} -> {explain_failure(error)}"
 
     assert "RuntimeError" in explain_failure(RuntimeError("beklenmedik"))
+
+
+@pytest.mark.asyncio
+async def test_images_go_to_claude_as_base64_blocks(db, settings, session_factory):
+    import base64
+
+    from app.agent.runner import Gorsel
+
+    client = FakeClient()
+    agent = make_agent(settings, session_factory, client)
+
+    await agent.reply(chat_id=1, message="bunları ekle", images=[Gorsel("image/jpeg", b"abc")])
+
+    content = client.last["messages"][-1]["content"]
+    assert content[0] == {
+        "type": "image",
+        "source": {"type": "base64", "media_type": "image/jpeg", "data": base64.b64encode(b"abc").decode()},
+    }
+    assert content[-1] == {"type": "text", "text": "bunları ekle"}

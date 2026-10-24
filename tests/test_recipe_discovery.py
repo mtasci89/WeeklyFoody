@@ -124,7 +124,7 @@ class _FakeAgent:
     def available(cls, settings):
         return True
 
-    async def reply(self, chat_id, message):
+    async def reply(self, chat_id, message, images=None):
         self.prompts.append(message)
         return _FakeAgentReply(f"eklendi #{len(self.prompts)}")
 

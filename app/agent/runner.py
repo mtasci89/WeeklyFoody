@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import base64
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -64,6 +65,18 @@ def explain_failure(error: Exception) -> str:
 
 
 @dataclass
+class Gorsel:
+    """Mesaja eklenen bir görsel (fotoğraf, ekran görüntüsü)."""
+
+    mime: str
+    data: bytes
+
+
+GORSEL_TURLERI = {"image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"}
+VARSAYILAN_GORSEL_MESAJI = "Bu görsele bak ve ne yapabileceğini söyle."
+
+
+@dataclass
 class AgentReply:
     text: str
     tool_calls: list[str] = field(default_factory=list)
@@ -89,9 +102,11 @@ class MealPlannerAgent:
         session_factory: SessionFactory,
         client=None,
         store: ConversationStore | None = None,
+        notifier=None,
     ):
         self.settings = settings
         self.session_factory = session_factory
+        self.notifier = notifier
         self.provider = settings.agent_provider
         self.store = store or ConversationStore(max_turns=settings.agent_history_turns)
         if self.provider == "gemini":
@@ -187,12 +202,19 @@ class MealPlannerAgent:
             {"type": "text", "text": self._context(toolset)},
         ]
 
-    async def reply(self, chat_id: int, message: str) -> AgentReply:
-        logger.info("agent_turn_started chat_id=%s provider=%s model=%s", chat_id, self.provider, self.model)
-        toolset = MealAgentToolset(self.settings, self.session_factory, estimator=self.estimator())
+    async def reply(self, chat_id: int, message: str, images: list[Gorsel] | None = None) -> AgentReply:
+        images = list(images or [])
+        message = message.strip() or (VARSAYILAN_GORSEL_MESAJI if images else message)
+        logger.info(
+            "agent_turn_started chat_id=%s provider=%s model=%s images=%s",
+            chat_id, self.provider, self.model, len(images),
+        )
+        toolset = MealAgentToolset(
+            self.settings, self.session_factory, estimator=self.estimator(), notifier=self.notifier
+        )
         try:
             return await asyncio.wait_for(
-                self._reply(chat_id, message, toolset),
+                self._reply(chat_id, message, toolset, images),
                 timeout=self.settings.agent_turn_timeout_seconds,
             )
         except asyncio.TimeoutError:
@@ -210,11 +232,23 @@ class MealPlannerAgent:
                 ok=False,
             )
 
-    async def _reply(self, chat_id: int, message: str, toolset: MealAgentToolset) -> AgentReply:
+    async def _reply(
+        self, chat_id: int, message: str, toolset: MealAgentToolset, images: list[Gorsel]
+    ) -> AgentReply:
         history = self.store.history(chat_id)
         if self.provider == "gemini":
-            return await self._reply_gemini(chat_id, message, toolset, history)
-        messages: list = [*history, {"role": "user", "content": message}]
+            return await self._reply_gemini(chat_id, message, toolset, history, images)
+        content: str | list = message
+        if images:
+            content = [
+                *(
+                    {"type": "image", "source": {"type": "base64", "media_type": g.mime,
+                                                 "data": base64.b64encode(g.data).decode()}}
+                    for g in images
+                ),
+                {"type": "text", "text": message},
+            ]
+        messages: list = [*history, {"role": "user", "content": content}]
         system = self._system(toolset)
         tools = self._tools(toolset)
         betas = self._betas()
@@ -261,17 +295,18 @@ class MealPlannerAgent:
                 ok=False,
             )
 
-        return self._finish(chat_id, message, text, toolset, getattr(final, "stop_reason", None))
+        return self._finish(chat_id, message, text, toolset, getattr(final, "stop_reason", None), len(images))
 
     async def _reply_gemini(
-        self, chat_id: int, message: str, toolset: MealAgentToolset, history: list[dict]
+        self, chat_id: int, message: str, toolset: MealAgentToolset, history: list[dict], images: list[Gorsel]
     ) -> AgentReply:
         from app.agent.prompts import for_provider
 
         system_text = for_provider(SYSTEM_PROMPT, "gemini") + "\n\n" + self._context(toolset)
         try:
             text, problem = await self.gemini.run_turn(
-                system_text, toolset.build(), history, message, toolset.calls
+                system_text, toolset.build(), history, message, toolset.calls,
+                images=[(g.mime, g.data) for g in images],
             )
         except Exception as error:
             logger.exception("agent_turn_failed chat_id=%s", chat_id)
@@ -280,10 +315,10 @@ class MealPlannerAgent:
                 tool_calls=toolset.calls,
                 ok=False,
             )
-        return self._finish(chat_id, message, text, toolset, problem)
+        return self._finish(chat_id, message, text, toolset, problem, len(images))
 
     def _finish(
-        self, chat_id: int, message: str, text: str, toolset: MealAgentToolset, stop: object
+        self, chat_id: int, message: str, text: str, toolset: MealAgentToolset, stop: object, image_count: int = 0
     ) -> AgentReply:
         if not text:
             logger.warning(
@@ -295,7 +330,10 @@ class MealPlannerAgent:
                 ok=False,
             )
 
-        self.store.record(chat_id, "user", message)
+        # Gorseller gecmise yazilmaz (buyuk ve tekrar gonderilmesi gereksiz);
+        # sonraki mesajlarda "o listedeki" diye donulebilsin diye notu kalir.
+        note = f" [{image_count} görsel eklenmişti]" if image_count else ""
+        self.store.record(chat_id, "user", message + note)
         self.store.record(chat_id, "assistant", text)
         logger.info("agent_turn chat_id=%s tool_calls=%s", chat_id, len(toolset.calls))
         if toolset.calls:

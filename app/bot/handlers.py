@@ -49,7 +49,10 @@ class TelegramHandlers:
         self.security = TelegramSecurity(settings)
         self.router = NaturalLanguageRouter(settings)
         self.notifier = _TelegramBotNotifier(bot)
-        self.agent = MealPlannerAgent(settings, SessionLocal) if MealPlannerAgent.available(settings) else None
+        self.agent = (
+            MealPlannerAgent(settings, SessionLocal, notifier=self.notifier)
+            if MealPlannerAgent.available(settings) else None
+        )
         if self.agent:
             logger.info("agent_enabled provider=%s model=%s", settings.agent_provider, self.agent.model)
         else:
@@ -528,7 +531,28 @@ class TelegramHandlers:
             except Exception:
                 logger.exception("admin_error_notify_failed")
 
-    async def _agent_turn(self, update: Update, message: str) -> None:
+    async def photo(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        """Fotoğraf ya da görsel dosyası: asistana açıklamasıyla birlikte gider."""
+        if not self.security.require_admin(update.effective_user.id if update.effective_user else None):
+            await update.effective_message.reply_text("Bu bot yalnızca admin tarafından kullanılabilir.")
+            return
+        if self.agent is None:
+            await update.effective_message.reply_text("Görselleri okuyabilmem için asistanın açık olması gerekiyor.")
+            return
+        from app.agent.runner import GORSEL_TURLERI, Gorsel
+
+        message = update.effective_message
+        if message.photo:
+            source, mime = message.photo[-1], "image/jpeg"  # en büyük boyut
+        elif message.document and (message.document.mime_type or "") in GORSEL_TURLERI:
+            source, mime = message.document, message.document.mime_type
+        else:
+            await message.reply_text("Bu dosya türünü okuyamıyorum; fotoğraf olarak gönder.")
+            return
+        data = bytes(await (await source.get_file()).download_as_bytearray())
+        await self._agent_turn(update, message.caption or "", images=[Gorsel(mime, data)])
+
+    async def _agent_turn(self, update: Update, message: str, images=None) -> None:
         chat = update.effective_chat
         chat_id = chat.id if chat else (update.effective_user.id if update.effective_user else 0)
         # Telegram "yazıyor..." gostergesini 5 saniye sonra kaldiriyor; bir plan
@@ -536,7 +560,7 @@ class TelegramHandlers:
         # kullanici botun calistigini gorsun.
         typing = asyncio.create_task(self._keep_typing(chat_id))
         try:
-            reply = await self.agent.reply(chat_id, message)
+            reply = await self.agent.reply(chat_id, message, images=images)
         finally:
             typing.cancel()
         text = reply.text

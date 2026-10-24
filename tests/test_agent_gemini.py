@@ -226,7 +226,7 @@ async def test_request_declares_every_tool_with_its_json_schema(db, settings, se
     assert set(decls) == {
         "plan_hazirla", "plan_kaydet", "plani_getir", "tarif_ara", "tarif_detay", "ogun_degistir",
         "alisveris_listesi", "gecmis_getir", "kurallari_goster", "kural_ekle", "kural_sil",
-        "besin_degeri_kaydet", "tarif_ekle", "aday_tarifler",
+        "besin_degeri_kaydet", "menuyu_onayla", "kiler", "tarif_ekle", "aday_tarifler",
         "tarif_onayla", "tarif_cikar", WEB_TOOL_NAME,
     }
     # Araclarin urettigi JSON Schema oldugu gibi gidiyor
@@ -542,7 +542,7 @@ async def test_typing_indicator_stays_on_for_the_whole_turn(settings):
             actions.append(chat_id)
 
     class SlowAgent:
-        async def reply(self, chat_id, message):
+        async def reply(self, chat_id, message, images=None):
             await asyncio.sleep(9)  # 4 sn araliklarla en az 3 gosterge
             return AgentReply(text="Menü hazır.")
 
@@ -771,3 +771,36 @@ def test_default_fallbacks_exclude_the_retired_model(settings):
     """check-agent tablosu: gemini-2.5-flash-lite 404 donuyor."""
     assert "gemini-2.5-flash-lite" not in settings.gemini_fallback_models
     assert settings.gemini_fallback_models == ["gemini-3.5-flash-lite", "gemini-3.1-flash-lite"]
+
+
+# --- gorseller ------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_images_are_sent_to_gemini_before_the_text(db, settings, session_factory):
+    from app.agent.runner import Gorsel
+
+    client = FakeGeminiClient([text_response("3 yemek gördüm.")])
+    agent = make_agent(settings, session_factory, client)
+
+    reply = await agent.reply(chat_id=1, message="bunları ekle", images=[Gorsel("image/png", b"\x89PNGabc")])
+
+    assert reply.ok
+    parts = client.requests[0]["contents"][-1].parts
+    assert parts[0].inline_data.mime_type == "image/png"
+    assert parts[0].inline_data.data == b"\x89PNGabc"
+    assert parts[-1].text == "bunları ekle"
+    # Gecmise gorselin kendisi degil notu yazilir
+    assert agent.store.history(1)[0]["content"] == "bunları ekle [1 görsel eklenmişti]"
+
+
+@pytest.mark.asyncio
+async def test_image_without_text_gets_a_default_question(db, settings, session_factory):
+    from app.agent.runner import VARSAYILAN_GORSEL_MESAJI, Gorsel
+
+    client = FakeGeminiClient([text_response("Bir yemek listesi.")])
+    agent = make_agent(settings, session_factory, client)
+
+    await agent.reply(chat_id=1, message="  ", images=[Gorsel("image/jpeg", b"jpg")])
+
+    assert client.requests[0]["contents"][-1].parts[-1].text == VARSAYILAN_GORSEL_MESAJI
