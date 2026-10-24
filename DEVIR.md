@@ -1,6 +1,36 @@
 # WeeklyFoody — devir notu
 
-Son güncelleme: **2026-10-15 — Claude**. Önce [PROJE.md](PROJE.md) dosyasını okuyun.
+Son güncelleme: **2026-10-24 — Claude**. Önce [PROJE.md](PROJE.md) dosyasını okuyun.
+
+## Son tamamlanan iş (Claude, 2026-10-24): haftalık yeni yemekler + asistan menünün içinde
+
+Kullanıcı: "Asistanla da olsa tarif listesinden dışarı çıkmıyor, her hafta sıradışı şeyler
+de eklesin; menü ayrı sekme olunca güzel olmadı, asistan menüye gömülü olsun." Ardından:
+"Haftalık menü otomatik gelsin; x, y, z olmamış daha yenilikçi şeyler ekle deyince tariflere
+de internetteki sıradışı tariflere de bakıp öneride bulunsun, kuralları baz alsın."
+
+- **Sunucu:** adaylar menüye "yeni yemek" olarak girebilir (`plan_kaydet`, `ogun_degistir`;
+  pasifler hâlâ giremez). `WEEKLY_NEW_DISHES=2` + ev kuralı ("her hafta 3 sıradışı yemek
+  olsun" / "yeni yemek ekleme"). Pazar otomatik planı denenmemiş adayları yerleştirir
+  (`app/planner/novelty.py`), yine eksikse ajan internetten bulup ekler. İstemde "bunlar
+  olmamış, daha yenilikçi koy" akışı (kütüphane + zorunlu web araması + kurallar). Menü
+  JSON'unda `yeni`, Telegram'da "✨ yeni". Ayrıntı: PROJE.md > Haftalık yeni yemekler.
+- **Uygulama 1.4 (versionCode 5):** alt menü 4 sekme (Menü, Alışveriş, Tarifler, Kurallar);
+  asistan Menü ekranının altında (`ui/Asistan.kt`: panel, seçim çubuğu, yazı alanı). Öğüne
+  dokununca seçilir → "Daha yenilikçi bir şey koy" / "Listeden seç" / yaz; giden mesaj seçili
+  yemekleri tarih+slotla taşır (`seciliMesaj`). Tarif kitabı simgesi tarifi açar.
+- **Değişen dosyalar:** app/agent/{prompts,tools}.py, app/memory/rules.py, app/config.py,
+  app/planner/{novelty,service}.py, app/scheduler/weekly.py, app/api.py, app/formatting.py,
+  tests/test_new_dishes.py (yeni), tests/test_agent_tools.py, Android ui/* + Modeller.kt +
+  testler + örnek JSON'lar, belgeler.
+- **Kontroller:** `pytest -q` → 326 geçti. Android `testDebugUnitTest` geçti (EkranTest 12,
+  MetinTest 4, ModelTest 8…), `assembleRelease` başarılı. Ekran görüntüsü Robolectric'te
+  çizilip gözle kontrol edildi (menü + asistan paneli, seçim çubuğu).
+- **Doğrulanmadı:** gerçek Gemini'nin "daha yenilikçi" isteğinde gerçekten web araması
+  yapıp kurala uygun yemek koyması; pazar işinde ajan yedeğinin gerçek süresi.
+- **Sıradaki adım:** kullanıcı sunucuyu güncellesin (telefondan `/guncelle` ya da uygulamada
+  Ayarlar → Sunucuyu güncelle; bu özellik henüz kurulmadıysa bir kez bilgisayardan
+  `./deploy/sunucu-guncelle.sh`), 1.4 APK'yı kursun, bir taslakta yemek seçip denesin.
 
 ## Son tamamlanan iş (Claude, 2026-10-24): sunucuyu telefondan güncelleme
 

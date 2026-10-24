@@ -24,6 +24,41 @@ FOOD_GROUPS = {
 }
 
 
+_NUMBER_WORDS = [('bir', 1), ('iki', 2), ('uc', 3), ('dort', 4), ('bes', 5), ('alti', 6), ('yedi', 7)]
+_NEW_WORDS = r'(?:yeni|siradisi|degisik|denenmemis|ilginc|farkli)'
+
+
+def parse_new_dishes(text: str) -> int | None:
+    """"her hafta 2 sıradışı yemek olsun" -> 2, "yeni yemek ekleme" -> 0.
+
+    `text` normalize edilmiş olmalı. "farkli" yalnızca hafta bağlamında sayılır;
+    yoksa "öğünde 2 farklı yemek" kuralıyla karışır.
+    """
+    for word, number in _NUMBER_WORDS:
+        text = re.sub(r'\b' + word + r'\b', str(number), text)
+    off = re.fullmatch(
+        r'(?:(?:her hafta|haftada|haftalik menuye?)\s+)?' + _NEW_WORDS
+        + r'\s+(?:yemek|tarif)(?:ler)?(?:i|e)?\s+(?:olmasin|ekleme|eklenmesin|koyma|istemiyorum|onerme)',
+        text,
+    )
+    if off:
+        return 0
+    match = re.fullmatch(
+        r'(?P<week>(?:her hafta|haftada|her haftaki menude|haftalik menude|haftalik menuye)\s+)?'
+        r'(?:(?:menuye|menude)\s+)?(?:en az\s+)?(?P<n>\d+)\s+(?:tane\s+)?'
+        r'(?P<adj>' + _NEW_WORDS + r')(?:\s+(?:ve|ya da|veya)\s+' + _NEW_WORDS + r')?'
+        r'\s+(?:yemek|tarif)(?:ler)?'
+        r'(?:\s+(?:olsun|ekle|eklensin|koy|konsun|dene|denensin|gelsin|oner|onersin))?',
+        text,
+    )
+    if not match or (match['adj'] == 'farkli' and not match['week']):
+        return None
+    value = int(match['n'])
+    if not 0 <= value <= 7:
+        raise RuleViolation('Haftalık yeni yemek sayısı 0 ile 7 arasında olmalı.')
+    return value
+
+
 class RuleViolation(ValueError):
     pass
 
@@ -35,6 +70,9 @@ class MealRules:
     max_kcal: float | None = None
     show_calories: bool = False
     protein_priority: bool = False
+    # Her hafta menüye girecek, kütüphanede olmayan yeni yemek sayısı.
+    # None: kural yok, ayardaki varsayılan (WEEKLY_NEW_DISHES) geçerli.
+    new_dishes: int | None = None
     advisory: list[str] = field(default_factory=list)
 
     @classmethod
@@ -50,6 +88,10 @@ class MealRules:
         caps = []
         for rule, strict in [(r, True) for r in hard] + [(r, False) for r in soft]:
             text = normalize(rule).strip(' .!').replace('kalroi', 'kalori')
+            novelty = parse_new_dishes(text)
+            if novelty is not None:
+                result.new_dishes = novelty
+                continue
             if re.fullmatch(r'(?:bundan sonra |artik |asla )*(.+?)\s+(?:kullanma|onerme|olmasin|yasak|yeme)', text):
                 food = re.fullmatch(r'(?:bundan sonra |artik |asla )*(.+?)\s+(?:kullanma|onerme|olmasin|yasak|yeme)', text)[1].strip()
                 if strict:
@@ -102,6 +144,10 @@ class MealRules:
         result.max_kcal = min(caps) if caps else None
         return result
 
+    def new_dish_target(self, settings) -> int:
+        """Bu hafta menüye girecek yeni yemek sayısı: ev kuralı yoksa ayar."""
+        return self.new_dishes if self.new_dishes is not None else settings.weekly_new_dishes
+
     def excludes(self, recipe) -> bool:
         text = normalize(' '.join([recipe.name, recipe.protein_type or '', *(recipe.aliases or []), *(recipe.tags or []), *(i.ingredient.name for i in recipe.ingredients)]))
         return any(re.search(r'(?<!\w)' + re.escape(term) + r'(?:li|lu|i|u|a|e|in|un)?(?!\w)', text) for term in self.excluded)
@@ -124,6 +170,10 @@ class MealRules:
             lines.append(f'Kişi başı öğün toplamı en fazla {self.max_kcal:g} kcal; kalori verisi eksikse plan kaydedilmez.')
         if self.show_calories:
             lines.append('Menüde kişi başı kalori gösterilir; eksik değerler belirtilir.')
+        if self.new_dishes:
+            lines.append(f'Her hafta menüde en az {self.new_dishes} yeni (kütüphanede olmayan) yemek olur.')
+        elif self.new_dishes == 0:
+            lines.append('Haftalık menüye yeni yemek eklenmez; yalnızca kütüphaneden seçilir.')
         if self.protein_priority:
             lines.append('Protein önceliği: kayıtlı protein miktarı seçim puanını artırır; eksikse yalnızca protein kaynağı türü kullanılır.')
         lines += [f'Yalnızca ajana iletilir, otomatik denetim yok: {r}' for r in self.advisory]

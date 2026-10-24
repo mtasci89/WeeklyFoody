@@ -94,6 +94,9 @@ async def weekly_plan_job(**_legacy: object) -> None:
 
             await fill_for_rules(db, settings, RecipeService(db).list_recipes(), library=True)
             session = await MealPlannerService(db, settings).create_or_get_weekly_session()
+            if await _agent_new_dishes(settings, session):
+                db.expire_all()
+                session = MealPlannerService(db, settings).current_session(session.week_start)
             if session.meal_plan:
                 await fill_for_rules(db, settings, [i.recipe for i in session.meal_plan.items])
             if _CURRENT_BOT and settings.admin_telegram_user_id:
@@ -112,6 +115,34 @@ async def weekly_plan_job(**_legacy: object) -> None:
         from app.memory.rules import RuleViolation
         detail = str(error) if isinstance(error, RuleViolation) else "Bu haftanın menüsünü hazırlarken bir hata oldu ve taslak oluşmadı."
         await _notify_admin(settings, detail + " /preferences ile kuralları kontrol edip /regenerate ile tekrar deneyebilirsin.")
+
+
+async def _agent_new_dishes(settings: Settings, session) -> bool:
+    """Taslakta hedeflenen kadar yeni yemek yoksa (cumartesi keşfi aday
+    bulamadıysa) ajan internete bakıp ekler. Hata taslağı bozmaz."""
+    from app.agent.runner import MealPlannerAgent
+    from app.memory.rules import MealRules
+    from app.planner.novelty import is_new
+
+    if not session.meal_plan or not MealPlannerAgent.available(settings):
+        return False
+    with SessionLocal() as db:
+        target = MealRules.from_db(db).new_dish_target(settings)
+    missing = target - sum(1 for item in session.meal_plan.items if is_new(item.recipe))
+    if missing <= 0:
+        return False
+    from app.agent.prompts import weekly_novelty_prompt
+
+    agent = MealPlannerAgent(settings, SessionLocal)
+    try:
+        reply = await agent.reply(settings.admin_telegram_user_id, weekly_novelty_prompt(session.week_start, missing))
+        logger.info("weekly_new_dishes_agent ok=%s", reply.ok)
+        return True
+    except Exception:
+        logger.exception("weekly_new_dishes_agent_failed")
+        return False
+    finally:
+        await agent.aclose()
 
 
 async def weekly_recipe_discovery_job(**_legacy: object) -> None:
@@ -139,8 +170,8 @@ async def weekly_recipe_discovery_job(**_legacy: object) -> None:
             await _CURRENT_BOT.send_message(
                 chat_id=settings.admin_telegram_user_id,
                 text=(
-                    "🧪 Bu hafta yeni tarif adayları buldum. Bunlar menülere otomatik girmez; "
-                    "beğendiklerini `/approverecipe Tarif Adı` ile onaylayabilirsin.\n\n"
+                    "🧪 Bu hafta yeni tarif adayları buldum. Bazıları haftalık menüye \"yeni\" olarak "
+                    "girecek; beğendiklerini `/approverecipe Tarif Adı` ile kalıcı listeye alabilirsin.\n\n"
                     f"{format_candidate_recipes(candidates)}"
                 ),
                 parse_mode="Markdown",
@@ -170,8 +201,8 @@ async def _agent_discovery(settings: Settings) -> None:
     if _CURRENT_BOT and admin:
         text = (
             "🧪 Haftalık tarif keşfi: internette yeni tarifler aradım. Bulduklarım aday "
-            "olarak bekliyor, sen onaylamadan menüye girmez. /candidates ile hepsini "
-            "görebilir, \"şunu onayla\" diye yazabilirsin.\n\n" + "\n\n".join(replies)
+            "olarak bekliyor; bazıları yarınki menüye \"yeni\" olarak girecek. /candidates ile "
+            "hepsini görebilir, beğendiğin için \"şunu onayla\" diye yazabilirsin.\n\n" + "\n\n".join(replies)
         )
         for chunk in split_for_telegram(text):
             await _CURRENT_BOT.send_message(chat_id=admin, text=chunk)

@@ -497,7 +497,7 @@ async def test_candidate_lifecycle_through_tools(db, toolset):
 
     listed = await call(toolset, "aday_tarifler")
     assert "Fellah Köftesi" in listed
-    assert "menülere girmezler" in listed
+    assert "'yeni' olarak" in listed
 
     approved = await call(toolset, "tarif_onayla", tarif_adi="Fellah Köftesi")
     assert "onaylandı" in approved
@@ -592,20 +592,89 @@ async def test_plan_kaydet_writes_a_whole_week(db, settings, toolset):
 
 
 @pytest.mark.asyncio
-async def test_plan_kaydet_rejects_unknown_and_candidate_recipes(db, settings, toolset):
-    RecipeService(db).upsert_recipe(
-        RecipeInput(name="Aday Yemek", category="main", status="candidate",
-                    ingredients=[IngredientInput(name="x", quantity=1, unit="adet")])
-    )
+async def test_plan_kaydet_rejects_unknown_recipes(db, settings, toolset):
     lines = full_week(db, settings, WEEK)
     lines[0] = lines[0].rsplit("|", 1)[0] + "|Olmayan Yemek"
-    lines[1] = lines[1].rsplit("|", 1)[0] + "|Aday Yemek"
 
     out = await call(toolset, "plan_kaydet", ogunler=lines)
 
     assert "Olmayan Yemek" in out and "kütüphanede yok" in out
-    assert "aday durumda" in out
+    assert "tarif_ekle" in out
     assert MealPlannerService(db, settings).current_session(WEEK) is None
+
+
+@pytest.mark.asyncio
+async def test_plan_kaydet_puts_new_candidate_dishes_on_the_menu(db, settings, toolset):
+    """Kullanıcı: "tarif listesinden dışarı çıkmıyor, her hafta sıradışı şeyler de olsun"."""
+    added = await call(
+        toolset, "tarif_ekle", ad="Shakshuka", kategori="main",
+        malzemeler=["6 adet yumurta", "4 adet domates"], kaynak="ajan önerisi",
+    )
+    assert "menüye koyabilirsin" in added
+    lines = full_week(db, settings, WEEK)
+    main = next(i for i, line in enumerate(lines) if "dinner_main" in line)
+    lines[main] = lines[main].rsplit("|", 1)[0] + "|Shakshuka"
+
+    out = await call(toolset, "plan_kaydet", ogunler=lines)
+
+    assert "kaydedildi" in out
+    assert "Yeni yemekler" in out and "Shakshuka" in out
+    assert "UYARI: Bu hafta 2 yeni yemek hedefleniyor, planda 1 var" in out
+    assert "[YENİ" in out
+    session = MealPlannerService(db, settings).current_session(WEEK)
+    names = {i.recipe.name for i in session.meal_plan.items}
+    assert "Shakshuka" in names
+    # Menüye girmesi onu kalıcı listeye almaz; aile beğenince onaylanır.
+    assert RecipeService(db).find_recipe("Shakshuka").status == RecipeStatus.CANDIDATE
+
+
+@pytest.mark.asyncio
+async def test_plan_kaydet_still_rejects_disabled_recipes(db, settings, toolset):
+    await call(toolset, "tarif_ekle", ad="Eski Yemek", kategori="main", malzemeler=["1 adet x"])
+    await call(toolset, "tarif_cikar", tarif_adi="Eski Yemek")
+    lines = full_week(db, settings, WEEK)
+    main = next(i for i, line in enumerate(lines) if "dinner_main" in line)
+    lines[main] = lines[main].rsplit("|", 1)[0] + "|Eski Yemek"
+
+    out = await call(toolset, "plan_kaydet", ogunler=lines)
+
+    assert "Plan kaydedilmedi" in out
+    assert MealPlannerService(db, settings).current_session(WEEK) is None
+
+
+@pytest.mark.asyncio
+async def test_plan_hazirla_asks_for_new_dishes_and_lists_untried_candidates(toolset):
+    await call(toolset, "tarif_ekle", ad="Kimchi Pilav", kategori="side", malzemeler=["2 su bardağı pirinç"])
+
+    out = await call(toolset, "plan_hazirla")
+
+    assert "en az 2 yeni yemek" in out
+    assert "Denenmemiş aday tarifler" in out and "Kimchi Pilav" in out
+
+
+@pytest.mark.asyncio
+async def test_house_rule_sets_the_weekly_new_dish_count(db, toolset):
+    await call(toolset, "kural_ekle", kural="Her hafta 3 sıradışı yemek olsun")
+    assert "en az 3 yeni yemek" in await call(toolset, "plan_hazirla")
+
+    await call(toolset, "kural_sil", ifade="sıradışı")
+    await call(toolset, "kural_ekle", kural="Yeni yemek ekleme")
+    assert "YENİ YEMEKLER" not in await call(toolset, "plan_hazirla")
+
+
+@pytest.mark.asyncio
+async def test_ogun_degistir_accepts_a_new_candidate_dish(db, settings, toolset):
+    session = await MealPlannerService(db, settings).create_or_get_weekly_session(WEEK)
+    target = next(i for i in session.meal_plan.items if i.date == WEEK and i.recipe.category == "main")
+    await call(toolset, "tarif_ekle", ad="Mantarlı Risotto", kategori="main", malzemeler=["300 gr pirinç"])
+
+    out = await call(
+        toolset, "ogun_degistir", tarih=WEEK.isoformat(), yeni_tarif="Mantarlı Risotto",
+        gerekce="Farklı bir şey denemek istediler", ogun_slotu=target.meal_slot,
+    )
+
+    assert "Değiştirildi" in out
+    assert "Mantarlı Risotto" in {i.recipe.name for i in session.meal_plan.items}
 
 
 @pytest.mark.asyncio

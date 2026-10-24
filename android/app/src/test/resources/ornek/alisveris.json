@@ -10,14 +10,14 @@
           "metin": "1 kg balık"
         },
         {
-          "anahtar": "kıyma|g",
-          "ad": "kıyma",
-          "metin": "600 g kıyma"
-        },
-        {
           "anahtar": "tavuk|g",
           "ad": "tavuk",
           "metin": "2 kg tavuk"
+        },
+        {
+          "anahtar": "tavuk göğsü|g",
+          "ad": "tavuk göğsü",
+          "metin": "600 g tavuk göğsü"
         }
       ]
     },
@@ -62,7 +62,7 @@
         {
           "anahtar": "soğan|adet",
           "ad": "soğan",
-          "metin": "4 adet soğan"
+          "metin": "3 adet soğan"
         }
       ]
     },

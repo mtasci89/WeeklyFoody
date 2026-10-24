@@ -65,6 +65,8 @@ data class Ogun(
     val kategori: String = "",
     val porsiyon: Int? = null,
     val degisti: Boolean = false,
+    /** Kütüphanede olmayan, bu hafta denenecek yeni yemek (aday tarif). */
+    val yeni: Boolean = false,
     val kcal: Int? = null,
     val protein: Int? = null,
     val tahmini: Boolean? = null,

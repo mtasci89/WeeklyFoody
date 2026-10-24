@@ -49,7 +49,8 @@ def format_meal_plan(session: WeeklyPlanningSession, final: bool = False) -> str
             servings = f" ({item.servings} kişi)" if item.servings else ""
             label = course_label(item.meal_slot)
             nutrition = f" — {nutrition_text(item.recipe)}" if rules.show_calories else ""
-            lines.append(f"• {label}: {item.recipe.name}{servings}{nutrition}")
+            new = " ✨ yeni" if item.recipe.status.value == "candidate" else ""
+            lines.append(f"• {label}: {item.recipe.name}{new}{servings}{nutrition}")
         lines.append("")
     lines.extend(nutrition_plan_lines(session, rules, details=False))
     return "\n".join(lines).strip()

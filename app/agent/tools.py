@@ -60,6 +60,8 @@ def render_plan(session: WeeklyPlanningSession | None) -> str:
         for item in items:
             servings = f", {item.servings} kişi" if item.servings else ""
             changed = " [admin değiştirdi]" if item.admin_changed else ""
+            if item.recipe.status == RecipeStatus.CANDIDATE:
+                changed += " [YENİ: aday tarif, kütüphanede değil]"
             lines.append(
                 f"  slot={item.meal_slot} ({course_label(item.meal_slot)}): "
                 f"{item.recipe.name} [kategori={item.recipe.category}{servings}; {nutrition_text(item.recipe)}]{changed}"
@@ -270,7 +272,8 @@ class MealAgentToolset:
 
             Args:
                 tarih: Değişecek günün ISO tarihi, örn. 2026-10-20.
-                yeni_tarif: Yerine konacak tarifin adı. Kütüphanede bulunmalı.
+                yeni_tarif: Yerine konacak tarifin adı. Kütüphanede (onaylı ya da
+                    aday) bulunmalı; yeni bir yemekse önce `tarif_ekle` ile kaydet.
                 gerekce: Bu değişikliği neden yaptığın. Kaydedilir ve ileride
                     menü önerilirken hatırlanır.
                 ogun_slotu: Günde birden fazla öğün varsa hangisi, örn.
@@ -293,7 +296,10 @@ class MealAgentToolset:
                     )
                 replacement = RecipeService(db).find_recipe(yeni_tarif)
                 if not replacement:
-                    return f"'{yeni_tarif}' kütüphanede yok. tarif_ara ile doğru adı bul veya kullanıcıya eklemeyi teklif et."
+                    return (
+                        f"'{yeni_tarif}' kütüphanede yok. tarif_ara ile doğru adı bul; yeni bir yemekse "
+                        "önce tarif_ekle ile kaydet, sonra tekrar çağır."
+                    )
                 day_items = [i for i in session.meal_plan.items if i.date == target]
                 if not day_items:
                     return f"{tarih} planda yok. Plan {session.week_start} - {session.week_end} arasını kapsıyor."
@@ -318,8 +324,8 @@ class MealAgentToolset:
                         )
                 if chosen.recipe_id == replacement.id:
                     return f"{tarih} {chosen.meal_slot} zaten {replacement.name}. Değişiklik gerekmedi."
-                if replacement.status != RecipeStatus.APPROVED:
-                    return "Aday veya pasif tarif menüye konamaz."
+                if replacement.status == RecipeStatus.INACTIVE:
+                    return "Bu tarif pasifleştirilmiş, menüye konamaz."
                 proposed = [(i.date, i.meal_slot, replacement if i is chosen else i.recipe) for i in session.meal_plan.items]
                 await toolset._ensure_nutrition(db, [recipe for _, _, recipe in proposed])
                 try:
@@ -594,6 +600,22 @@ class MealAgentToolset:
                                 f"  {recipe.name} | {score:.0f}p | {seen_text}{red_text}"
                                 f"{', ' + recipe.protein_type if recipe.protein_type else ''}{effort_text} | {nutrition_text(recipe)}"
                             )
+                target = rules.new_dish_target(toolset.settings)
+                if target > 0:
+                    from app.planner.novelty import untried_candidates
+
+                    lines.append(
+                        f"\nYENİ YEMEKLER: Bu hafta menüye en az {target} yeni yemek koy (kütüphanede "
+                        "olmayan, ailenin daha önce yemediği, biraz sıradışı: başka bir mutfaktan, "
+                        "mevsimlik ya da klasik bir yemeğin farklı yorumu; ev kurallarına uygun). "
+                        "Aşağıdaki denenmemiş adaylardan seçebilir ya da yenisini kendin bulabilirsin: "
+                        "önce tarif_ekle ile kaydet, sonra plan_kaydet'e koy. Yeni yemekleri farklı "
+                        "günlere yay; menüde 'yeni' diye işaretlenirler."
+                    )
+                    untried = untried_candidates(db, rules)
+                    if untried:
+                        lines.append("Denenmemiş aday tarifler:")
+                        lines += [f"  {_describe(recipe)}" for recipe in untried[:8]]
                 lines.append(
                     "\n'kalori/protein bilgisi yok' olan tarifleri, ev kurallarında kalori "
                     "ya da protein şartı varsa, kullanmadan önce besin_degeri_kaydet ile "
@@ -664,10 +686,9 @@ class MealAgentToolset:
                         continue
                     recipe = service.find_recipe(recipe_name)
                     if not recipe:
-                        problems.append(f"'{recipe_name}' kütüphanede yok veya onaylı değil")
-                        continue
-                    if recipe.status != RecipeStatus.APPROVED:
-                        problems.append(f"'{recipe.name}' aday durumda, menüye konamaz")
+                        problems.append(
+                            f"'{recipe_name}' kütüphanede yok; yeni bir yemekse önce tarif_ekle ile kaydet"
+                        )
                         continue
                     role = course_role(slot)
                     if not selector_matches_role(db, recipe, role):
@@ -729,6 +750,8 @@ class MealAgentToolset:
                     session.id, week_start, len(parsed),
                 )
                 per_day = Counter(iso for iso, _ in parsed)
+                new_names = [r.name for r in parsed.values() if r.status == RecipeStatus.CANDIDATE]
+                target = MealRules.from_db(db).new_dish_target(toolset.settings)
                 empty = sorted(valid_dates - set(per_day))
                 summary = [
                     f"{week_start} - {week_end(week_start)} haftası kaydedildi ({len(parsed)} öğün).",
@@ -736,6 +759,13 @@ class MealAgentToolset:
                 ]
                 if empty:
                     summary.append("Öğün yazılmayan günler: " + ", ".join(empty))
+                if new_names:
+                    summary.append("Yeni yemekler (aday, menüde 'yeni' görünür): " + ", ".join(new_names))
+                if len(new_names) < target:
+                    summary.append(
+                        f"UYARI: Bu hafta {target} yeni yemek hedefleniyor, planda {len(new_names)} var. "
+                        "tarif_ekle ile yeni yemek kaydedip ogun_degistir ile ekle."
+                    )
                 summary.append(
                     "Kullanıcı onaylamak isterse /approve yazmalı; onaylanınca alıcılara "
                     "menü ve alışveriş listesi gider."
@@ -756,8 +786,9 @@ class MealAgentToolset:
             vejetaryen: bool = False,
             kaynak: str = "",
         ) -> str:
-            """Kütüphaneye yeni tarif ekler. ADAY kaydedilir; kullanıcı
-            `tarif_onayla` demeden menüye giremez.
+            """Kütüphaneye yeni tarif ekler. ADAY kaydedilir: menüye
+            konabilir ("yeni" diye görünür), ama kullanıcı `tarif_onayla`
+            demeden kalıcı tarif listesine (otomatik seçim havuzuna) girmez.
 
             Args:
                 ad: Tarifin adı.
@@ -803,19 +834,20 @@ class MealAgentToolset:
                 logger.info("agent_recipe_added recipe_id=%s", recipe.id)
                 return (
                     f"'{recipe.name}' aday tariflere eklendi ({len(recipe.ingredients)} malzeme). "
-                    "Menülerde kullanılabilmesi için kullanıcının onaylaması gerekiyor; "
-                    "onaylamak isteyip istemediğini sor."
+                    "plan_kaydet ya da ogun_degistir ile menüye koyabilirsin; menüde 'yeni' diye "
+                    "görünür. Kalıcı listeye girmesi için kullanıcının beğenip onaylaması gerekir."
                 )
 
         @beta_async_tool
         async def aday_tarifler() -> str:
-            """Onay bekleyen aday tarifleri listeler. Bunlar menülere girmez."""
+            """Onay bekleyen aday (yeni) tarifleri listeler. Menüye konabilirler,
+            ama otomatik seçim havuzunda değiller."""
             toolset.calls.append("aday_tarifler()")
             with toolset.session_factory() as db:
                 candidates = RecipeService(db).list_candidates()
                 if not candidates:
                     return "Onay bekleyen aday tarif yok."
-                lines = [f"{len(candidates)} aday tarif (menülere girmezler):"]
+                lines = [f"{len(candidates)} aday tarif (menüye 'yeni' olarak konabilir):"]
                 for recipe in candidates:
                     source = f" · kaynak: {recipe.source}" if recipe.source else ""
                     lines.append(f"  - {_describe(recipe)}{source}")
@@ -823,8 +855,9 @@ class MealAgentToolset:
 
         @beta_async_tool
         async def tarif_onayla(tarif_adi: str) -> str:
-            """Aday tarifi onaylar; bundan sonra menülerde kullanılabilir.
-            Sadece kullanıcı açıkça istediğinde çağır.
+            """Aday tarifi onaylar; kalıcı tarif listesine girer ve sonraki
+            haftalarda otomatik de seçilebilir. Kullanıcı beğendiğini ya da
+            eklemek istediğini belli ettiğinde çağır.
 
             Args:
                 tarif_adi: Onaylanacak aday tarifin tam adı.
@@ -833,7 +866,7 @@ class MealAgentToolset:
             with toolset.session_factory() as db:
                 if RecipeService(db).approve_candidate(tarif_adi.strip()):
                     logger.info("agent_candidate_approved")
-                    return f"'{tarif_adi.strip()}' onaylandı, artık menülerde kullanabilirim."
+                    return f"'{tarif_adi.strip()}' onaylandı, artık kalıcı tarif listesinde."
                 return (
                     f"'{tarif_adi}' adında aday tarif bulamadım. "
                     "aday_tarifler ile listeyi görüp adı doğrulayabilirsin."

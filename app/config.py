@@ -70,6 +70,10 @@ class Settings(BaseSettings):
     pantry_mode: Literal["exclude", "check"] = "exclude"
     log_level: str = "INFO"
 
+    # Her haftaki menüye kütüphanede olmayan kaç yeni yemek girsin. Ev
+    # kuralı ("her hafta 3 sıradışı yemek olsun") bunu ezer.
+    weekly_new_dishes: int = Field(default=2, ge=0, le=7)
+
     recipe_discovery_enabled: bool = True
     recipe_discovery_day: str = "saturday"
     recipe_discovery_time: str = "18:00"

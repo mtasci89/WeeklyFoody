@@ -20,7 +20,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 
-private val ALT_MENU = setOf("menu", "alisveris", "asistan", "tarifler", "kurallar")
+private val ALT_MENU = setOf("menu", "alisveris", "tarifler", "kurallar")
 
 @Composable
 fun Uygulama(vm: AnaViewModel) {
@@ -50,11 +50,9 @@ fun Uygulama(vm: AnaViewModel) {
                     vm,
                     tarifAc = { id -> nav.navigate("tarif/$id") },
                     ayarlar = { nav.navigate("ayarlar") },
-                    asistanaYaz = { metin -> vm.taslakAyarla(metin); nav.ustDuzey("asistan") },
                 )
             }
             composable("alisveris") { AlisverisEkran(vm) }
-            composable("asistan") { AsistanEkran(vm, menuyeGit = { nav.ustDuzey("menu") }) }
             composable("tarifler") { TariflerEkran(vm, tarifAc = { id -> nav.navigate("tarif/$id") }) }
             composable("kurallar") { KurallarEkran(vm) }
             composable("tarif/{id}") { e -> TarifEkran(vm, e.arguments?.getString("id").orEmpty(), geri = { nav.popBackStack() }) }

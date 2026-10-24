@@ -30,4 +30,17 @@ class MetinTest {
         assertTrue(metin.contains("- 500 g tavuk"))
         assertEquals(listOf("Soğanı kavur.", "Etleri ekle!", "Pişir"), adimlar("Soğanı kavur. Etleri ekle!\nPişir"))
     }
+
+    @Test fun seciliYemeklerTarihVeSlotuylaGider() {
+        val secili = listOf(
+            SeciliOgun("2026-10-27", "Salı", "dinner_main", "Ana yemek", "Izgara Köfte"),
+            SeciliOgun("2026-10-29", "Perşembe", "dinner_meze", "Meze/salata", "Haydari"),
+        )
+        val metin = seciliMesaj(secili, YENILIKCI_ISTEK)
+        assertTrue(metin.startsWith("Seçtiğim yemekler:\n- Salı Ana yemek (2026-10-27, dinner_main): Izgara Köfte"))
+        assertTrue(metin.contains("- Perşembe Meze/salata (2026-10-29, dinner_meze): Haydari"))
+        assertTrue(metin.endsWith(YENILIKCI_ISTEK))
+        assertTrue(YENILIKCI_ISTEK.contains("internet"))
+        assertEquals("selam", seciliMesaj(emptyList(), "selam"))
+    }
 }

@@ -55,15 +55,16 @@ listesine eslemek yerine su araclari kendisi secip sirayla cagirir:
 | `besin_degeri_kaydet` | Tariflerin kisi basi tahmini kalori ve proteinini kaydeder |
 | `tarif_ekle` | Yeni tarifi ADAY olarak kutuphaneye yazar |
 | `aday_tarifler` | Onay bekleyen adaylari listeler |
-| `tarif_onayla` | Adayi onaylar, menulerde kullanilabilir olur |
+| `tarif_onayla` | Adayi kalici listeye alir (adaylar menuye 'yeni' olarak zaten konabilir) |
 | `tarif_cikar` | Tarifi pasiflestirir |
 | `web_ara` / `web_search` | Internette tarif arar (Gemini: Google Search grounding, Claude: sunucu araci) |
 
 Haftalik plani ajan kendisi kurar: `plan_hazirla` her slot icin puanlanmis
 aday havuzunu verir (puan; son yapilma tarihi, red sayisi, protein tekrari ve
 hafta ici/sonu hazirlik suresinden olusur), model haftayi kurar, `plan_kaydet`
-tumunu dogrulayip yazar. Eksik slot, aday tarif, kategori uyusmazligi ya da
-tekrarlanan satir varsa kaydetmez ve neyin yanlis oldugunu soyler.
+tumunu dogrulayip yazar. Kutuphanede olmayan tarif, kategori uyusmazligi ya da
+tekrarlanan satir varsa kaydetmez ve neyin yanlis oldugunu soyler. Her hafta en az
+`WEEKLY_NEW_DISHES` yeni (aday) yemek koymasi beklenir; eksikse `plan_kaydet` uyarir.
 
 `MEAL_COURSE_ROLES` haftanin **onerilen** seklidir, dayatma degil. "Her gun tek
 meze olsun", "cumartesi sadece ana yemek", "pazar disaridayiz" gibi istekler
@@ -179,9 +180,8 @@ haftalık bildirimler, bağlantı kodu).
 
 | Ekran | Ne yapar |
 | --- | --- |
-| Menü | Haftanın günleri, öğünler, kişi başı kalori; öğün değiştirme; onay |
+| Menü + Asistan | Haftanın günleri, öğünler, kişi başı kalori, ✨ yeni yemekler; onay. Asistan menünün altında: beğenmediğin yemekleri seç → "Daha yenilikçi bir şey koy" (tariflere ve internete bakar, kurallara uyar) ya da yaz. Menü kur, değiştir, onayla; kural ve kiler yönet. Fotoğraf eklenebilir: yemek listesi → tarifleri ekler, tarif sayfası → tarifi kaydeder |
 | Alışveriş | Kategorili liste, alınanları işaretleme, paylaşma |
-| Asistan | Sohbet: menü kur, değiştir, onayla; web'de tarif bul; kural ve kiler yönet. Fotoğraf eklenebilir (galeriden ya da kamerayla): yemek listesi → tarifleri ekler, tarif sayfası → tarifi kaydeder |
 | Tarifler | Kütüphane ve adaylar; web'de tarif arama; adayı onaylama/çıkarma; tarif detayı (kişi sayısına göre) |
 | Kurallar | Ev kurallarını ekleme/silme, sistemin neyi denetlediği |
 
@@ -381,7 +381,7 @@ Approve one into the permanent recipe library:
 This protects your library from filling up silently with recipes you have not approved.
 You can also just reply in chat: "ikincisini onayla", "fajitayı çıkar".
 
-The bot can also run weekly automatic discovery. By default it looks for current, healthy, unusual but home-cookable main dishes, side dishes, and meze/salad ideas every Saturday at 18:00 Europe/Istanbul. These are also saved as `candidate` and sent only to the admin for review:
+The bot can also run weekly automatic discovery. By default it looks for current, healthy, unusual but home-cookable main dishes, side dishes, and meze/salad ideas every Saturday at 18:00 Europe/Istanbul. These are also saved as `candidate`. The Sunday plan puts up to `WEEKLY_NEW_DISHES` (default 2) untried candidates on the menu as "✨ yeni" dishes (a house rule such as "her hafta 3 sıradışı yemek olsun" or "yeni yemek ekleme" overrides it); a dish joins the permanent library only when approved:
 
 ```env
 RECIPE_DISCOVERY_ENABLED=true

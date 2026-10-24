@@ -39,7 +39,7 @@ Bu rehberdeki mimari bilgileri yerel kaynak koduna dayanır. Canlı botun, bulut
 4. Devir notuna tarih ve aracı, işin kapsamını, değişen dosyaları, kontrol komutlarını/sonuçlarını, yapılmayan kontrolleri ve somut sonraki adımı ekleyin. Doğrulanmış sonuçları, eski notlardan aktarılan iddiaları ve önerileri açıkça ayırın. Önceki açık işleri çözüldüğüne dair kanıt olmadan kapatmayın.
 5. `.env`, anahtar/token değerleri, özel bağlantı bilgileri, kişisel Telegram kimlikleri ve gerçek kullanıcı verisini belgelere, çıktılara veya Git'e koymayın. Örneklerde yalnızca değişken adları/yer tutucular kullanın. Mevcut `.env` üzerine örnek dosya kopyalamayın.
 6. Testlerde geçici veritabanı ve sahte dış servis istemcileri kullanın. Canlı botu veya zamanlayıcıyı doğrulama amacıyla başlatmayın; aynı token ile iki bot Telegram polling çakışmasına yol açabilir. Dış API'ye istek atan ve veritabanına yazan komutları sıradan testlerle karıştırmayın.
-7. Yönetici onayı, aday tariflerin onaysız kullanılmaması, yayınlanmış planın korunması, haftalık işlemlerin tekrarlanabilirliği ve panel token kontrolü mevcut davranış sözleşmeleridir. Kural ve besin değeri yazma formlarında token/CSRF doğrulaması ve eski form denetimini koruyun. İlgili değişiklikleri mevcut testlerle doğrulayın.
+7. Yönetici onayı, aday tariflerin onaysız olarak otomatik seçim havuzuna girmemesi (2026-10-24'ten beri adaylar menüye "yeni yemek" olarak konabilir; bkz. Haftalık yeni yemekler), yayınlanmış planın korunması, haftalık işlemlerin tekrarlanabilirliği ve panel token kontrolü mevcut davranış sözleşmeleridir. Kural ve besin değeri yazma formlarında token/CSRF doğrulaması ve eski form denetimini koruyun. İlgili değişiklikleri mevcut testlerle doğrulayın.
 8. Kullanıcının verdiği yetki sınırlarında ilerleyin. İlk ortak düzen kurulumu yalnızca belgelendirmeydi; sonraki istekte kalıcı yemek kurallarının ürün kodunda uygulanması yetkilendirildi. Canlı veriye müdahale, botu başlatma/durdurma ve dağıtım bu yerel geliştirme görevinin parçası değildir; sonraki görevlerin kapsamını kullanıcının yeni isteği belirler.
 
 ## Çalıştırma ve test
@@ -111,12 +111,34 @@ yeni bot açılışta sonucu yöneticiye yazar, hata olursa betik `app.cli bildi
 ve servisi yeniden başlatmaz. `opc` kullanıcısının parolasız sudo'su gerekir (OCI varsayılanı). Güncelleme ve günlük için `deploy/` altındaki
 betikler; ayrıntı ve SELinux notu DEVIR.md'de.
 
+## Haftalık yeni yemekler (2026-10-24)
+
+Kullanıcı isteği: menü her hafta otomatik gelsin, kütüphanenin dışına çıksın; "x, y, z
+olmamış, daha yenilikçi şeyler koy" deyince asistan hem tariflere hem internetteki
+sıradışı tariflere baksın, ev kurallarına uysun.
+
+- "Yeni yemek" = aday (`candidate`) tarif. `plan_kaydet`/`ogun_degistir` adayları kabul
+  eder (pasifleri değil); menü JSON'unda `yeni: true`, Telegram'da "✨ yeni". Menüyü
+  onaylamak adayı onaylamaz; aile beğenirse `tarif_onayla`/"Listeye ekle" ile kalıcı
+  listeye (otomatik seçim havuzuna) geçer.
+- Sayı: `WEEKLY_NEW_DISHES` (varsayılan 2, 0-7); ev kuralı ezer: "her hafta 3 sıradışı
+  yemek olsun", "yeni yemek ekleme" → 0 (`MealRules.new_dishes`, `parse_new_dishes`).
+- Otomatik akış: cumartesi keşfi (ajan, web) aday ekler → pazar `create_or_get_weekly_session`
+  denenmemiş adayları rolüne uygun öğünlere, farklı günlere, kurallara aykırı düşmeden koyar
+  (`app/planner/novelty.py`) → yine eksikse ve ajan açıksa `weekly_plan_job` ajana
+  `weekly_novelty_prompt` ile internetten bulup ekletir (menüyü onaylamaz).
+- Sohbet akışı: istemde "Bunlar olmamış, daha yenilikçi bir şey koy" bölümü (kütüphane +
+  zorunlu web araması, kural denetimi, `tarif_ekle` + `ogun_degistir`, gerekçe kaydı).
+  `plan_hazirla` hedef sayıyı ve denenmemiş adayları verir; `plan_kaydet` eksikse uyarır.
+
 ## Foody uygulaması (android/, 2026-10-19)
 
 Mimari: Financia/Cal-Track tarzı yerel Android uygulaması, ama veri ve zekâ sunucuda.
 Uygulama yalnızca ince istemcidir: `app/api.py`'deki `/api/v1/*` uçlarını çağırır
 (menü, onay, öğün değiştirme, tarifler + aday onayla/çıkar, alışveriş, kurallar,
-sohbet + en fazla 4 görsel, web'de keşif). Asistan her şeyi yapabilir: ek olarak
+sohbet + en fazla 4 görsel, web'de keşif). 1.4'ten beri asistan ayrı sekme değil, Menü
+ekranının altında: yemekler seçilir ("Daha yenilikçi bir şey koy"), son cevap menünün
+altında, istenirse tüm sohbet açılır. Asistan her şeyi yapabilir: ek olarak
 `menuyu_onayla` (yalnızca açık istekle) ve `kiler` araçları var. Gemini anahtarı telefonda değil sunucuda. Telefonda yalnızca
 adres + uygulama anahtarı + sertifika pini (EncryptedSharedPreferences) ve alışveriş
 işaretleri (düz SharedPreferences, hafta başına) durur.

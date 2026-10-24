@@ -9,6 +9,11 @@ import org.junit.Test
 
 /** Sunucunun gerçek cevapları modellere eksiksiz oturuyor mu. */
 class ModelTest {
+    @Test fun menudeYeniYemekIsaretlidir() {
+        val yeniler = Ornek.menu.plan!!.gunler.flatMap { it.ogunler }.filter { it.yeni }
+        assertEquals(listOf("Tavuk Fajita"), yeniler.map { it.tarif })
+    }
+
     @Test fun menuHaftanin7GununuVeOgunleriniOkur() {
         val m = Ornek.menu
         val plan = requireNotNull(m.plan)

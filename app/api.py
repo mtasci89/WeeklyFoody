@@ -162,6 +162,8 @@ def menu_json(db, session: WeeklyPlanningSession | None, settings: Settings) -> 
                     "kategori": item.recipe.category,
                     "porsiyon": item.servings or settings.default_servings,
                     "degisti": bool(item.admin_changed),
+                    # Kütüphanede olmayan, bu hafta denenecek yemek (aday tarif).
+                    "yeni": item.recipe.status == RecipeStatus.CANDIDATE,
                     **_nutrition(item.recipe),
                 }
             )

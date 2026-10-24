@@ -149,7 +149,7 @@ fun DurumKarti(yukleniyor: Boolean, hata: String?, yenile: () -> Unit, modifier:
     }
 }
 
-/** Alt menü: Menü · Alışveriş · (ortada) Asistan · Tarifler · Kurallar */
+/** Alt menü: Menü (asistan menünün içinde) · Alışveriş · Tarifler · Kurallar */
 @Composable
 fun AltMenu(secili: String, sec: (String) -> Unit) {
     Row(
@@ -158,20 +158,6 @@ fun AltMenu(secili: String, sec: (String) -> Unit) {
     ) {
         MenuOgesi(Icons.Rounded.Restaurant, "Menü", secili == "menu", Modifier.weight(1f)) { sec("menu") }
         MenuOgesi(Icons.Rounded.ShoppingCart, "Alışveriş", secili == "alisveris", Modifier.weight(1f)) { sec("alisveris") }
-        Column(
-            Modifier.weight(1f).clickable(role = Role.Tab, onClick = { sec("asistan") }).padding(bottom = 6.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            Box(
-                Modifier.offset(y = (-14).dp).size(52.dp).shadow(8.dp, CircleShape).clip(CircleShape).background(Renk.Yesil),
-                contentAlignment = Alignment.Center,
-            ) { Icon(Icons.Rounded.AutoAwesome, contentDescription = null, tint = Color.White) }
-            Text(
-                "Asistan", Modifier.offset(y = (-10).dp), fontSize = 12.sp,
-                fontWeight = if (secili == "asistan") FontWeight.Bold else FontWeight.SemiBold,
-                color = if (secili == "asistan") Renk.Yesil else Renk.Murekkep,
-            )
-        }
         MenuOgesi(Icons.Rounded.MenuBook, "Tarifler", secili == "tarifler", Modifier.weight(1f)) { sec("tarifler") }
         MenuOgesi(Icons.Rounded.Rule, "Kurallar", secili == "kurallar", Modifier.weight(1f)) { sec("kurallar") }
     }

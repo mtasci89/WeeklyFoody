@@ -46,6 +46,24 @@ data class SohbetMesaji(
     val hata: Boolean = false,
 )
 
+/** Menüde asistana "bunlar hakkında" diye işaretlenen öğün. */
+data class SeciliOgun(val tarih: String, val gun: String, val slot: String, val rol: String, val tarif: String)
+
+/** Seçili yemeklerle birlikte gönderilecek yenilik isteği. */
+const val YENILIKCI_ISTEK =
+    "Bunlar olmamış. Yerlerine daha yenilikçi, sıradışı şeyler koy; tarif listesine ve internetteki tariflere bak, kurallarıma uy."
+
+/** Hiçbir yemek seçili değilken haftanın tamamı için yenilik isteği. */
+const val HAFTAYI_YENILE_ISTEK =
+    "Bu haftanın menüsü fazla tanıdık. Birkaç öğünü daha yenilikçi, sıradışı yemeklerle değiştir; internetteki tariflere de bak, kurallarıma uy."
+
+/** Asistana giden metin: seçili yemekler (tarih ve slotuyla) + kullanıcının yazdığı. */
+fun seciliMesaj(secili: List<SeciliOgun>, metin: String): String {
+    if (secili.isEmpty()) return metin
+    val satirlar = secili.joinToString("\n") { "- ${it.gun} ${it.rol} (${it.tarih}, ${it.slot}): ${it.tarif}" }
+    return "Seçtiğim yemekler:\n$satirlar\n\n$metin".trim()
+}
+
 class AnaViewModel(app: Application) : AndroidViewModel(app) {
     private val ayarDeposu = Ayarlar(app)
     private val _ayarlar = MutableStateFlow(ayarDeposu.oku())
@@ -88,9 +106,9 @@ class AnaViewModel(app: Application) : AndroidViewModel(app) {
     val ekler: StateFlow<List<Ek>> = _ekler.asStateFlow()
     private var ekSayaci = 0L
 
-    /** Başka ekrandan asistana hazır yazı göndermek için (ör. "Yeni menü iste"). */
-    private val _taslak = MutableStateFlow("")
-    val taslak: StateFlow<String> = _taslak.asStateFlow()
+    /** Menüde asistana konu olarak seçilen öğünler. */
+    private val _secili = MutableStateFlow<List<SeciliOgun>>(emptyList())
+    val secili: StateFlow<List<SeciliOgun>> = _secili.asStateFlow()
 
     private val _baglanti = MutableStateFlow(Yuk<DurumCevap>())
     val baglanti: StateFlow<Yuk<DurumCevap>> = _baglanti.asStateFlow()
@@ -110,8 +128,12 @@ class AnaViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun bilgiGosterildi() { _bilgi.value = null }
-    fun taslakAyarla(metin: String) { _taslak.value = metin }
-    fun taslakKullanildi() { _taslak.value = "" }
+    fun ogunSec(o: SeciliOgun) = _secili.update { liste ->
+        if (liste.any { it.tarih == o.tarih && it.slot == o.slot }) liste.filterNot { it.tarih == o.tarih && it.slot == o.slot }
+        else liste + o
+    }
+
+    fun secimiTemizle() { _secili.value = emptyList() }
 
     private fun bildir(metin: String) { _bilgi.value = metin }
 
@@ -190,6 +212,7 @@ class AnaViewModel(app: Application) : AndroidViewModel(app) {
     // --- menü ------------------------------------------------------------------
 
     fun haftaSec(hafta: String) {
+        _secili.value = emptyList()
         _hafta.value = hafta
         menuYenile()
         alisverisYenile()
@@ -356,9 +379,10 @@ class AnaViewModel(app: Application) : AndroidViewModel(app) {
     fun ekiCikar(id: Long) = _ekler.update { liste -> liste.filterNot { it.id == id } }
 
     fun asistanaSor(metin: String) {
-        val soru = metin.trim()
         val ekler = _ekler.value
-        if ((soru.isEmpty() && ekler.isEmpty()) || _asistanCalisiyor.value) return
+        if ((metin.isBlank() && ekler.isEmpty() && _secili.value.isEmpty()) || _asistanCalisiyor.value) return
+        val soru = seciliMesaj(_secili.value, metin.trim())
+        _secili.value = emptyList()
         _sohbet.update { it + SohbetMesaji(true, soru, gorseller = ekler.map { e -> e.onizleme }) }
         _ekler.value = emptyList()
         if (testModu) return

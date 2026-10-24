@@ -1,7 +1,7 @@
 {
   "ad": "Foody",
-  "surum": "a95472f",
-  "aciklama": "Run long assistant turns as background jobs the app polls",
+  "surum": "da8e5be",
+  "aciklama": "Let the server update itself from the phone",
   "guncelleniyor": false,
   "ajan": false,
   "saglayici": "gemini",

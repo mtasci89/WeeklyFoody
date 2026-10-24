@@ -65,7 +65,7 @@ fun TarifEkran(vm: AnaViewModel, id: String, geri: () -> Unit) {
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             if (t.aday) Kart(Modifier.fillMaxWidth(), renk = Renk.Sari) {
-                Text("Bu tarif aday: listene eklemeden menüye girmez.", fontSize = 14.sp)
+                Text("Yeni tarif: menüye \"yeni\" olarak girebilir. Beğendiysen kalıcı listene ekle; sonraki haftalarda da seçilir.", fontSize = 14.sp)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedButton(onClick = { vm.tarifiCikar(t.id); geri() }, Modifier.weight(1f), enabled = !isleniyor) { Text("Çıkar") }
                     Button(onClick = { vm.tarifiOnayla(t.id) }, Modifier.weight(1f), enabled = !isleniyor) { Text("Listeye ekle") }

@@ -83,7 +83,7 @@ fun TariflerEkran(vm: AnaViewModel, tarifAc: (String) -> Unit) {
                 Kart(Modifier.fillMaxWidth(), renk = Renk.AcikYesil) {
                     Text("Web'de yeni tarif ara", fontWeight = FontWeight.Bold)
                     Text(
-                        "Asistan internette arar, bulduklarını kaynağıyla aday olarak ekler. Sen onaylamadan menüye girmez.",
+                        "Asistan internette arar, bulduklarını kaynağıyla aday olarak ekler. Adaylar haftalık menüye \"yeni\" olarak girer; beğendiklerini listene eklersin.",
                         fontSize = 13.sp, color = Renk.Soluk,
                     )
                     if (durum.kesifSuruyor) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
