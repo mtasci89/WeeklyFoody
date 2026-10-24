@@ -17,6 +17,10 @@ val esnekJson = Json {
 @Serializable
 data class DurumCevap(
     val ad: String = "",
+    /** Sunucudaki kodun sürümü (kısa git sha) ve son değişikliğin başlığı. */
+    val surum: String = "",
+    val aciklama: String = "",
+    val guncelleniyor: Boolean = false,
     val ajan: Boolean = false,
     val saglayici: String = "",
     val model: String = "",
@@ -109,6 +113,9 @@ data class TarifDetay(
 ) {
     val aday get() = durum == "candidate"
 }
+
+@Serializable
+data class MesajCevap(val mesaj: String = "")
 
 @Serializable
 data class TarifIslemCevap(val mesaj: String = "", val tarif: TarifOzet? = null)

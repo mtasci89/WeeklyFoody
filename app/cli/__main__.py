@@ -25,6 +25,8 @@ def main() -> None:
     sub.add_parser("check-agent", help="Ajanin saglayicisina tek bir deneme istegi atar")
     app_parser = sub.add_parser("uygulama-hazirla", help="Foody uygulamasi icin HTTPS API'yi hazirlar")
     app_parser.add_argument("--adres", required=True, help="Telefonun baglanacagi adres, orn. https://152.67.69.25:8443")
+    notify_parser = sub.add_parser("bildir", help="Yoneticiye Telegram'dan kisa mesaj gonderir")
+    notify_parser.add_argument("mesaj")
     sub.add_parser("run")
     args = parser.parse_args()
 
@@ -86,6 +88,14 @@ def main() -> None:
         print("Sertifika       : " + ("yeni uretildi" if result["yeni_sertifika"] else "mevcut olan kullaniliyor"))
         print(f"Sertifika pini  : {result['pin']}")
         print("Botu yeniden baslat, sonra Telegram'da /uygulama yaz: baglanti kodu oraya gelir.")
+    elif args.command == "bildir":
+        from telegram import Bot
+
+        async def _notify() -> None:
+            async with Bot(settings.telegram_bot_token) as bot:
+                await bot.send_message(chat_id=settings.admin_telegram_user_id, text=args.mesaj)
+
+        asyncio.run(_notify())
     elif args.command == "check-agent":
         raise SystemExit(asyncio.run(_check_agent(settings)))
     elif args.command == "run":

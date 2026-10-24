@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.OutlinedButton
@@ -34,6 +35,16 @@ fun AyarlarEkran(vm: AnaViewModel, geri: () -> Unit) {
     val ayar by vm.ayarlar.collectAsStateWithLifecycle()
     val baglanti by vm.baglanti.collectAsStateWithLifecycle()
     var kod by rememberSaveable { mutableStateOf("") }
+    val guncelleniyor by vm.sunucuGuncelleniyor.collectAsStateWithLifecycle()
+    var guncelleSor by rememberSaveable { mutableStateOf(false) }
+
+    if (guncelleSor) AlertDialog(
+        onDismissRequest = { guncelleSor = false },
+        title = { Text("Sunucu güncellensin mi?") },
+        text = { Text("Bot 1-3 dakika yeniden başlar; bu sırada asistan cevap vermez. Veritabanı önce yedeklenir.") },
+        confirmButton = { TextButton(onClick = { guncelleSor = false; vm.sunucuyuGuncelle() }) { Text("Güncelle") } },
+        dismissButton = { TextButton(onClick = { guncelleSor = false }) { Text("Vazgeç") } },
+    )
 
     LaunchedEffect(Unit) { if (ayar.hazir && baglanti.veri == null && !baglanti.yukleniyor) vm.baglantiyiDene() }
 
@@ -69,6 +80,22 @@ fun AyarlarEkran(vm: AnaViewModel, geri: () -> Unit) {
                     Text("Henüz bağlı değil.", fontWeight = FontWeight.Bold)
                     baglanti.hata?.let { Text(it, color = Renk.Kirmizi, fontSize = 14.sp) }
                 }
+            }
+            if (ayar.hazir) Kart(Modifier.fillMaxWidth()) {
+                BolumBasligi("Sunucu")
+                baglanti.veri?.let { d ->
+                    Text("Sürüm: ${d.surum.ifBlank { "?" }}", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                    if (d.aciklama.isNotBlank()) Text(d.aciklama, fontSize = 12.sp, color = Renk.Soluk)
+                }
+                Text(
+                    "Yeni geliştirmeleri bilgisayara gerek kalmadan sunucuya kurar: önce veritabanını yedekler, " +
+                        "sonra GitHub'daki son kodu alır ve botu yeniden başlatır (1-3 dk). Sonuç Telegram'a da gelir.",
+                    fontSize = 13.sp, color = Renk.Soluk,
+                )
+                if (guncelleniyor) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
+                    Text("Sunucu güncelleniyor…", fontSize = 14.sp)
+                } else Button(onClick = { guncelleSor = true }) { Text("Sunucuyu güncelle") }
             }
             Kart(Modifier.fillMaxWidth()) {
                 BolumBasligi(if (ayar.hazir) "Yeni bağlantı kodu" else "Bağlantı kodu")

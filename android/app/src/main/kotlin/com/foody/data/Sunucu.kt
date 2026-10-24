@@ -107,6 +107,9 @@ class Sunucu(private val ayarlar: () -> Ayarlar.Degerler) {
 
     suspend fun durum() = cagir("GET", "durum", cevirici = DurumCevap.serializer())
 
+    /** Sunucu kendini GitHub'daki son koda günceller ve yeniden başlar (deploy/kendini-guncelle.sh). */
+    suspend fun sunucuyuGuncelle() = cagir("POST", "guncelle", govde = "{}", cevirici = MesajCevap.serializer())
+
     suspend fun menu(hafta: String = "aktif") = cagir("GET", "menu", mapOf("hafta" to hafta), cevirici = MenuCevap.serializer())
 
     suspend fun menuyuOnayla(hafta: String) = cagir(

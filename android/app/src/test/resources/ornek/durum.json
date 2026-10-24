@@ -1,5 +1,8 @@
 {
   "ad": "Foody",
+  "surum": "a95472f",
+  "aciklama": "Run long assistant turns as background jobs the app polls",
+  "guncelleniyor": false,
   "ajan": false,
   "saglayici": "gemini",
   "model": "gemini-3.8-flash",

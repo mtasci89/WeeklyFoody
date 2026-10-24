@@ -34,6 +34,8 @@ def build_application(settings: Settings):
         "kural_sil": handlers.rule_delete,
         "kurallari_yaz": handlers.rules_replace,
         "uygulama": handlers.app_code,
+        "guncelle": handlers.self_update,
+        "surum": handlers.version,
         "preferences": handlers.preferences,
         "addpreference": handlers.add_preference,
         "deletepreference": handlers.delete_preference,

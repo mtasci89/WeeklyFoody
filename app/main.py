@@ -42,6 +42,7 @@ async def async_main() -> None:
     await application.initialize()
     await application.start()
     await application.updater.start_polling()
+    await _announce_update(settings, application.bot)
     try:
         await asyncio.Event().wait()
     finally:
@@ -56,6 +57,20 @@ async def async_main() -> None:
         await application.updater.stop()
         await application.stop()
         await application.shutdown()
+
+
+async def _announce_update(settings, bot) -> None:
+    """Telefondan başlatılan bir güncellemeden sonra açıldıysak sonucu bildir."""
+    from app.updater import pending_notice
+
+    notice = pending_notice()
+    if notice is None:
+        return
+    chat_id, text = notice
+    try:
+        await bot.send_message(chat_id=chat_id or settings.admin_telegram_user_id, text=text)
+    except Exception:
+        logger.exception("update_notice_failed")
 
 
 def _app_api_server(settings, bot):

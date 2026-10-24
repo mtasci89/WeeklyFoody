@@ -66,6 +66,7 @@ class TelegramHandlers:
             "/menu /approve /regenerate /recipes /recipe <ad> /addrecipe /deleterecipe <ad>\n"
             "/discover <istek> /candidates /approverecipe <ad>\n"
             "/kurallar /kural_ekle <kural> /kural_sil <no|ifade> /kurallari_yaz\n"
+            "/uygulama /guncelle /surum\n"
             "/preferences /addpreference <kural> /deletepreference <kural>\n"
             "/shopping /history /pantry /pantryadd <malzeme> /pantryremove <malzeme>"
         )
@@ -288,6 +289,22 @@ class TelegramHandlers:
         )
         await update.effective_message.reply_text(code)
         logger.info("app_code_sent")
+
+    async def version(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        if not await self._require_admin(update):
+            return
+        from app.updater import current_version
+
+        v = current_version()
+        await update.effective_message.reply_text(f"Sunucu sürümü: {v['surum']}\n{v['aciklama']}")
+
+    async def self_update(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        """Sunucuyu telefondan günceller: GitHub'daki son kod, yedek, yeniden başlatma."""
+        if not await self._require_admin(update):
+            return
+        from app.updater import start_update
+
+        await update.effective_message.reply_text(start_update(update.effective_chat.id if update.effective_chat else None))
 
     async def rule_add(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         if not await self._require_admin(update):

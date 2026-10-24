@@ -15,6 +15,7 @@ data/*.db
 data/*.sqlite
 data/*.sqlite3
 data/foody-api.*
+data/guncelleme.json
 logs
 *.log
 

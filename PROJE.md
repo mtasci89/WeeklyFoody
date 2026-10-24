@@ -103,7 +103,12 @@ README/CLOUD_DEPLOY içindeki operasyon ayrıntıları için güncel kod ve DEVI
 ## Canlı ortam (2026-10-15)
 
 Bot Oracle sunucusunda `weeklyfoody.service` olarak çalışır; Mac'te
-`app.cli run` başlatmayın. Güncelleme ve günlük için `deploy/` altındaki
+`app.cli run` başlatmayın. Sunucu telefondan güncellenebilir: Telegram `/guncelle`
+ya da uygulama Ayarlar → "Sunucuyu güncelle" → `app/updater.py` →
+`sudo -n systemd-run --uid=opc ... /bin/bash deploy/kendini-guncelle.sh` (botun dışında;
+SELinux yüzünden betik `/bin/bash` ile okunur). İşaret dosyası `data/guncelleme.json`;
+yeni bot açılışta sonucu yöneticiye yazar, hata olursa betik `app.cli bildir` ile bildirir
+ve servisi yeniden başlatmaz. `opc` kullanıcısının parolasız sudo'su gerekir (OCI varsayılanı). Güncelleme ve günlük için `deploy/` altındaki
 betikler; ayrıntı ve SELinux notu DEVIR.md'de.
 
 ## Foody uygulaması (android/, 2026-10-19)

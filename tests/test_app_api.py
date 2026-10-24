@@ -425,3 +425,26 @@ def test_job_start_without_an_agent_is_503(api_settings, factory):
     settings = api_settings.model_copy(update={"gemini_api_key": "", "anthropic_api_key": ""})
     with TestClient(create_api_app(settings, factory)) as client:
         assert client.post("/api/v1/sohbet/baslat", headers=AUTH, json={"mesaj": "x"}).status_code == 503
+
+
+# --- sunucu surumu ve guncelleme ------------------------------------------------------
+
+
+def test_status_reports_the_server_version(client):
+    body = client.get("/api/v1/durum", headers=AUTH).json()
+
+    assert len(body["surum"]) >= 7
+    assert body["guncelleniyor"] in (True, False)
+
+
+def test_update_endpoint_starts_the_self_update(client, monkeypatch):
+    import app.updater as updater
+
+    calls = []
+    monkeypatch.setattr(updater, "start_update", lambda chat_id, **kw: calls.append(chat_id) or "Güncelleme başladı.")
+
+    body = client.post("/api/v1/guncelle", headers=AUTH).json()
+
+    assert body == {"mesaj": "Güncelleme başladı."}
+    assert len(calls) == 1
+    assert client.post("/api/v1/guncelle").status_code == 401

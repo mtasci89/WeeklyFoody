@@ -148,6 +148,39 @@ class AnaViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /** Sunucu güncellemesi sürüyor mu (düğmeyi kilitler, ilerleme gösterir). */
+    private val _sunucuGuncelleniyor = MutableStateFlow(false)
+    val sunucuGuncelleniyor: StateFlow<Boolean> = _sunucuGuncelleniyor.asStateFlow()
+
+    fun sunucuyuGuncelle() {
+        if (testModu || _sunucuGuncelleniyor.value) return
+        viewModelScope.launch {
+            _sunucuGuncelleniyor.value = true
+            val onceki = _baglanti.value.veri?.surum ?: runCatching { sunucu.durum().surum }.getOrDefault("")
+            val baslat = runCatching { sunucu.sunucuyuGuncelle() }
+            baslat.onFailure { bildir(it.message ?: "Güncelleme başlatılamadı.") }
+            baslat.onSuccess { c ->
+                bildir(c.mesaj)
+                // Bot yeniden başlarken birkaç kez ulaşılamaz; sürüm değişene ya da güncelleme bitene kadar bekle.
+                var son: DurumCevap? = null
+                repeat(36) {
+                    kotlinx.coroutines.delay(5_000)
+                    val d = runCatching { sunucu.durum() }.getOrNull() ?: return@repeat
+                    son = d
+                    _baglanti.value = Yuk(veri = d)
+                    if (d.surum != onceki || (!d.guncelleniyor && it >= 2)) {
+                        bildir(if (d.surum != onceki) "Sunucu güncellendi: ${d.surum}" else "Sunucu zaten güncel (${d.surum}).")
+                        _sunucuGuncelleniyor.value = false
+                        if (d.surum != onceki) hepsiniYenile()
+                        return@launch
+                    }
+                }
+                if (son == null) bildir("Sunucudan haber alınamadı; Telegram'a gelen mesaja bak.")
+            }
+            _sunucuGuncelleniyor.value = false
+        }
+    }
+
     fun baglantiyiKaldir() {
         ayarDeposu.kaydet(Ayarlar.Degerler())
         _ayarlar.value = ayarDeposu.oku()
@@ -365,8 +398,10 @@ class AnaViewModel(app: Application) : AndroidViewModel(app) {
         kurallar: KuralCevap?,
         tarif: TarifDetay?,
         ayarlar: Ayarlar.Degerler = Ayarlar.Degerler("https://1.2.3.4:8443", "x".repeat(40), "pin"),
+        durum: DurumCevap? = null,
     ) {
         testModu = true
+        _baglanti.value = Yuk(veri = durum)
         _ayarlar.value = ayarlar
         _menu.value = Yuk(veri = menu)
         _alisveris.value = Yuk(veri = alisveris)

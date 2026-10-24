@@ -2,6 +2,19 @@
 
 Son güncelleme: **2026-10-15 — Claude**. Önce [PROJE.md](PROJE.md) dosyasını okuyun.
 
+## Son tamamlanan iş (Claude, 2026-10-24): sunucuyu telefondan güncelleme
+
+Kullanıcı telefondaydı ve sunucuyu güncelleyemedi (SSH anahtarı Mac'te). Artık:
+Telegram `/guncelle`, `/surum`; uygulama 1.3 Ayarlar → "Sunucuyu güncelle" (sürüm de görünür);
+API `POST /api/v1/guncelle`, `/durum`'da `surum`, `aciklama`, `guncelleniyor`.
+Ayrıntı PROJE.md > Canlı ortam. Testler: `tests/test_updater.py` betiği gerçek git
+depolarıyla, sahte python/sudo ile çalıştırır (zaten güncel / güncelle+etiketle+yeniden başlat /
+`git pull` hatası → bildir, yeniden başlatma yok). `pytest` 306 geçti, Android testleri geçti.
+
+**Doğrulanmadı (ilk gerçek kullanımda görülecek):** sunucuda `sudo -n systemd-run` ve
+servis içinden sudo'nun çalışması. Bu özelliğin sunucuya ilk kurulumu için bir kez
+bilgisayardan `./deploy/sunucu-guncelle.sh` gerekiyor (kullanıcıya söylendi).
+
 ## Son tamamlanan iş (Claude, 2026-10-24): uzun asistan işleri arka planda
 
 - **Sorun (kullanıcı ekran görüntüsü):** mobil veride uzun bir meze listesi fotoğrafıyla

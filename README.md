@@ -212,6 +212,12 @@ Bot Oracle sunucusunda systemd servisi (`weeklyfoody`) olarak çalışıyor. Mac
 ./deploy/sunucu-gunluk.sh 100    # son 100 günlük satırı (gizli değerler maskeli)
 ```
 
+**Telefondan güncelleme (bilgisayarsız):** Telegram'da `/guncelle` ya da uygulamada
+Ayarlar → **Sunucuyu güncelle**. Sunucu veritabanını yedekler, GitHub'daki son kodu çeker,
+kurar ve yeniden başlar (`deploy/kendini-guncelle.sh`, botun dışında `systemd-run` ile);
+sonuç Telegram'a gelir. Sürüm: `/surum`. Bu özellik sunucuya bir kez bilgisayardan
+`./deploy/sunucu-guncelle.sh` ile kurulmalı.
+
 SELinux açık olduğu için sanal ortamın `bin` klasörü `bin_t` etiketi ister;
 güncelleme betiği bunu her seferinde yapar.
 

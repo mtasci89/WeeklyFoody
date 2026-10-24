@@ -26,5 +26,6 @@ object Ornek {
     val tarif by lazy { oku("tarif", TarifDetay.serializer()) }
     val alisveris by lazy { oku("alisveris", Alisveris.serializer()) }
     val kurallar by lazy { oku("kurallar", KuralCevap.serializer()) }
+    val durum by lazy { oku("durum", com.foody.data.DurumCevap.serializer()) }
     val sohbet by lazy { oku("sohbet", SohbetCevap.serializer()) }
 }

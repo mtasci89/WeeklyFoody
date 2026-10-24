@@ -262,13 +262,25 @@ def create_api_app(
     def status() -> dict:
         from app.agent.runner import MealPlannerAgent
 
+        from app.updater import current_version, update_running
+
+        version = current_version()
         return {
             "ad": "Foody",
+            "surum": version["surum"],
+            "aciklama": version["aciklama"],
+            "guncelleniyor": update_running(),
             "ajan": MealPlannerAgent.available(settings),
             "saglayici": settings.agent_provider,
             "model": settings.gemini_model if settings.agent_provider == "gemini" else settings.anthropic_model,
             "kisi": settings.default_servings,
         }
+
+    @api.post("/guncelle")
+    def self_update() -> dict:
+        from app.updater import start_update
+
+        return {"mesaj": start_update(settings.admin_telegram_user_id or None)}
 
     @api.get("/menu")
     async def menu(hafta: str = "aktif") -> dict:

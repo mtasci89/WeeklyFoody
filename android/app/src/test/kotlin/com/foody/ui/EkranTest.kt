@@ -129,6 +129,17 @@ class EkranTest {
         kural.onNodeWithContentDescription("Gönder").assertIsNotEnabled()
     }
 
+    @Test fun ayarlardaSunucuSurumuVeGuncellemeDugmesi() {
+        val vm = AnaViewModel(ApplicationProvider.getApplicationContext<Application>())
+        vm.ornekVeriyiYukle(null, null, emptyList(), emptyList(), null, null, durum = Ornek.durum)
+        kural.setContent { FoodyTema { AyarlarEkran(vm, geri = {}) } }
+        kural.onNodeWithText("Sürüm: ${Ornek.durum.surum}").assertExists()
+        kural.onNodeWithText("Sunucuyu güncelle").performClick()
+        kural.onNodeWithText("Sunucu güncellensin mi?").assertExists()
+        kural.onNodeWithText("Vazgeç").performClick()
+        kural.onNodeWithText("Sunucu güncellensin mi?").assertDoesNotExist()
+    }
+
     @Test fun haftaSecimiVarsayilanAktif() {
         val vm = vm()
         kural.setContent { FoodyTema { MenuEkran(vm, tarifAc = {}, ayarlar = {}, asistanaYaz = {}) } }
