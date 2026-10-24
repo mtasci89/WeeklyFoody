@@ -1,5 +1,6 @@
 package com.foody.ui
 
+import androidx.compose.material.icons.rounded.Share
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -62,6 +63,8 @@ fun MenuEkran(vm: AnaViewModel, tarifAc: (String) -> Unit, ayarlar: () -> Unit, 
     val isleniyor by vm.isleniyor.collectAsStateWithLifecycle()
     val tarifler by vm.tarifler.collectAsStateWithLifecycle()
     val son by vm.sonDegisiklik.collectAsStateWithLifecycle()
+    val islemMetni by vm.islemMetni.collectAsStateWithLifecycle()
+    val baglam = androidx.compose.ui.platform.LocalContext.current
     val cevap = durum.veri
     val plan = cevap?.plan
     var secilen by remember { mutableStateOf<Pair<Gun?, Ogun>?>(null) }
@@ -75,6 +78,10 @@ fun MenuEkran(vm: AnaViewModel, tarifAc: (String) -> Unit, ayarlar: () -> Unit, 
             "Menü",
             plan?.let { "${kisaTarih(it.haftaBaslangic)} – ${kisaTarih(it.haftaBitis)} · ${it.durumMetni}" },
         ) {
+            if (plan != null) IconButton(onClick = {
+                val ad = "Foody menü ${kisaTarih(plan.haftaBaslangic)} – ${kisaTarih(plan.haftaBitis)}"
+                runCatching { pdfPaylas(baglam, ad, menuSatirlari(cevap)) }.onFailure { vm.bilgiVer("PDF oluşturulamadı: ${it.message}") }
+            }) { Icon(androidx.compose.material.icons.Icons.Rounded.Share, contentDescription = "PDF olarak paylaş") }
             if (ayar.hazir) IconButton(onClick = { vm.menuYenile() }) { Icon(Icons.Rounded.Refresh, contentDescription = "Yenile") }
             IconButton(onClick = ayarlar) { Icon(Icons.Rounded.Settings, contentDescription = "Ayarlar") }
         }
@@ -117,6 +124,14 @@ fun MenuEkran(vm: AnaViewModel, tarifAc: (String) -> Unit, ayarlar: () -> Unit, 
                 .testTag("menu_listesi"),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
+            islemMetni?.let { m ->
+                Kart(Modifier.fillMaxWidth(), renk = Renk.Sari) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                        Text(m, fontSize = 14.sp)
+                    }
+                }
+            }
             val bunun = son?.takeIf { it.planId == plan.id }
             if (bunun != null) Kart(Modifier.fillMaxWidth().testTag("son_degisiklik"), renk = Renk.AcikYesil) {
                 Text("Son değişiklik", fontWeight = FontWeight.ExtraBold, fontSize = 15.sp, color = Renk.Yesil)
@@ -156,7 +171,7 @@ fun MenuEkran(vm: AnaViewModel, tarifAc: (String) -> Unit, ayarlar: () -> Unit, 
     if (onaySor) AlertDialog(
         onDismissRequest = { onaySor = false },
         title = { Text("Menü onaylansın mı?") },
-        text = { Text("Onaylanınca menü ve alışveriş listesi alıcılara Telegram'dan gönderilir. Sonra değiştirilemez.") },
+        text = { Text("Onaylanınca \"Onaylı menü\"ye geçer; tarifleri Tarifler'de, alışveriş listesi Alışveriş'te hazır olur ve PDF olarak paylaşabilirsin. Sonra değiştirilemez.") },
         confirmButton = { TextButton(onClick = { onaySor = false; vm.menuyuOnayla() }) { Text("Onayla") } },
         dismissButton = { TextButton(onClick = { onaySor = false }) { Text("Vazgeç") } },
     )
@@ -172,7 +187,7 @@ fun MenuEkran(vm: AnaViewModel, tarifAc: (String) -> Unit, ayarlar: () -> Unit, 
                 OgunIslemleri(
                     yer = "$yer · ${ogun.rol}",
                     tarifiAc = { secilen = null; tarifAc(ogun.tarifId) },
-                    yenilikci = { secilen = null; vm.yenilikciIste(konu); asistanaGit() },
+                    yenilikci = { secilen = null; vm.yenisiniBul(konu) },
                     asistanaYaz = {
                         secilen = null
                         vm.taslakAyarla(seciliMesaj(listOf(konu), ""))
@@ -229,7 +244,7 @@ fun OgunIslemleri(
     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
         Text(yer, color = Renk.Soluk, fontSize = 13.sp)
         IslemDugmesi("Tarifi aç", tarifiAc)
-        IslemDugmesi("Asistan yerine yenilikçi bir şey koysun", yenilikci, vurgulu = true)
+        IslemDugmesi("Yerine yepyeni bir yemek bul", yenilikci, vurgulu = true)
         IslemDugmesi("Asistana başka bir şey söyle", asistanaYaz)
         IslemDugmesi("Listeden değiştir", listedenDegistir)
         if (gunuEkle != null) IslemDugmesi("Bu güne yan yemek / çorba ekle", gunuEkle)

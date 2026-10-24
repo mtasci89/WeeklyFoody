@@ -1,5 +1,6 @@
 package com.foody.ui
 
+import androidx.compose.runtime.setValue
 import android.content.Intent
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -51,18 +52,35 @@ fun alisverisMetni(liste: Alisveris, isaretli: Set<String>): String = buildStrin
 fun AlisverisEkran(vm: AnaViewModel) {
     val durum by vm.alisveris.collectAsStateWithLifecycle()
     val isaretli by vm.isaretli.collectAsStateWithLifecycle()
+    val kaynak by vm.alisverisKaynagi.collectAsStateWithLifecycle()
+    var paylasMenusu by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
     val baglam = LocalContext.current
     val liste = durum.veri
     val toplam = liste?.gruplar?.sumOf { it.kalemler.size } ?: 0
     val alinan = liste?.gruplar?.sumOf { g -> g.kalemler.count { it.anahtar in isaretli } } ?: 0
 
     Column(Modifier.fillMaxSize()) {
-        Baslik("Alışveriş", liste?.haftaBaslangic?.let { "${kisaTarih(it)} haftası · $alinan/$toplam alındı" }) {
+        Baslik(
+            "Alışveriş",
+            liste?.haftaBaslangic?.let { listOf("${kisaTarih(it)} haftası", kaynak.ifBlank { null }, "$alinan/$toplam alındı").filterNotNull().joinToString(" · ") },
+        ) {
             IconButton(onClick = { vm.alisverisYenile() }) { Icon(Icons.Rounded.Refresh, contentDescription = "Yenile") }
-            if (liste != null && toplam > 0) IconButton(onClick = {
-                val gonder = Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, alisverisMetni(liste, isaretli))
-                baglam.startActivity(Intent.createChooser(gonder, "Listeyi paylaş"))
-            }) { Icon(Icons.Rounded.Share, contentDescription = "Paylaş") }
+            if (liste != null && toplam > 0) androidx.compose.foundation.layout.Box {
+                IconButton(onClick = { paylasMenusu = true }) { Icon(Icons.Rounded.Share, contentDescription = "Paylaş") }
+                androidx.compose.material3.DropdownMenu(expanded = paylasMenusu, onDismissRequest = { paylasMenusu = false }) {
+                    androidx.compose.material3.DropdownMenuItem(text = { Text("PDF olarak") }, onClick = {
+                        paylasMenusu = false
+                        val ad = "Foody alışveriş ${liste.haftaBaslangic?.let { kisaTarih(it) } ?: ""} haftası"
+                        runCatching { pdfPaylas(baglam, ad, alisverisSatirlari(liste, isaretli)) }
+                            .onFailure { vm.bilgiVer("PDF oluşturulamadı: ${it.message}") }
+                    })
+                    androidx.compose.material3.DropdownMenuItem(text = { Text("Metin olarak") }, onClick = {
+                        paylasMenusu = false
+                        val gonder = Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, alisverisMetni(liste, isaretli))
+                        baglam.startActivity(Intent.createChooser(gonder, "Listeyi paylaş"))
+                    })
+                }
+            }
         }
         DurumKarti(durum.yukleniyor && liste == null, durum.hata, yenile = { vm.alisverisYenile() })
         if (liste != null && toplam == 0) {

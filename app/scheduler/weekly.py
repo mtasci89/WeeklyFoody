@@ -99,7 +99,7 @@ async def weekly_plan_job(**_legacy: object) -> None:
                 session = MealPlannerService(db, settings).current_session(session.week_start)
             if session.meal_plan:
                 await fill_for_rules(db, settings, [i.recipe for i in session.meal_plan.items])
-            if _CURRENT_BOT and settings.admin_telegram_user_id:
+            if _CURRENT_BOT and settings.admin_telegram_user_id and settings.telegram_menu_messages:
                 text = f"🍽️ Önümüzdeki haftanın yemek planını hazırladım.\n\n{format_meal_plan(session)}"
                 chunks = split_for_telegram(text)
                 for index, chunk in enumerate(chunks):
@@ -166,7 +166,7 @@ async def weekly_recipe_discovery_job(**_legacy: object) -> None:
                 "loglara bakmak gerekebilir.",
             )
             return
-        if _CURRENT_BOT and settings.admin_telegram_user_id and candidates:
+        if _CURRENT_BOT and settings.admin_telegram_user_id and candidates and settings.telegram_menu_messages:
             await _CURRENT_BOT.send_message(
                 chat_id=settings.admin_telegram_user_id,
                 text=(
@@ -198,7 +198,7 @@ async def _agent_discovery(settings: Settings) -> None:
     finally:
         await agent.aclose()
     logger.info("weekly_recipe_discovery_completed turns=%s", len(replies))
-    if _CURRENT_BOT and admin:
+    if _CURRENT_BOT and admin and settings.telegram_menu_messages:
         text = (
             "🧪 Haftalık tarif keşfi: internette yeni tarifler aradım. Bulduklarım aday "
             "olarak bekliyor; bazıları yarınki menüye \"yeni\" olarak girecek. /candidates ile "

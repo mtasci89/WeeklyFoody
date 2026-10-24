@@ -176,7 +176,7 @@ fun AsistanEkran(vm: AnaViewModel, menuyuAc: (Plan) -> Unit, ayarlar: () -> Unit
         AlertDialog(
             onDismissRequest = { onaylanacak = null },
             title = { Text("Menü onaylansın mı?") },
-            text = { Text("${kisaTarih(plan.haftaBaslangic)} – ${kisaTarih(plan.haftaBitis)} menüsü ve alışveriş listesi alıcılara gönderilir. Sonra değiştirilemez.") },
+            text = { Text("${kisaTarih(plan.haftaBaslangic)} – ${kisaTarih(plan.haftaBitis)} menüsü kesinleşir; tarifleri ve alışveriş listesi uygulamada hazır olur. Sonra değiştirilemez.") },
             confirmButton = { TextButton(onClick = { onaylanacak = null; vm.planiOnayla(plan) }) { Text("Onayla") } },
             dismissButton = { TextButton(onClick = { onaylanacak = null }) { Text("Vazgeç") } },
         )

@@ -1,0 +1,291 @@
+{
+  "hafta_baslangic": "2026-10-26",
+  "durum": "AWAITING_ADMIN_FEEDBACK",
+  "tarifler": [
+    {
+      "id": "d1dc5d3d-425d-4179-babc-b6a0bdffba65",
+      "ad": "Fırında Tavuk",
+      "kategori": "main",
+      "kategori_adi": "Ana yemek",
+      "durum": "approved",
+      "sure_dk": null,
+      "vejetaryen": false,
+      "kaynak": "",
+      "kcal": null,
+      "protein": null,
+      "tahmini": null,
+      "porsiyon": 4,
+      "kisi": 4,
+      "malzemeler": [
+        {
+          "miktar": "1 kg",
+          "ad": "tavuk",
+          "not": ""
+        },
+        {
+          "miktar": "4 adet",
+          "ad": "patates",
+          "not": ""
+        }
+      ],
+      "hazirlanis": "",
+      "gun": "Pazartesi"
+    },
+    {
+      "id": "af529793-b411-4492-bcd8-9b04ab42f015",
+      "ad": "Makarna",
+      "kategori": "side",
+      "kategori_adi": "Yan yemek",
+      "durum": "approved",
+      "sure_dk": null,
+      "vejetaryen": false,
+      "kaynak": "",
+      "kcal": 400,
+      "protein": 13,
+      "tahmini": true,
+      "porsiyon": 4,
+      "kisi": 4,
+      "malzemeler": [
+        {
+          "miktar": "500 g",
+          "ad": "makarna",
+          "not": ""
+        },
+        {
+          "miktar": "3 adet",
+          "ad": "domates",
+          "not": ""
+        }
+      ],
+      "hazirlanis": "",
+      "gun": "Pazartesi"
+    },
+    {
+      "id": "290cddcc-1c7e-474b-8aa5-ad1fa48a62a5",
+      "ad": "Izgara Balık",
+      "kategori": "main",
+      "kategori_adi": "Ana yemek",
+      "durum": "approved",
+      "sure_dk": null,
+      "vejetaryen": false,
+      "kaynak": "",
+      "kcal": 310,
+      "protein": 10,
+      "tahmini": true,
+      "porsiyon": 4,
+      "kisi": 4,
+      "malzemeler": [
+        {
+          "miktar": "1 kg",
+          "ad": "balık",
+          "not": ""
+        },
+        {
+          "miktar": "2 adet",
+          "ad": "limon",
+          "not": ""
+        }
+      ],
+      "hazirlanis": "",
+      "gun": "Salı"
+    },
+    {
+      "id": "c3ed13bc-c768-4a86-a80e-d15430c6cf9d",
+      "ad": "Mercimek Çorbası",
+      "kategori": "soup",
+      "kategori_adi": "Çorba",
+      "durum": "approved",
+      "sure_dk": null,
+      "vejetaryen": true,
+      "kaynak": "",
+      "kcal": 430,
+      "protein": 14,
+      "tahmini": true,
+      "porsiyon": 4,
+      "kisi": 4,
+      "malzemeler": [
+        {
+          "miktar": "250 g",
+          "ad": "mercimek",
+          "not": ""
+        },
+        {
+          "miktar": "1 adet",
+          "ad": "havuç",
+          "not": ""
+        }
+      ],
+      "hazirlanis": "",
+      "gun": "Salı"
+    },
+    {
+      "id": "b00abf53-b8fe-4535-91e1-5bcfe67f43ac",
+      "ad": "Tavuk Fajita",
+      "kategori": "main",
+      "kategori_adi": "Ana yemek",
+      "durum": "candidate",
+      "sure_dk": null,
+      "vejetaryen": false,
+      "kaynak": "https://ornek.example/fajita",
+      "kcal": 520,
+      "protein": 17,
+      "tahmini": true,
+      "porsiyon": 4,
+      "kisi": 4,
+      "malzemeler": [
+        {
+          "miktar": "600 g",
+          "ad": "tavuk göğsü",
+          "not": ""
+        }
+      ],
+      "hazirlanis": "Tavuğu baharatla soteleyin, lavaşa sarın.",
+      "gun": "Çarşamba"
+    },
+    {
+      "id": "82e4f8c8-d97d-4981-871e-393f6503a2de",
+      "ad": "Kuru Fasulye",
+      "kategori": "main",
+      "kategori_adi": "Ana yemek",
+      "durum": "approved",
+      "sure_dk": null,
+      "vejetaryen": false,
+      "kaynak": "",
+      "kcal": null,
+      "protein": null,
+      "tahmini": null,
+      "porsiyon": 4,
+      "kisi": 4,
+      "malzemeler": [
+        {
+          "miktar": "500 g",
+          "ad": "kuru fasulye",
+          "not": ""
+        },
+        {
+          "miktar": "2 adet",
+          "ad": "soğan",
+          "not": ""
+        }
+      ],
+      "hazirlanis": "",
+      "gun": "Perşembe"
+    },
+    {
+      "id": "7ad28c7e-25a7-4a1d-b9d1-389fce202e75",
+      "ad": "Nohut",
+      "kategori": "main",
+      "kategori_adi": "Ana yemek",
+      "durum": "approved",
+      "sure_dk": null,
+      "vejetaryen": false,
+      "kaynak": "",
+      "kcal": 460,
+      "protein": 15,
+      "tahmini": true,
+      "porsiyon": 4,
+      "kisi": 4,
+      "malzemeler": [
+        {
+          "miktar": "500 g",
+          "ad": "nohut",
+          "not": ""
+        },
+        {
+          "miktar": "1 adet",
+          "ad": "soğan",
+          "not": ""
+        }
+      ],
+      "hazirlanis": "",
+      "gun": "Cuma"
+    },
+    {
+      "id": "e765738c-aae8-4ea4-83f3-a952a3b0146e",
+      "ad": "Sebze Yemeği",
+      "kategori": "main",
+      "kategori_adi": "Ana yemek",
+      "durum": "approved",
+      "sure_dk": null,
+      "vejetaryen": false,
+      "kaynak": "",
+      "kcal": null,
+      "protein": null,
+      "tahmini": null,
+      "porsiyon": 4,
+      "kisi": 4,
+      "malzemeler": [
+        {
+          "miktar": "2 adet",
+          "ad": "kabak",
+          "not": ""
+        },
+        {
+          "miktar": "2 adet",
+          "ad": "havuç",
+          "not": ""
+        }
+      ],
+      "hazirlanis": "",
+      "gun": "Cumartesi"
+    },
+    {
+      "id": "894c3479-5567-4131-8ad6-24e3b7652a87",
+      "ad": "Haydari",
+      "kategori": "meze",
+      "kategori_adi": "Meze",
+      "durum": "approved",
+      "sure_dk": null,
+      "vejetaryen": true,
+      "kaynak": "",
+      "kcal": 280,
+      "protein": 9,
+      "tahmini": true,
+      "porsiyon": 4,
+      "kisi": 4,
+      "malzemeler": [
+        {
+          "miktar": "400 g",
+          "ad": "yoğurt",
+          "not": ""
+        },
+        {
+          "miktar": "1 demet",
+          "ad": "dereotu",
+          "not": ""
+        }
+      ],
+      "hazirlanis": "",
+      "gun": "Haftanın mezeleri"
+    },
+    {
+      "id": "6e37a366-37c7-467e-aeaa-f43d61b44b1a",
+      "ad": "Çoban Salata",
+      "kategori": "salad",
+      "kategori_adi": "Salata",
+      "durum": "approved",
+      "sure_dk": null,
+      "vejetaryen": true,
+      "kaynak": "",
+      "kcal": 550,
+      "protein": 18,
+      "tahmini": true,
+      "porsiyon": 4,
+      "kisi": 4,
+      "malzemeler": [
+        {
+          "miktar": "3 adet",
+          "ad": "domates",
+          "not": ""
+        },
+        {
+          "miktar": "2 adet",
+          "ad": "salatalık",
+          "not": ""
+        }
+      ],
+      "hazirlanis": "",
+      "gun": "Haftanın mezeleri"
+    }
+  ]
+}

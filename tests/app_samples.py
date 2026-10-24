@@ -120,6 +120,7 @@ def build_samples(workdir: Path) -> dict[str, object]:
         "adaylar": client.get("/api/v1/tarifler", headers=auth, params={"durum": "aday"}).json(),
         "tarif": client.get(f"/api/v1/tarifler/{tavuk['id']}", headers=auth, params={"kisi": 2}).json(),
         "alisveris": client.get("/api/v1/alisveris", headers=auth).json(),
+        "menu_tarifler": client.get("/api/v1/menu/tarifler", headers=auth, params={"kisi": 4}).json(),
         "kurallar": client.get("/api/v1/kurallar", headers=auth).json(),
         "sohbet": client.post("/api/v1/sohbet", headers=auth, json={"mesaj": "menü"}).json(),
         "sohbet_gecmisi": client.get("/api/v1/sohbet", headers=auth).json(),

@@ -2,6 +2,35 @@
 
 Son güncelleme: **2026-10-24 — Claude**. Önce [PROJE.md](PROJE.md) dosyasını okuyun.
 
+## Son tamamlanan iş (Claude, 2026-10-25): tekrar yasağı, yepyeni yemek, Telegram'sız onay, PDF (1.8)
+
+Kullanıcı: "Dünyada başka yemek yok mu? 2 gün arka arkaya aynı yemek; yeni tarif diyorum hâlâ
+aynı şeyler"; "taslak onaylanmadan PDF paylaşılsın"; "onaylayınca Onaylı menü'de görünmeli,
+Telegram'dan gitmiş, Telegram kullanmayacağım"; "onaylı menünün tarifleri Tarifler'de, PDF
+ile paylaşılsın"; "onaylı menünün alışveriş listesi Alışveriş'e gitsin, paylaşılsın".
+
+- **Tekrar yasağı (sunucu, ajan + elle düzenleme):** aynı ana yemek haftada bir kez, hiçbir
+  yemek arka arkaya iki gün (hafta geçişi dahil). `MealAgentToolset._clash`, plan_kaydet
+  denetimi; ayar `NO_REPEAT_MEALS` (varsayılan açık; küçük kütüphaneli eski testlerde kapalı).
+  Otomatik planlayıcıya uygulanmaz.
+- **`yenisiyle_degistir` aracı** (`app/agent/fresh.py`): kütüphane + bu hafta + son 4 haftanın
+  yemeklerini ve ev kurallarını vererek tek JSON isteğiyle 3 farklı mutfaktan tarifli öneri
+  alır; kütüphanede olmayan ve kurala uyan ilkini aday kaydedip `ogun_degistir` ile koyar.
+  API `POST /menu/yenisi`; uygulamada yemeğe dokun → "Yerine yepyeni bir yemek bul" (sohbetsiz).
+  Web araması yok (yapılandırılmış JSON ile birlikte kullanılamıyor); model bilgisinden.
+- **Telegram'sız:** `TELEGRAM_MENU_MESSAGES=false` (varsayılan): onay (uygulama ve ajan),
+  pazar taslağı ve keşif mesajları Telegram'a gitmez. Bağlantı kodu/güncelleme bildirimi sürer.
+- **Uygulama 1.8 (versionCode 9):** Taslak/Onaylı bölümleri uygulamada `bu_hafta` +
+  `gelecek_hafta` menülerinden seçilir (`bolumSec`; eski sunucuyla da çalışır — kullanıcının
+  ekranında eski sunucu "onayli"yi tanımadığı için taslak görünüyordu). Onaydan sonra Onaylı
+  menü açılır. Menü, tarifler (Tarifler > "Bu hafta", `GET /menu/tarifler`) ve alışveriş
+  listesi PDF olarak paylaşılır (`ui/Pdf.kt`, PdfDocument + FileProvider `cache/pdf`, izin yok).
+  Alışveriş onaylı menüyü (yoksa taslağı) izler ve kaynağını yazar.
+- **Kontroller:** pytest 365 geçti; Android 58 test (5 canlı atlandı) geçti.
+- **Doğrulanmadı:** PDF dosyasının cihazda yazılması (Robolectric PdfDocument'i taklit etmiyor;
+  içerik satırları test edildi); gerçek Gemini'nin `yenisiyle_degistir` önerilerinin kalitesi.
+- **Sıradaki adım:** kullanıcı `/guncelle` (ya da Ayarlar) + 1.8 APK.
+
 ## Son tamamlanan iş (Claude, 2026-10-24): "Bunu anlayamadım" düşmeleri, ** işaretleri (1.7)
 
 Kullanıcı ekran görüntüsü: "pancarı da değiştirelim son olarak" -> kırmızı "Bunu anlayamadım".

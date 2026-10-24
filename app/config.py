@@ -76,6 +76,13 @@ class Settings(BaseSettings):
     # Mezeler günlere bölünmez: haftalık ayrı bir liste olur (bu kadar meze).
     # 0: eski davranış, mezeler her güne dağıtılır. Ev kuralı bunu ezer.
     weekly_meze_count: int = Field(default=4, ge=0, le=10)
+    # Ajan/elle düzenlemede tekrar yasağı: aynı ana yemek haftada bir kez,
+    # hiçbir yemek arka arkaya iki gün. (Küçük kütüphaneli eski testler kapatır.)
+    no_repeat_meals: bool = True
+    # Menü Telegram'dan GİTMEZ: onay, pazar taslağı ve keşif mesajları yalnızca
+    # uygulamada. (Kullanıcı: "Telegram kullanmayacağım, app yaptık.")
+    # Bağlantı kodu ve güncelleme bildirimleri bundan etkilenmez.
+    telegram_menu_messages: bool = False
 
     recipe_discovery_enabled: bool = True
     recipe_discovery_day: str = "saturday"

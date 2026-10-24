@@ -1,7 +1,7 @@
 {
   "tarifler": [
     {
-      "id": "2b697306-aa89-469d-8a9d-413e3b2205fd",
+      "id": "d1dc5d3d-425d-4179-babc-b6a0bdffba65",
       "ad": "Fırında Tavuk",
       "kategori": "main",
       "kategori_adi": "Ana yemek",
@@ -14,7 +14,7 @@
       "tahmini": null
     },
     {
-      "id": "5659272f-d7a4-4a4c-8327-df2b6fe42c55",
+      "id": "894c3479-5567-4131-8ad6-24e3b7652a87",
       "ad": "Haydari",
       "kategori": "meze",
       "kategori_adi": "Meze",
@@ -27,7 +27,7 @@
       "tahmini": true
     },
     {
-      "id": "8501eb86-2b90-4864-a10f-4f97ed4798b1",
+      "id": "290cddcc-1c7e-474b-8aa5-ad1fa48a62a5",
       "ad": "Izgara Balık",
       "kategori": "main",
       "kategori_adi": "Ana yemek",
@@ -40,7 +40,7 @@
       "tahmini": true
     },
     {
-      "id": "c35413a4-3d61-4b9d-9c1b-4b94e4cd285d",
+      "id": "def06c40-27c7-4ece-9938-646659e8ec5e",
       "ad": "Izgara Köfte",
       "kategori": "main",
       "kategori_adi": "Ana yemek",
@@ -53,7 +53,7 @@
       "tahmini": true
     },
     {
-      "id": "34758df3-2c19-4c16-a85d-489c5c82c367",
+      "id": "82e4f8c8-d97d-4981-871e-393f6503a2de",
       "ad": "Kuru Fasulye",
       "kategori": "main",
       "kategori_adi": "Ana yemek",
@@ -66,7 +66,7 @@
       "tahmini": null
     },
     {
-      "id": "eb21824a-b68a-4878-9a02-9272b90cf41c",
+      "id": "af529793-b411-4492-bcd8-9b04ab42f015",
       "ad": "Makarna",
       "kategori": "side",
       "kategori_adi": "Yan yemek",
@@ -79,7 +79,7 @@
       "tahmini": true
     },
     {
-      "id": "f128ec85-b5d6-4140-9d60-6422d36c8a56",
+      "id": "c3ed13bc-c768-4a86-a80e-d15430c6cf9d",
       "ad": "Mercimek Çorbası",
       "kategori": "soup",
       "kategori_adi": "Çorba",
@@ -92,7 +92,7 @@
       "tahmini": true
     },
     {
-      "id": "6550f9e8-75d3-48bb-b697-7126d92ec496",
+      "id": "7ad28c7e-25a7-4a1d-b9d1-389fce202e75",
       "ad": "Nohut",
       "kategori": "main",
       "kategori_adi": "Ana yemek",
@@ -105,7 +105,7 @@
       "tahmini": true
     },
     {
-      "id": "a1acc605-1338-4429-b0ce-8aac98c5db83",
+      "id": "e765738c-aae8-4ea4-83f3-a952a3b0146e",
       "ad": "Sebze Yemeği",
       "kategori": "main",
       "kategori_adi": "Ana yemek",
@@ -118,7 +118,7 @@
       "tahmini": null
     },
     {
-      "id": "0a9c364c-2304-4a04-83a3-8a14a56ecfde",
+      "id": "6e37a366-37c7-467e-aeaa-f43d61b44b1a",
       "ad": "Çoban Salata",
       "kategori": "salad",
       "kategori_adi": "Salata",

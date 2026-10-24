@@ -114,9 +114,19 @@ data class TarifDetay(
     val kisi: Int = 4,
     val malzemeler: List<Malzeme> = emptyList(),
     val hazirlanis: String = "",
+    /** Menü tariflerinde: hangi gün ("Salı") ya da "Haftanın mezeleri". */
+    val gun: String = "",
 ) {
     val aday get() = durum == "candidate"
 }
+
+/** Bir haftanın menüsündeki tariflerin hepsi (GET /menu/tarifler). */
+@Serializable
+data class MenuTarifleri(
+    @SerialName("hafta_baslangic") val haftaBaslangic: String? = null,
+    val durum: String? = null,
+    val tarifler: List<TarifDetay> = emptyList(),
+)
 
 @Serializable
 data class MesajCevap(val mesaj: String = "")

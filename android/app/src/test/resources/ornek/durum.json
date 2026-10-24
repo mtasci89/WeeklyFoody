@@ -1,7 +1,7 @@
 {
   "ad": "Foody",
-  "surum": "78d6637",
-  "aciklama": "Add weekly new dishes and embed the assistant in the menu screen",
+  "surum": "1c11a2d",
+  "aciklama": "Stop answering \"Bunu anlayamadım\" when the model returns nothing",
   "guncelleniyor": false,
   "ajan": false,
   "saglayici": "gemini",

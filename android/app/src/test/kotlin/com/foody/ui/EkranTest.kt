@@ -63,6 +63,7 @@ class EkranTest {
         kural.onNodeWithText("İşaretleri temizle").assertExists()
 
         kural.onNodeWithText("Tarifler").performClick()
+        kural.onNodeWithText("Onaylı menü yok.").assertExists() // örnekte menü taslak
         kural.onNodeWithText("Adaylar (1)").performClick()
         kural.onNodeWithText("Tavuk Fajita").assertExists()
         kural.onNodeWithText("Listeye ekle").assertExists()
@@ -115,20 +116,43 @@ class EkranTest {
         kural.onNodeWithTag("son_degisiklik").assertDoesNotExist()
     }
 
-    @Test fun yemegeDokununcaAsistandanYenilikciIstenir() {
+    @Test fun yemegeDokununcaAsistanaKonuOlarakGider() {
         val vm = vm()
         var asistan = 0
         kural.setContent { FoodyTema { MenuEkran(vm, tarifAc = {}, ayarlar = {}, asistanaGit = { asistan++ }) } }
         val gun = Ornek.menu.plan!!.gunler.first()
         val ogun = gun.ogunler.first()
         kural.onAllNodesWithTag("yemek_${ogun.slot}").onFirst().performClick()
-        kural.onNodeWithText("Asistan yerine yenilikçi bir şey koysun").performClick()
+        kural.onNodeWithText("Yerine yepyeni bir yemek bul").assertExists()
+        kural.onNodeWithText("Asistana başka bir şey söyle").performClick()
 
-        val giden = vm.sohbet.value.last().metin
         val hafta = haftaKodu(Ornek.menu.plan!!.haftaBaslangic)
-        assert(giden.contains("tarih=${gun.tarih}, slot=${ogun.slot}, hafta=$hafta): ${ogun.tarif}")) { giden }
-        assert(giden.endsWith(YENILIKCI_ISTEK))
+        assert(vm.taslak.value.contains("tarih=${gun.tarih}, slot=${ogun.slot}, hafta=$hafta): ${ogun.tarif}")) { vm.taslak.value }
         assert(asistan == 1)
+    }
+
+    @Test fun onayliMenununTarifleriVePaylasma() {
+        val vm = AnaViewModel(ApplicationProvider.getApplicationContext<Application>()).also {
+            it.ornekVeriyiYukle(
+                menu = Ornek.menu, alisveris = Ornek.alisveris, kutuphane = Ornek.tarifler.tarifler,
+                adaylar = Ornek.adaylar.tarifler, kurallar = Ornek.kurallar, tarif = Ornek.tarif,
+                menuTarifleri = Ornek.menuTarifleri,
+            )
+        }
+        kural.setContent { FoodyTema { Uygulama(vm) } }
+        kural.onNodeWithText("Menü").performClick()
+        kural.onNodeWithContentDescription("PDF olarak paylaş").assertExists()
+
+        kural.onNodeWithText("Tarifler").performClick()
+        kural.onNodeWithText("Bu hafta").assertIsSelected()
+        kural.onNodeWithText("Tüm tarifleri PDF olarak paylaş").assertExists()
+        kural.onAllNodesWithText(Ornek.menuTarifleri.tarifler.first().ad).onFirst().assertExists()
+
+        kural.onNodeWithText("Alışveriş").performClick()
+        kural.onAllNodesWithText("Onaylı menünün listesi", substring = true).onFirst().assertExists()
+        kural.onNodeWithContentDescription("Paylaş").performClick()
+        kural.onNodeWithText("PDF olarak").assertExists()
+        kural.onNodeWithText("Metin olarak").assertExists()
     }
 
     @Test fun yemekIslemleriTumSecenekleriSunar() {
@@ -143,6 +167,7 @@ class EkranTest {
                 )
             }
         }
+        kural.onNodeWithText("Yerine yepyeni bir yemek bul").assertExists()
         listOf("Tarifi aç", "Asistana başka bir şey söyle", "Listeden değiştir", "Bu güne yan yemek / çorba ekle", "Menüden çıkar").forEach {
             kural.onNodeWithText(it).performClick()
         }

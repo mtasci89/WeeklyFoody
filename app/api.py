@@ -98,6 +98,13 @@ class AddIn(BaseModel):
     hafta: Literal["aktif", "bu_hafta", "gelecek_hafta"] = "aktif"
 
 
+class FreshIn(BaseModel):
+    tarih: str = Field(min_length=1, max_length=20)
+    slot: str = Field(default="", max_length=64)
+    istek: str = Field(default="", max_length=500)
+    hafta: Literal["aktif", "bu_hafta", "gelecek_hafta"] = "aktif"
+
+
 class RemoveIn(BaseModel):
     tarih: str = Field(min_length=1, max_length=20)
     slot: str = Field(min_length=1, max_length=64)
@@ -392,8 +399,8 @@ def create_api_app(
                 MealPlannerService(db, settings).approve(session)
             except RuleViolation as error:
                 raise HTTPException(status_code=422, detail=f"Onaylanamadı: {error}") from error
-            message = "Menü onaylandı."
-            if notifier is not None and settings.all_recipient_ids:
+            message = "Menü onaylandı. Onaylı menü, tarifleri ve alışveriş listesi uygulamada hazır."
+            if settings.telegram_menu_messages and notifier is not None and settings.all_recipient_ids:
                 try:
                     await WeeklyWorkflowService(db, settings, notifier).publish_final(session)
                     message = "Menü onaylandı ve alıcılara Telegram'dan gönderildi."
@@ -431,6 +438,40 @@ def create_api_app(
         return await run_menu_tool(
             "ogun_ekle", {"tarih": body.tarih, "tarif": body.tarif, "gerekce": "Uygulamadan eklendi", "hafta": body.hafta},
         )
+
+    @api.post("/menu/yenisi")
+    async def fresh_meal(body: FreshIn) -> dict:
+        """Uygulamadaki "Yerine yeni bir şey bul": sohbet gerekmeden, kütüphanede
+        olmayan bir yemek üretilip konur."""
+        return await run_menu_tool(
+            "yenisiyle_degistir",
+            {"tarih": body.tarih, "ogun_slotu": body.slot, "istek": body.istek, "hafta": body.hafta},
+        )
+
+    @api.get("/menu/tarifler")
+    def menu_recipes(hafta: str = "aktif", kisi: int = 0) -> dict:
+        """Bir haftanın menüsündeki tariflerin hepsi (malzemeler kişi sayısına göre,
+        hazırlanış): uygulamada "Bu haftanın tarifleri" ve PDF için."""
+        people = kisi if 1 <= kisi <= 20 else settings.default_servings
+        with session_factory() as db:
+            session = resolve(db, hafta)
+            if session is None or not session.meal_plan:
+                return {"hafta_baslangic": None, "durum": None, "tarifler": []}
+            ordered = sorted(
+                session.meal_plan.items, key=lambda i: (is_weekly_slot(i.meal_slot), i.date, i.meal_slot)
+            )
+            seen, recipes = set(), []
+            for item in ordered:
+                if item.recipe_id in seen:
+                    continue
+                seen.add(item.recipe_id)
+                when = "Haftanın mezeleri" if is_weekly_slot(item.meal_slot) else TR_DAY_NAMES[item.date.weekday()]
+                recipes.append({**recipe_detail(item.recipe, people), "gun": when})
+            return {
+                "hafta_baslangic": session.week_start.isoformat(),
+                "durum": session.state.value,
+                "tarifler": recipes,
+            }
 
     @api.post("/menu/cikar")
     async def remove_meal(body: RemoveIn) -> dict:

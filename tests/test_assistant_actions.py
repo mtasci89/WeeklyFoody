@@ -66,7 +66,7 @@ async def test_approval_without_telegram_only_approves(db, settings, session_fac
 
     out = await call(MealAgentToolset(settings, session_factory), "menuyu_onayla")
 
-    assert out.endswith("menüsü onaylandı.")
+    assert "menüsü onaylandı" in out and "Telegram" not in out
     assert db.get(WeeklyPlanningSession, session.id).state == SessionState.APPROVED
 
 

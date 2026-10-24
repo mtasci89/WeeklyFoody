@@ -88,6 +88,19 @@ fun haftaKodu(haftaBaslangic: String, bugun: java.time.LocalDate = java.time.Loc
     }
 }
 
+/**
+ * Menü sekmesinin bölümü bu ve gelecek haftanın planından seçilir (sunucu eski olsa da çalışır):
+ * "taslak" onay bekleyen plan (önce gelecek hafta), "onayli" onaylanmış plan (önce bu hafta).
+ */
+fun bolumSec(bolum: String, bu: MenuCevap?, gelecek: MenuCevap?): MenuCevap? {
+    val adaylar = if (bolum == "onayli") listOf(bu, gelecek) else listOf(gelecek, bu)
+    val uyan = adaylar.firstOrNull { c ->
+        val p = c?.plan
+        p != null && (if (bolum == "onayli") !p.onaylanabilir && p.gunler.any { it.ogunler.isNotEmpty() } else p.onaylanabilir)
+    }
+    return uyan ?: (bu ?: gelecek)?.copy(plan = null, mesaj = null)
+}
+
 /** Taslakta son yapılan değişiklik: Menü > Taslak'ta üstte gösterilir, değişen yemekler vurgulanır. */
 data class SonDegisiklik(val planId: String, val metin: String, val degisiklikler: List<Degisiklik>)
 
@@ -134,6 +147,21 @@ class AnaViewModel(app: Application) : AndroidViewModel(app) {
     val ekler: StateFlow<List<Ek>> = _ekler.asStateFlow()
     private var ekSayaci = 0L
 
+    /** Bu ve gelecek haftanın menüsü (bölümler ve alışveriş/tarif kaynağı bunlardan seçilir). */
+    private var haftalar: Pair<MenuCevap?, MenuCevap?> = null to null
+
+    /** Onaylı menünün tarifleri (Tarifler > Bu hafta, PDF). */
+    private val _menuTarifleri = MutableStateFlow(Yuk<com.foody.data.MenuTarifleri>())
+    val menuTarifleri: StateFlow<Yuk<com.foody.data.MenuTarifleri>> = _menuTarifleri.asStateFlow()
+
+    /** Alışveriş listesinin hangi menüden geldiği. */
+    private val _alisverisKaynagi = MutableStateFlow("")
+    val alisverisKaynagi: StateFlow<String> = _alisverisKaynagi.asStateFlow()
+
+    /** Süren işlemin kullanıcıya görünen adı ("Yeni yemek hazırlanıyor…"). */
+    private val _islemMetni = MutableStateFlow<String?>(null)
+    val islemMetni: StateFlow<String?> = _islemMetni.asStateFlow()
+
     private val _sonDegisiklik = MutableStateFlow<SonDegisiklik?>(null)
     val sonDegisiklik: StateFlow<SonDegisiklik?> = _sonDegisiklik.asStateFlow()
 
@@ -172,10 +200,10 @@ class AnaViewModel(app: Application) : AndroidViewModel(app) {
     fun yenilikciIste(o: SeciliOgun) = asistanaSor(seciliMesaj(listOf(o), YENILIKCI_ISTEK))
 
     private fun bildir(metin: String) { _bilgi.value = metin }
+    fun bilgiVer(metin: String) = bildir(metin)
 
     fun hepsiniYenile() {
-        menuYenile()
-        alisverisYenile()
+        menuYenile() // alışveriş listesi ve menü tarifleri de buradan yenilenir
         tarifleriYenile()
         kurallariYenile()
         gecmisiYukle()
@@ -249,25 +277,53 @@ class AnaViewModel(app: Application) : AndroidViewModel(app) {
 
     fun haftaSec(hafta: String) {
         _hafta.value = hafta
+        if (haftalar.first != null || haftalar.second != null) {
+            _menu.value = Yuk(veri = bolumSec(hafta, haftalar.first, haftalar.second))
+        }
         menuYenile()
-        alisverisYenile()
+    }
+
+    /** Onaylı menünün haftası; yoksa taslağınki ("bu_hafta"/"gelecek_hafta"). */
+    private fun kaynakHafta(): Pair<String, Boolean>? {
+        val onayli = bolumSec("onayli", haftalar.first, haftalar.second)?.plan
+        if (onayli != null) return haftaKodu(onayli.haftaBaslangic) to true
+        val taslak = bolumSec("taslak", haftalar.first, haftalar.second)?.plan ?: return null
+        return haftaKodu(taslak.haftaBaslangic) to false
     }
 
     fun menuYenile() {
         if (testModu || !_ayarlar.value.hazir) return
         viewModelScope.launch {
             _menu.update { it.copy(yukleniyor = true, hata = null) }
-            runCatching { sunucu.menu(_hafta.value) }
-                .onSuccess { _menu.value = Yuk(veri = it) }
+            runCatching { sunucu.menu("bu_hafta") to sunucu.menu("gelecek_hafta") }
+                .onSuccess { (bu, gelecek) ->
+                    haftalar = bu to gelecek
+                    _menu.value = Yuk(veri = bolumSec(_hafta.value, bu, gelecek))
+                    alisverisYenile()
+                    menuTarifleriniYenile()
+                }
                 .onFailure { e -> _menu.update { it.copy(yukleniyor = false, hata = e.message) } }
         }
     }
 
-    fun menuyuOnayla() = islem {
-        val cevap = sunucu.menuyuOnayla(_hafta.value)
-        _menu.value = Yuk(veri = cevap)
-        bildir(cevap.mesaj ?: "Menü onaylandı.")
-        alisverisYenile()
+    fun menuTarifleriniYenile() {
+        if (testModu || !_ayarlar.value.hazir) return
+        val onayli = bolumSec("onayli", haftalar.first, haftalar.second)?.plan
+        if (onayli == null) { _menuTarifleri.value = Yuk(veri = com.foody.data.MenuTarifleri()); return }
+        viewModelScope.launch {
+            _menuTarifleri.update { it.copy(yukleniyor = true, hata = null) }
+            runCatching { sunucu.menuTarifleri(haftaKodu(onayli.haftaBaslangic)) }
+                .onSuccess { _menuTarifleri.value = Yuk(veri = it) }
+                .onFailure { e ->
+                    val metin = if ((e as? com.foody.data.Sunucu.Hata)?.kod == 404) "Bu özellik için sunucuyu güncelle (Ayarlar > Sunucuyu güncelle)." else e.message
+                    _menuTarifleri.update { it.copy(yukleniyor = false, hata = metin) }
+                }
+        }
+    }
+
+    fun menuyuOnayla() {
+        val plan = _menu.value.veri?.plan ?: return
+        planiOnayla(plan)
     }
 
     /** Sohbetteki bir menü kartından Menü ekranına geçerken o kartın haftasını gösterir. */
@@ -289,11 +345,21 @@ class AnaViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     /** Sohbetteki karttan onay: kartın haftası, ekranda hangi hafta açık olursa olsun. */
-    fun planiOnayla(plan: Plan) = islem {
+    fun planiOnayla(plan: Plan) = islem("Menü onaylanıyor…") {
         val cevap = sunucu.menuyuOnayla(haftaKodu(plan.haftaBaslangic))
-        if (_menu.value.veri?.plan?.haftaBaslangic == plan.haftaBaslangic) _menu.value = Yuk(veri = cevap)
-        bildir(cevap.mesaj ?: "Menü onaylandı.")
+        // Eski sunucu Telegram'dan gönderdiğini söyleyebilir; uygulamada onay yalnızca kesinleştirir.
+        bildir(cevap.mesaj?.takeIf { "Telegram" !in it } ?: "Menü onaylandı. Onaylı menü, tarifleri ve alışveriş listesi hazır.")
+        _hafta.value = "onayli"
         menuYenile()
+    }
+
+    /** "Yerine yeni bir yemek bul": sohbet gerekmeden, kütüphanede olmayan bir yemek konur. */
+    fun yenisiniBul(o: SeciliOgun, istek: String = "") = islem("Yeni yemek hazırlanıyor… (15-40 sn)") {
+        val cevap = sunucu.yenisiniBul(o.tarih, o.slot, o.hafta, istek)
+        val metin = cevap.mesaj.orEmpty().lines()
+            .filterNot { "tarif_onayla" in it || it.isBlank() }
+            .joinToString("\n").ifBlank { "${o.tarif} yerine yeni bir yemek kondu." }
+        elleDegisti(cevap, metin)
         alisverisYenile()
     }
 
@@ -318,12 +384,17 @@ class AnaViewModel(app: Application) : AndroidViewModel(app) {
         alisverisYenile()
     }
 
-    private fun islem(is_: suspend () -> Unit) {
+    private fun islem(metin: String? = null, is_: suspend () -> Unit) {
         if (testModu) return
         viewModelScope.launch {
             _isleniyor.value = true
-            runCatching { is_() }.onFailure { bildir(it.message ?: "İşlem başarısız.") }
+            _islemMetni.value = metin
+            runCatching { is_() }.onFailure { e ->
+                val m = if ((e as? Sunucu.Hata)?.kod == 404) "Bu özellik için sunucuyu güncelle (Ayarlar > Sunucuyu güncelle)." else e.message
+                bildir(m ?: "İşlem başarısız.")
+            }
             _isleniyor.value = false
+            _islemMetni.value = null
         }
     }
 
@@ -333,8 +404,14 @@ class AnaViewModel(app: Application) : AndroidViewModel(app) {
         if (testModu || !_ayarlar.value.hazir) return
         viewModelScope.launch {
             _alisveris.update { it.copy(yukleniyor = true, hata = null) }
-            // Alışveriş listesi menü sekmesinin bölümünden bağımsız: onay bekleyen taslak, yoksa bu hafta.
-            runCatching { sunucu.alisveris("aktif") }
+            // Alışveriş listesi onaylı menüden gelir; onaylı menü yoksa taslaktan.
+            val kaynak = kaynakHafta()
+            _alisverisKaynagi.value = when (kaynak?.second) {
+                true -> "Onaylı menünün listesi"
+                false -> "Taslak menünün listesi (henüz onaylanmadı)"
+                null -> ""
+            }
+            runCatching { sunucu.alisveris(kaynak?.first ?: "aktif") }
                 .onSuccess {
                     _alisveris.value = Yuk(veri = it)
                     _isaretli.value = it.haftaBaslangic?.let(isaretDeposu::oku).orEmpty()
@@ -497,6 +574,11 @@ class AnaViewModel(app: Application) : AndroidViewModel(app) {
             _menu.value = Yuk(veri = c.menu)
             _sonDegisiklik.value = SonDegisiklik(plan.id, c.metin, c.degisiklikler)
             _taslagaGit.tryEmit(Unit)
+        } else if (c.planDegisti && plan != null && !plan.onaylanabilir) {
+            // Asistan menüyü onayladı: Onaylı menü bölümüne geç.
+            _hafta.value = "onayli"
+            _menu.value = Yuk(veri = c.menu)
+            menuYenile()
         }
     }
 
@@ -520,11 +602,14 @@ class AnaViewModel(app: Application) : AndroidViewModel(app) {
         tarif: TarifDetay?,
         ayarlar: Ayarlar.Degerler = Ayarlar.Degerler("https://1.2.3.4:8443", "x".repeat(40), "pin"),
         durum: DurumCevap? = null,
+        menuTarifleri: com.foody.data.MenuTarifleri? = null,
     ) {
         testModu = true
         _baglanti.value = Yuk(veri = durum)
         _ayarlar.value = ayarlar
         _menu.value = Yuk(veri = menu)
+        _menuTarifleri.value = Yuk(veri = menuTarifleri)
+        if (alisveris != null) _alisverisKaynagi.value = "Onaylı menünün listesi"
         _alisveris.value = Yuk(veri = alisveris)
         _tarifler.value = TarifDurumu(kutuphane = kutuphane, adaylar = adaylar)
         _kurallar.value = Yuk(veri = kurallar)

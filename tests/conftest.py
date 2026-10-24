@@ -25,6 +25,10 @@ def settings(tmp_path: Path) -> Settings:
         # Eski testler mezeleri günlere dağıtılmış varsayar; haftalık meze
         # listesi tests/test_weekly_mezes.py'de ayrıca denetlenir.
         weekly_meze_count=0,
+        # Örnek kütüphane küçük (6 ana yemek); tekrar yasağı tests/test_no_repeat.py'de.
+        no_repeat_meals=False,
+        # Eski testler Telegram'a gönderimi denetler; varsayılan (kapalı) test_no_repeat.py'de.
+        telegram_menu_messages=True,
     )
 
 

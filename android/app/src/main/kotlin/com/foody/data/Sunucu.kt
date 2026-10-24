@@ -122,6 +122,17 @@ class Sunucu(private val ayarlar: () -> Ayarlar.Degerler) {
         cevirici = MenuCevap.serializer(),
     )
 
+    /** Kütüphanede olmayan yepyeni bir yemek üretip öğüne koyar (sohbet gerekmez). */
+    suspend fun yenisiniBul(tarih: String, slot: String, hafta: String, istek: String = "") = cagir(
+        "POST", "menu/yenisi",
+        govde = buildJsonObject { put("tarih", tarih); put("slot", slot); put("hafta", hafta); put("istek", istek) }.toString(),
+        cevirici = MenuCevap.serializer(),
+    )
+
+    suspend fun menuTarifleri(hafta: String, kisi: Int = 0) = cagir(
+        "GET", "menu/tarifler", mapOf("hafta" to hafta, "kisi" to kisi.toString()), cevirici = MenuTarifleri.serializer(),
+    )
+
     /** Plana yemek ekler; `tarih` ISO ya da haftalık meze listesi için "HAFTA". */
     suspend fun ogunEkle(tarih: String, tarif: String, hafta: String = "aktif") = cagir(
         "POST", "menu/ekle",

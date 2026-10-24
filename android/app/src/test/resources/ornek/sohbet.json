@@ -12,7 +12,7 @@
     "kalori_siniri": null,
     "kisi": 4,
     "plan": {
-      "id": "fa925dfa-a680-4901-a496-856ff1d3335f",
+      "id": "d0ea6e9c-c002-47a2-ac84-0d8c7b0e5e9a",
       "hafta_baslangic": "2026-10-26",
       "hafta_bitis": "2026-11-01",
       "durum": "AWAITING_ADMIN_FEEDBACK",
@@ -27,7 +27,7 @@
             {
               "slot": "dinner_main",
               "rol": "Ana yemek",
-              "tarif_id": "2b697306-aa89-469d-8a9d-413e3b2205fd",
+              "tarif_id": "d1dc5d3d-425d-4179-babc-b6a0bdffba65",
               "tarif": "Fırında Tavuk",
               "kategori": "main",
               "porsiyon": 4,
@@ -40,7 +40,7 @@
             {
               "slot": "dinner_side",
               "rol": "Yan",
-              "tarif_id": "eb21824a-b68a-4878-9a02-9272b90cf41c",
+              "tarif_id": "af529793-b411-4492-bcd8-9b04ab42f015",
               "tarif": "Makarna",
               "kategori": "side",
               "porsiyon": 4,
@@ -60,7 +60,7 @@
             {
               "slot": "dinner_main",
               "rol": "Ana yemek",
-              "tarif_id": "8501eb86-2b90-4864-a10f-4f97ed4798b1",
+              "tarif_id": "290cddcc-1c7e-474b-8aa5-ad1fa48a62a5",
               "tarif": "Izgara Balık",
               "kategori": "main",
               "porsiyon": 4,
@@ -73,7 +73,7 @@
             {
               "slot": "dinner_side",
               "rol": "Yan",
-              "tarif_id": "f128ec85-b5d6-4140-9d60-6422d36c8a56",
+              "tarif_id": "c3ed13bc-c768-4a86-a80e-d15430c6cf9d",
               "tarif": "Mercimek Çorbası",
               "kategori": "soup",
               "porsiyon": 4,
@@ -93,7 +93,7 @@
             {
               "slot": "dinner_main",
               "rol": "Ana yemek",
-              "tarif_id": "e498dcce-8aec-4570-8a62-9daee60764d0",
+              "tarif_id": "b00abf53-b8fe-4535-91e1-5bcfe67f43ac",
               "tarif": "Tavuk Fajita",
               "kategori": "main",
               "porsiyon": 4,
@@ -106,7 +106,7 @@
             {
               "slot": "dinner_side",
               "rol": "Yan",
-              "tarif_id": "eb21824a-b68a-4878-9a02-9272b90cf41c",
+              "tarif_id": "af529793-b411-4492-bcd8-9b04ab42f015",
               "tarif": "Makarna",
               "kategori": "side",
               "porsiyon": 4,
@@ -126,7 +126,7 @@
             {
               "slot": "dinner_main",
               "rol": "Ana yemek",
-              "tarif_id": "34758df3-2c19-4c16-a85d-489c5c82c367",
+              "tarif_id": "82e4f8c8-d97d-4981-871e-393f6503a2de",
               "tarif": "Kuru Fasulye",
               "kategori": "main",
               "porsiyon": 4,
@@ -139,7 +139,7 @@
             {
               "slot": "dinner_side",
               "rol": "Yan",
-              "tarif_id": "f128ec85-b5d6-4140-9d60-6422d36c8a56",
+              "tarif_id": "c3ed13bc-c768-4a86-a80e-d15430c6cf9d",
               "tarif": "Mercimek Çorbası",
               "kategori": "soup",
               "porsiyon": 4,
@@ -159,7 +159,7 @@
             {
               "slot": "dinner_main",
               "rol": "Ana yemek",
-              "tarif_id": "6550f9e8-75d3-48bb-b697-7126d92ec496",
+              "tarif_id": "7ad28c7e-25a7-4a1d-b9d1-389fce202e75",
               "tarif": "Nohut",
               "kategori": "main",
               "porsiyon": 4,
@@ -172,7 +172,7 @@
             {
               "slot": "dinner_side",
               "rol": "Yan",
-              "tarif_id": "eb21824a-b68a-4878-9a02-9272b90cf41c",
+              "tarif_id": "af529793-b411-4492-bcd8-9b04ab42f015",
               "tarif": "Makarna",
               "kategori": "side",
               "porsiyon": 4,
@@ -192,7 +192,7 @@
             {
               "slot": "dinner_main",
               "rol": "Ana yemek",
-              "tarif_id": "a1acc605-1338-4429-b0ce-8aac98c5db83",
+              "tarif_id": "e765738c-aae8-4ea4-83f3-a952a3b0146e",
               "tarif": "Sebze Yemeği",
               "kategori": "main",
               "porsiyon": 4,
@@ -205,7 +205,7 @@
             {
               "slot": "dinner_side",
               "rol": "Yan",
-              "tarif_id": "f128ec85-b5d6-4140-9d60-6422d36c8a56",
+              "tarif_id": "c3ed13bc-c768-4a86-a80e-d15430c6cf9d",
               "tarif": "Mercimek Çorbası",
               "kategori": "soup",
               "porsiyon": 4,
@@ -225,7 +225,7 @@
             {
               "slot": "dinner_main",
               "rol": "Ana yemek",
-              "tarif_id": "2b697306-aa89-469d-8a9d-413e3b2205fd",
+              "tarif_id": "d1dc5d3d-425d-4179-babc-b6a0bdffba65",
               "tarif": "Fırında Tavuk",
               "kategori": "main",
               "porsiyon": 4,
@@ -238,7 +238,7 @@
             {
               "slot": "dinner_side",
               "rol": "Yan",
-              "tarif_id": "eb21824a-b68a-4878-9a02-9272b90cf41c",
+              "tarif_id": "af529793-b411-4492-bcd8-9b04ab42f015",
               "tarif": "Makarna",
               "kategori": "side",
               "porsiyon": 4,
@@ -256,7 +256,7 @@
         {
           "slot": "hafta_meze_1",
           "rol": "Meze",
-          "tarif_id": "5659272f-d7a4-4a4c-8327-df2b6fe42c55",
+          "tarif_id": "894c3479-5567-4131-8ad6-24e3b7652a87",
           "tarif": "Haydari",
           "kategori": "meze",
           "porsiyon": 4,
@@ -269,7 +269,7 @@
         {
           "slot": "hafta_meze_2",
           "rol": "Meze",
-          "tarif_id": "0a9c364c-2304-4a04-83a3-8a14a56ecfde",
+          "tarif_id": "6e37a366-37c7-467e-aeaa-f43d61b44b1a",
           "tarif": "Çoban Salata",
           "kategori": "salad",
           "porsiyon": 4,

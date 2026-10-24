@@ -160,6 +160,17 @@ menü tek bakışta görünsün.
 - Testlerin çoğu eski "her güne meze" varsayımıyla yazıldığı için `tests/conftest.py`
   `weekly_meze_count=0` kullanır; yeni davranış `tests/test_weekly_mezes.py`'de.
 
+## Tekrar yasağı, yepyeni yemek, Telegram'sız onay, PDF (2026-10-25, uygulama 1.8)
+
+- `NO_REPEAT_MEALS` (varsayılan açık): ajan ve elle düzenlemede aynı ana yemek haftada bir
+  kez, hiçbir yemek arka arkaya iki gün (hafta geçişi dahil). Otomatik planlayıcıya uygulanmaz.
+- `yenisiyle_degistir` (`app/agent/fresh.py`, API `POST /menu/yenisi`): kütüphanede olmayan
+  yemeği tarifiyle üretip öğüne koyar; "yeni/farklı/başka" isteklerinde ajan bunu kullanır.
+- `TELEGRAM_MENU_MESSAGES` (varsayılan kapalı): menü, onay ve keşif Telegram'a gitmez; kullanıcı
+  Telegram kullanmıyor. `/uygulama` bağlantı kodu ve güncelleme bildirimleri sürer.
+- `GET /menu/tarifler?hafta=...&kisi=N`: haftanın tarifleri (malzeme + hazırlanış) — uygulamada
+  Tarifler > "Bu hafta" ve PDF. Uygulama PDF'leri cihazda üretir (`ui/Pdf.kt`).
+
 ## Foody uygulaması (android/, 2026-10-19)
 
 Mimari: Financia/Cal-Track tarzı yerel Android uygulaması, ama veri ve zekâ sunucuda.

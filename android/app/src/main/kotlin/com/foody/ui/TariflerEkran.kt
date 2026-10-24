@@ -1,5 +1,6 @@
 package com.foody.ui
 
+import androidx.compose.material.icons.rounded.Share
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -25,6 +26,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
+import androidx.compose.ui.platform.testTag
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -54,13 +56,16 @@ fun tarifAltYazisi(t: TarifOzet): String = listOfNotNull(
 @Composable
 fun TariflerEkran(vm: AnaViewModel, tarifAc: (String) -> Unit) {
     val durum by vm.tarifler.collectAsStateWithLifecycle()
+    val menuTarifleri by vm.menuTarifleri.collectAsStateWithLifecycle()
+    val baglam = androidx.compose.ui.platform.LocalContext.current
     val isleniyor by vm.isleniyor.collectAsStateWithLifecycle()
+    // 0: onaylı menünün tarifleri, 1: kütüphane, 2: adaylar
     var sekme by rememberSaveable { mutableStateOf(0) }
     var ara by rememberSaveable { mutableStateOf("") }
     var kategori by rememberSaveable { mutableStateOf("") }
     var kesifPenceresi by rememberSaveable { mutableStateOf(false) }
 
-    val kaynak = if (sekme == 0) durum.kutuphane else durum.adaylar
+    val kaynak = if (sekme == 2) durum.adaylar else durum.kutuphane
     val gorunen = kaynak.filter {
         (kategori.isBlank() || it.kategori == kategori) && (ara.isBlank() || it.ad.contains(ara.trim(), ignoreCase = true))
     }
@@ -70,8 +75,18 @@ fun TariflerEkran(vm: AnaViewModel, tarifAc: (String) -> Unit) {
             IconButton(onClick = { vm.tarifleriYenile() }) { Icon(Icons.Rounded.Refresh, contentDescription = "Yenile") }
         }
         TabRow(selectedTabIndex = sekme, containerColor = Renk.Arka, contentColor = Renk.Yesil) {
-            Tab(sekme == 0, { sekme = 0 }, text = { Text("Kütüphane") })
-            Tab(sekme == 1, { sekme = 1 }, text = { Text("Adaylar (${durum.adaylar.size})") })
+            Tab(sekme == 0, { sekme = 0 }, text = { Text("Bu hafta") })
+            Tab(sekme == 1, { sekme = 1 }, text = { Text("Kütüphane") })
+            Tab(sekme == 2, { sekme = 2 }, text = { Text("Adaylar (${durum.adaylar.size})") })
+        }
+        if (sekme == 0) {
+            BuHaftaninTarifleri(menuTarifleri, tarifAc, yenile = { vm.menuYenile() }) { veri ->
+                val ad = "Foody tarifler ${veri.haftaBaslangic?.let { kisaTarih(it) } ?: ""} haftası"
+                runCatching {
+                    pdfPaylas(baglam, ad, tarifSatirlari("Bu haftanın tarifleri", veri.haftaBaslangic?.let { "${kisaTarih(it)} haftası · onaylı menü" } ?: "", veri.tarifler))
+                }.onFailure { vm.bilgiVer("PDF oluşturulamadı: ${it.message}") }
+            }
+            return@Column
         }
         DurumKarti(durum.yukleniyor && kaynak.isEmpty(), durum.hata, yenile = { vm.tarifleriYenile() })
         LazyColumn(
@@ -79,7 +94,7 @@ fun TariflerEkran(vm: AnaViewModel, tarifAc: (String) -> Unit) {
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            if (sekme == 1) item {
+            if (sekme == 2) item {
                 Kart(Modifier.fillMaxWidth(), renk = Renk.AcikYesil) {
                     Text("Web'de yeni tarif ara", fontWeight = FontWeight.Bold)
                     Text(
@@ -119,7 +134,7 @@ fun TariflerEkran(vm: AnaViewModel, tarifAc: (String) -> Unit) {
             }
             if (gorunen.isEmpty() && !durum.yukleniyor) item {
                 Text(
-                    if (sekme == 1) "Onay bekleyen aday tarif yok." else "Eşleşen tarif yok.",
+                    if (sekme == 2) "Onay bekleyen aday tarif yok." else "Eşleşen tarif yok.",
                     color = Renk.Soluk, modifier = Modifier.padding(8.dp),
                 )
             }
@@ -139,5 +154,48 @@ fun TariflerEkran(vm: AnaViewModel, tarifAc: (String) -> Unit) {
             },
             dismissButton = { TextButton(onClick = { kesifPenceresi = false }) { Text("Vazgeç") } },
         )
+    }
+}
+
+/** Onaylı menünün tarifleri: her biri malzemeleriyle; hepsi tek PDF olarak paylaşılır. */
+@Composable
+private fun BuHaftaninTarifleri(
+    durum: Yuk<com.foody.data.MenuTarifleri>,
+    tarifAc: (String) -> Unit,
+    yenile: () -> Unit,
+    paylas: (com.foody.data.MenuTarifleri) -> Unit,
+) {
+    val veri = durum.veri
+    DurumKarti(durum.yukleniyor && veri == null, durum.hata, yenile = yenile)
+    if ((veri == null && !durum.yukleniyor && durum.hata == null) || (veri != null && veri.tarifler.isEmpty())) {
+        Kart(Modifier.padding(16.dp).fillMaxWidth()) {
+            Text("Onaylı menü yok.", fontWeight = FontWeight.Bold)
+            Text("Menü > Taslak'ta menüyü onaylayınca tarifleri burada toplanır.", color = Renk.Soluk, fontSize = 14.sp)
+        }
+    }
+    if (veri == null || veri.tarifler.isEmpty()) return
+    LazyColumn(
+        Modifier.fillMaxSize().testTag("menu_tarifleri"),
+        contentPadding = PaddingValues(16.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        item {
+            Button(onClick = { paylas(veri) }, Modifier.fillMaxWidth()) {
+                Icon(androidx.compose.material.icons.Icons.Rounded.Share, contentDescription = null)
+                androidx.compose.foundation.layout.Spacer(Modifier.size(8.dp))
+                Text("Tüm tarifleri PDF olarak paylaş")
+            }
+        }
+        items(veri.tarifler, key = { it.id }) { t ->
+            Kart(Modifier.fillMaxWidth(), tikla = { tarifAc(t.id) }) {
+                Text(t.gun, fontSize = 12.sp, color = Renk.Soluk, fontWeight = FontWeight.SemiBold)
+                Text(t.ad, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                Text(
+                    t.malzemeler.joinToString(", ") { listOf(it.miktar, it.ad).filter { s -> s.isNotBlank() }.joinToString(" ") },
+                    fontSize = 13.sp, color = Renk.Soluk, maxLines = 3,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                )
+            }
+        }
     }
 }
