@@ -36,14 +36,16 @@ def test_shopping_scales_servings(db, settings):
     assert chicken.quantity == 1500
 
 
-def test_incompatible_units_are_not_combined():
+def test_incompatible_units_share_one_row_without_inventing_a_conversion():
     items = ShoppingAggregator().aggregate(
         [
             ShoppingIngredient("soğan", 1, "adet", "Sebze & Meyve"),
             ShoppingIngredient("soğan", 50, "g", "Sebze & Meyve"),
         ]
     )
-    assert len(items) == 2
+    assert len(items) == 1
+    assert items[0].quantity is None
+    assert items[0].format() == "1 adet + 50 g soğan"
 
 
 def test_pantry_items_are_excluded(db, settings):
@@ -52,3 +54,25 @@ def test_pantry_items_are_excluded(db, settings):
     plan = make_plan(db, ["Fırında Tavuk"])
     names = {item.name for item in ShoppingListService(db, settings).generate(plan)}
     assert "patates" not in names
+
+
+def test_pantry_aliases_are_matched_before_aggregation(db, settings):
+    from app.recipes.importer import IngredientInput, RecipeInput
+    RecipeService(db).upsert_recipe(RecipeInput(name='Sarımsak Test', ingredients=[IngredientInput(name='ezilmiş sarımsak', quantity=4, unit='diş')]))
+    db.add(PantryItem(ingredient_name='sarımsak'))
+    db.commit()
+    plan = make_plan(db, ['Sarımsak Test'])
+    assert not ShoppingListService(db, settings).generate(plan)
+
+
+def test_embedded_ingredient_quantity_scales_with_servings(db, settings):
+    from app.recipes.importer import IngredientInput, RecipeInput
+    RecipeService(db).upsert_recipe(RecipeInput(name='Dereotu Test', servings=4, ingredients=[IngredientInput(name='yarım demet dereotu')]))
+    plan = make_plan(db, ['Dereotu Test'])
+    plan.items[0].servings = 8
+    db.commit()
+    items = ShoppingListService(db, settings).generate(plan)
+    assert len(items) == 1
+    assert items[0].name == 'dereotu'
+    assert items[0].quantity == 1
+    assert items[0].format() == '1 demet dereotu'

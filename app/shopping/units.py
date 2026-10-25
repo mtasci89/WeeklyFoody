@@ -6,6 +6,12 @@ from dataclasses import dataclass
 UNIT_ALIASES = {
     "gr": "g",
     "gram": "g",
+    "kilogram": "kg",
+    "mililitre": "ml",
+    "tane": "adet",
+    "dis": "diş",
+    "bas": "baş",
+    "yaprak": "yaprak",
     "g": "g",
     "kg": "kg",
     "ml": "ml",
@@ -32,7 +38,8 @@ class NormalizedQuantity:
 def normalize_unit(unit: str | None) -> str | None:
     if not unit:
         return None
-    return UNIT_ALIASES.get(unit.strip().casefold(), unit.strip().casefold())
+    text = " ".join(unit.strip().casefold().split())
+    return UNIT_ALIASES.get(text, text)
 
 
 def to_base(quantity: float | None, unit: str | None) -> NormalizedQuantity:

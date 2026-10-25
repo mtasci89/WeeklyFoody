@@ -220,3 +220,8 @@ Onaylı menüde de yemek işlemleri açılır. Başarılı değişiklik yeniden 
 önceki kesin menü oturumun `previous_final` bağlamında tutulur ve yeniden onay gerekir.
 Yeni Android istemcisi onaya `plan_id` + `versiyon` ekler; API eski sürümü 409 ile reddeder.
 Ayarlar'daki APK indirme bağlantısı telefonu, Sunucuyu güncelle düğmesi sunucuyu günceller.
+
+
+## Alışveriş kalemlerini birleştirme
+
+`app/shopping/names.py` farklı yazım ve hazırlık notlarını alışveriş kimliğine dönüştürür; tarif verisi değiştirilmez. `ShoppingAggregator` aynı ürün ve kiler durumunu tek satıra indirir. Uyumlu metrik miktarlar toplanır, farklı birimler `4 adet + 14 diş` gibi tek satırda korunur; dönüşüm oranı tahmin edilmez. Farklı et türleri, taze/kuru ürünler ve tavuk eti/suyu birleştirilmez. Birleştirme porsiyon ölçeklemesinden sonra, satın alma yuvarlamasından önce yapılır. API biçimi ve Android izinleri değişmez; bu tür düzeltmeler sunucu güncellemesiyle etkinleşir.
