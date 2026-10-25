@@ -12,8 +12,8 @@ Son güncelleme: **2026-10-25 — Codex**. Önce [PROJE.md](PROJE.md) dosyasın�
 - Ortak `app/shopping/names.py` yalnızca alışveriş kimliğini normalleştirir. Kaydedilmiş tarifler ve malzemeler değiştirilmez. Servis miktarı normalleştirip porsiyona göre ölçekler; kiler eşleşmesi de aynı adları kullanır.
 - Toplama kg/g ve l/ml çevriminden sonra, satın alma yuvarlamasından önce yapılır. Farklı birimler tek malzeme satırında ayrı miktarlar olarak korunur (4 adet + 14 diş sarımsak); baş/diş veya gram/adet oranı uydurulmaz. Taze/kuru, dana/kuzu, tavuk eti/tavuk suyu gibi farklı ürünler korunur. Belirsiz kuşbaşı et yalnızca listede tek açık et türü olduğunda o gruba katılır.
 - Değişenler: app/shopping/{names,aggregator,units,service}.py; tests/test_shopping.py; yeni tests/test_shopping_aliases.py ve tests/test_shopping_grouped_api.py. Android kodu, APK, imza ve izinler değişmedi; API alanları aynı. Uygulama/PDF/metin aynı sunucu listesini kullanır.
-- Yerel kontrol: 21 bağımsız normalleştirme/toplama testi başarılı; Python sözdizimi ve git diff --check geçti. Tam Python/API CI testleri henüz çalıştırılacak. Canlı veritabanı veya sunucu değiştirilmedi.
-- Sonraki adım: CI sonucunu doğrula, kullanılan GitHub dalına al. Kullanıcı Ayarlar > Sunucuyu güncelle ve Alışveriş > Yenile ile etkinleştirebilir; APK yeniden kurulmaz. Önceki açık güvenlik/bakım işleri korunur.
+- Yerel kontrol: 21 bağımsız normalleştirme/toplama testi başarılı; Python sözdizimi ve git diff --check geçti. Tam CI 40203035762 üzerinde Python/API 403 test başarılı; Android test/derleme ve izin denetimi de başarılı. PR #3 kullanılan dala birleştirildi: 789c65f0f70c7159153a29c84a1d451301b60726. Canlı veritabanı veya sunucu değiştirilmedi.
+- Sonraki adım: kullanıcı Ayarlar > Sunucuyu güncelle ve Alışveriş > Yenile ile etkinleştirebilir; APK yeniden kurulmaz. Önceki açık güvenlik/bakım işleri korunur.
 
 
 ## 2026-10-25 — Codex: banka uygulamalarıyla uyum için APK güvenlik kontrolü
