@@ -17,7 +17,7 @@ from app.api_tls import (
     read_env_value,
     spki_pin,
 )
-from app.db.models import Base, Recipe, RecipeStatus, SessionState
+from app.db.models import Base, Recipe, RecipeStatus, SessionState, WeeklyPlanningSession
 from app.planner.service import MealPlannerService
 from app.recipes.importer import IngredientInput, RecipeInput
 from app.recipes.nutrition import NutritionInput, save_nutrition
@@ -448,3 +448,19 @@ def test_update_endpoint_starts_the_self_update(client, monkeypatch):
     assert body == {"mesaj": "Güncelleme başladı."}
     assert len(calls) == 1
     assert client.post("/api/v1/guncelle").status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_approval_is_bound_to_the_menu_card_version(client, factory, settings):
+    session_id = await _plan(factory, settings)
+    with factory() as db:
+        session = db.get(WeeklyPlanningSession, session_id)
+        version = session.draft_version
+    stale = client.post('/api/v1/menu/onayla', headers=AUTH, json={'hafta': 'gelecek_hafta', 'plan_id': session_id, 'versiyon': version + 1})
+    assert stale.status_code == 409
+    assert 'Son sürümü' in stale.json()['detail']
+    wrong = client.post('/api/v1/menu/onayla', headers=AUTH, json={'hafta': 'gelecek_hafta', 'plan_id': 'different-plan', 'versiyon': version})
+    assert wrong.status_code == 409
+    fresh = client.post('/api/v1/menu/onayla', headers=AUTH, json={'hafta': 'gelecek_hafta', 'plan_id': session_id, 'versiyon': version})
+    assert fresh.status_code == 200
+    assert fresh.json()['plan']['onaylanabilir'] is False

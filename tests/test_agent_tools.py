@@ -837,3 +837,29 @@ async def test_plan_hazirla_offers_roles_and_calls_the_shape_a_suggestion(db, se
     for role in ("main", "meze", "salad", "side", "soup"):
         assert f"\n{role} (uygun kategoriler" in out
     assert "dinner_meze_1" in out
+
+
+@pytest.mark.asyncio
+async def test_reopening_published_menu_retains_snapshot_and_allows_republish(db, settings, toolset):
+    from datetime import datetime
+    session = await MealPlannerService(db, settings).create_or_get_weekly_session(WEEK)
+    session.state = SessionState.PUBLISHED
+    session.meal_plan.status = 'final'
+    session.published_at = datetime.utcnow()
+    db.commit()
+    target = next(i for i in session.meal_plan.items if i.date == WEEK and i.recipe.category == 'main')
+    old_recipe = target.recipe_id
+    replacement = next(r for r in RecipeService(db).list_recipes() if r.category == 'main' and r.id != old_recipe)
+    result = await call(toolset, 'ogun_degistir', tarih=WEEK.isoformat(), yeni_tarif=replacement.name, gerekce='Onaylı menüyü düzenle', ogun_slotu=target.meal_slot)
+    assert 'Değiştirildi' in result
+    assert session.state == SessionState.AWAITING_APPROVAL
+    assert session.published_at is None
+    assert session.meal_plan.status == 'draft'
+    assert any(i['recipe_id'] == old_recipe for i in session.context['previous_final']['meals'])
+    MealPlannerService(db, settings).approve(session)
+    from app.workflow import WeeklyWorkflowService
+    from unittest.mock import AsyncMock
+    from types import SimpleNamespace
+    notifier = SimpleNamespace(send_message=AsyncMock())
+    assert await WeeklyWorkflowService(db, settings, notifier).publish_final(session)
+    assert notifier.send_message.await_count > 0

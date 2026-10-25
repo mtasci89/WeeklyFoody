@@ -75,7 +75,7 @@ private val ONERILER = listOf(
     "Gelecek haftanın menüsünü hazırla",
     "Menüyü daha yenilikçi yap",
     "Salı'yı daha hafif yap",
-    "Menüyü onayla ve gönder",
+    "Cumartesi kişi sayısını değiştir",
 )
 
 /**
@@ -165,10 +165,11 @@ fun AsistanEkran(vm: AnaViewModel, menuyuAc: (Plan) -> Unit, ayarlar: () -> Unit
                 }
             }
         }
-        if (sohbet.isEmpty()) Row(
+        Row(
             Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp, vertical = 4.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) { ONERILER.forEach { o -> AssistChip(onClick = { vm.asistanaSor(o) }, label = { Text(o, fontSize = 13.sp) }) } }
+        ) { ONERILER.forEach { o -> AssistChip(onClick = { girdi = o }, enabled = !calisiyor, label = { Text(o, fontSize = 13.sp) }) } }
+        Text("Onaylı menüyü de değiştirebilirsin. Gün ve yemek adını yaz.", Modifier.padding(horizontal = 16.dp, vertical = 3.dp), color = Renk.Soluk, fontSize = 12.sp)
         YaziAlani(vm, girdi, { girdi = it }, gonder = { vm.asistanaSor(girdi); girdi = "" })
     }
 
@@ -176,7 +177,7 @@ fun AsistanEkran(vm: AnaViewModel, menuyuAc: (Plan) -> Unit, ayarlar: () -> Unit
         AlertDialog(
             onDismissRequest = { onaylanacak = null },
             title = { Text("Menü onaylansın mı?") },
-            text = { Text("${kisaTarih(plan.haftaBaslangic)} – ${kisaTarih(plan.haftaBitis)} menüsü kesinleşir; tarifleri ve alışveriş listesi uygulamada hazır olur. Sonra değiştirilemez.") },
+            text = { Text("${kisaTarih(plan.haftaBaslangic)} – ${kisaTarih(plan.haftaBitis)} menüsü kesinleşir; tarifleri ve alışveriş listesi uygulamada hazır olur. Daha sonra düzenleyebilirsin; değişiklikler yeniden onay bekleyen taslağa dönüşür.") },
             confirmButton = { TextButton(onClick = { onaylanacak = null; vm.planiOnayla(plan) }) { Text("Onayla") } },
             dismissButton = { TextButton(onClick = { onaylanacak = null }) { Text("Vazgeç") } },
         )

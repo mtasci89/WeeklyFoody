@@ -162,6 +162,8 @@ def plan_changes(before: dict[tuple[str, str], str], after: dict[tuple[str, str]
 
 class WeekIn(BaseModel):
     hafta: str = "aktif"
+    plan_id: str | None = Field(default=None, max_length=64)
+    versiyon: int | None = Field(default=None, ge=1)
 
 
 def _nutrition(recipe: Recipe) -> dict:
@@ -411,6 +413,8 @@ def create_api_app(
             session = resolve(db, (body or WeekIn()).hafta)
             if session is None or not session.meal_plan or not session.meal_plan.items:
                 raise HTTPException(status_code=404, detail="Onaylanacak menü yok.")
+            if body and ((body.plan_id is not None and body.plan_id != session.id) or (body.versiyon is not None and body.versiyon != session.draft_version)):
+                raise HTTPException(status_code=409, detail="Menü değişmiş. Son sürümü inceleyip tekrar onayla.")
             if session.state in (SessionState.APPROVED, SessionState.PUBLISHED):
                 raise HTTPException(status_code=409, detail="Bu menü zaten onaylı.")
             try:

@@ -149,8 +149,8 @@ fun MenuEkran(vm: AnaViewModel, tarifAc: (String) -> Unit, ayarlar: () -> Unit, 
                 MenuTablosu(
                     cevap,
                     degisen = bunun?.let { degisenAnahtarlar(it.degisiklikler) } ?: emptySet(),
-                    tikla = { gun, ogun -> if (plan.onaylanabilir) secilen = gun to ogun else tarifAc(ogun.tarifId) },
-                    mezeEkle = if (plan.onaylanabilir) { { mezeEklenecek = true } } else null,
+                    tikla = { gun, ogun -> if (!isleniyor) secilen = gun to ogun },
+                    mezeEkle = if (!isleniyor) { { mezeEklenecek = true } } else null,
                 )
             }
             if (plan.onaylanabilir) {
@@ -163,7 +163,7 @@ fun MenuEkran(vm: AnaViewModel, tarifAc: (String) -> Unit, ayarlar: () -> Unit, 
                     if (isleniyor) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp) else Text("Menüyü onayla")
                 }
             } else {
-                Text("Yemeğe dokun: tarifi ve malzemeleri.", color = Renk.Soluk, fontSize = 13.sp)
+                Text("Onaylı menü de düzenlenebilir. Yemeğe dokunup değiştir; yeni taslağı inceledikten sonra tekrar onayla.", color = Renk.Soluk, fontSize = 13.sp)
             }
         }
     }
@@ -171,7 +171,7 @@ fun MenuEkran(vm: AnaViewModel, tarifAc: (String) -> Unit, ayarlar: () -> Unit, 
     if (onaySor) AlertDialog(
         onDismissRequest = { onaySor = false },
         title = { Text("Menü onaylansın mı?") },
-        text = { Text("Onaylanınca \"Onaylı menü\"ye geçer; tarifleri Tarifler'de, alışveriş listesi Alışveriş'te hazır olur ve PDF olarak paylaşabilirsin. Sonra değiştirilemez.") },
+        text = { Text("Onaylanınca \"Onaylı menü\"ye geçer; tarifleri Tarifler'de, alışveriş listesi Alışveriş'te hazır olur ve PDF olarak paylaşabilirsin. Daha sonra düzenleyebilirsin; değişiklikler yeniden onay bekleyen taslağa dönüşür.") },
         confirmButton = { TextButton(onClick = { onaySor = false; vm.menuyuOnayla() }) { Text("Onayla") } },
         dismissButton = { TextButton(onClick = { onaySor = false }) { Text("Vazgeç") } },
     )

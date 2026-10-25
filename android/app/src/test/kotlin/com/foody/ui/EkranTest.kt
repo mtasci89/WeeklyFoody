@@ -254,4 +254,27 @@ class EkranTest {
         kural.onNodeWithText("Taslak").assertIsSelected()
         kural.onNodeWithText("Onaylı menü").assertExists()
     }
+
+    @Test fun onayliMenuYemekleriDuzenlenebilir() {
+        val onayli = Ornek.menu.copy(plan = Ornek.menu.plan!!.copy(durum = "APPROVED", durumMetni = "Onaylandı", onaylanabilir = false))
+        val vm = vm(onayli)
+        var asistan = 0
+        kural.setContent { FoodyTema { MenuEkran(vm, tarifAc = {}, ayarlar = {}, asistanaGit = { asistan++ }) } }
+        val ogun = onayli.plan!!.gunler.first().ogunler.first()
+        kural.onAllNodesWithTag("yemek_${ogun.slot}").onFirst().performClick()
+        kural.onNodeWithText("Yerine yepyeni bir yemek bul").assertExists()
+        kural.onNodeWithText("Listeden değiştir").assertExists()
+        kural.onNodeWithText("Asistana başka bir şey söyle").performClick()
+        assert(asistan == 1)
+        assert(vm.taslak.value.contains(ogun.tarif))
+    }
+
+    @Test fun sohbettenSonraOneriMesajiGondermedenYaziAlaniniDoldurur() {
+        val vm = vm()
+        vm.asistanaSor("Merhaba")
+        kural.setContent { FoodyTema { AsistanEkran(vm, menuyuAc = {}, ayarlar = {}) } }
+        kural.onAllNodesWithText("Gelecek haftanın menüsünü hazırla").onFirst().performClick()
+        kural.onNode(hasSetTextAction()).assertTextContains("Gelecek haftanın menüsünü hazırla")
+        assert(vm.sohbet.value.size == 1)
+    }
 }

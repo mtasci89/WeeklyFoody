@@ -2,6 +2,18 @@
 
 Son güncelleme: **2026-10-24 — Claude**. Önce [PROJE.md](PROJE.md) dosyasını okuyun.
 
+
+## 2026-10-25 — Codex: APK kaynak dalına uygun menü düzenleme ve asistan kullanımı (1.10)
+
+- Kaynak doğrulandı: yayınlanan `foody.apk`, `claude/weeklyfood-bot-review-08wbec` dalındaki `7ce67cd` sürümünden üretilmiş. `main` eski Telegram uygulamasıdır. Önceki Codex PR #1 bu nedenle telefon uygulamasını güncellemez; onun web ekranı Android ekranı değildir.
+- Android menü tablosundaki `onaylanabilir` düzenleme kilidi kaldırıldı: onaylı yemek ve haftalık mezeler için de tarif/değiştir/asistana yaz/çıkar seçenekleri açılır. Onay işleminden sonra değiştirilemeyeceğini söyleyen ekran ve araç açıklamaları düzeltildi.
+- Asistan önerileri sohbet başladıktan sonra da görünür; dokunmak mesajı otomatik göndermek yerine yazı alanını doldurur. Düzenlenen menü doğru Taslak bölümüne geçer ve yerel haftalık önbellek güncellenir.
+- Sohbet kartı onayı Android'de güncel menüyle karşılaştırılır; API isteği isteğe bağlı `plan_id` ve `versiyon` alır, eski kartı 409 ile reddeder (eski istemciler korunur). Onaylı menü yeniden taslak yapılırken önceki kesin menü oturum bağlamına kaydedilir ve `published_at` sıfırlanır.
+- Ayarlar'da uygulama sürümü ve resmi APK indirme sayfası bağlantısı; APK ile sunucu güncellemesinin ayrı olduğu açıklandı. Android 1.10 / versionCode 11, mevcut imza korunur.
+- Kontroller: kaynak Python sözdizimi ve `git diff --check` geçti. Tam Python/Android testleri ve imzalı release APK yeni CI işinde çalıştırılacak; bu not yazılırken sonuçları bekleniyor. Canlı sunucu/bot/gerçek Gemini çağrılmadı, `.env` veya gerçek veritabanı değiştirilmedi.
+- Sonraki adım: CI sonuçlarına göre düzelt; hazırlanan APK'yı ve test sonuçlarını kullanıcıya ver. Sunucuya dağıtım ve mevcut `uygulama-son` yayınını değiştirme yapılmadı. Önceki açık bakım işleri korunur.
+
+
 ## Son tamamlanan iş (Claude, 2026-10-25): "listeyi sıfırladı", 3 gün nohut, Kore tavuğu (1.9)
 
 Kullanıcı (sinirli, "yapamazsan Codex'e vereceğim"): "Komple listeyi sıfırladı; yeni tarifler

@@ -112,8 +112,8 @@ class Sunucu(private val ayarlar: () -> Ayarlar.Degerler) {
 
     suspend fun menu(hafta: String = "aktif") = cagir("GET", "menu", mapOf("hafta" to hafta), cevirici = MenuCevap.serializer())
 
-    suspend fun menuyuOnayla(hafta: String) = cagir(
-        "POST", "menu/onayla", govde = buildJsonObject { put("hafta", hafta) }.toString(), cevirici = MenuCevap.serializer(),
+    suspend fun menuyuOnayla(hafta: String, planId: String? = null, versiyon: Int? = null) = cagir(
+        "POST", "menu/onayla", govde = buildJsonObject { put("hafta", hafta); if (planId != null) put("plan_id", planId); if (versiyon != null) put("versiyon", versiyon) }.toString(), cevirici = MenuCevap.serializer(),
     )
 
     suspend fun ogunDegistir(tarih: String, slot: String, tarif: String, hafta: String = "aktif") = cagir(

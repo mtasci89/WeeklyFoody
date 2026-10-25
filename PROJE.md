@@ -211,3 +211,12 @@ işaretleri (düz SharedPreferences, hafta başına) durur.
   için depoyu özel yapmak önerilir (kullanıcıya söylendi).
 - Sunucuda 8443 hem `firewalld`'da hem Oracle VCN güvenlik listesinde açık olmalı
   (`deploy/uygulama-ac.sh`).
+
+
+## Onaylı menüyü uygulamadan düzenleme (1.10)
+
+`onaylanabilir` yalnızca onay düğmesini yönetir; yemeği düzenleme yetkisi değildir.
+Onaylı menüde de yemek işlemleri açılır. Başarılı değişiklik yeniden taslak oluşturur;
+önceki kesin menü oturumun `previous_final` bağlamında tutulur ve yeniden onay gerekir.
+Yeni Android istemcisi onaya `plan_id` + `versiyon` ekler; API eski sürümü 409 ile reddeder.
+Ayarlar'daki APK indirme bağlantısı telefonu, Sunucuyu güncelle düğmesi sunucuyu günceller.
