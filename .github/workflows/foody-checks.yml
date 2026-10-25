@@ -30,6 +30,19 @@ jobs:
         working-directory: android
         env:
           GORUNTU: ${{ github.workspace }}/out/screens
+      - name: APK izinlerini kontrol et
+        shell: bash
+        run: |
+          python - <<'PYTHON'
+          import os, pathlib, re, subprocess
+          candidates = list((pathlib.Path(os.environ["ANDROID_HOME"]) / "build-tools").glob("*/aapt2"))
+          aapt = max(candidates, key=lambda p: [int(x) for x in p.parent.name.split(".")])
+          output = subprocess.check_output([str(aapt), "dump", "permissions", "android/app/build/outputs/apk/release/app-release.apk"], text=True)
+          permissions = set(re.findall(r"uses-permission: name='([^']+)'", output))
+          allowed = {"android.permission.INTERNET", "com.foody.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"}
+          assert permissions <= allowed, permissions - allowed
+          print("APK izinleri uygun:", sorted(permissions))
+          PYTHON
       - run: cp android/app/build/outputs/apk/release/app-release.apk out/foody-1.10.apk
       - uses: actions/upload-artifact@v4
         if: always()

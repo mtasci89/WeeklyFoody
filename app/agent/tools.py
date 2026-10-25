@@ -465,8 +465,8 @@ class MealAgentToolset:
             ogun_slotu: str = "",
             hafta: Literal["aktif", "bu_hafta", "gelecek_hafta"] = "aktif",
         ) -> str:
-            """Plandaki bir öğünü başka bir tarifle değiştirir. Onaylanmış veya
-            onaylı veya yayınlanmış menüler de düzenlenebilir; başarılı değişiklik menüyü yeniden onay bekleyen taslağa çevirir.
+            """Plandaki bir öğünü başka bir tarifle değiştirir. Onaylı veya
+            yayınlanmış menüler de düzenlenebilir; başarılı değişiklik menüyü yeniden onay bekleyen taslağa çevirir.
 
             Args:
                 tarih: Değişecek günün ISO tarihi, örn. 2026-10-20. Haftalık
