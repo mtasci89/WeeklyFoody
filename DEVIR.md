@@ -4,6 +4,16 @@ Son güncelleme: **2026-10-25 — Codex**. Önce [PROJE.md](PROJE.md) dosyasın�
 
 
 
+
+## 2026-10-25 — Codex: banka uygulamalarıyla uyum için APK güvenlik kontrolü
+
+- Kullanıcının talebiyle 1.10 izin/imza düzeni yeniden kontrol edildi. Yayımlanan kaynak `4889823`; son release işinin (40200902266) izin denetimi ve yayın adımları başarılı. Yayın günlüğünde yalnızca `android.permission.INTERNET` ve `com.foody.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION` var.
+- Önceden doğrulanmış imzalı 1.10 derlemesinin ikili manifesti ayrıca okundu: debuggable/testOnly bayrakları yok (varsayılan kapalı); yedekleme ve açık HTTP kapalı; dosya ve AndroidX başlangıç sağlayıcıları dışa kapalı. Kamera, depolama, erişilebilirlik, ekran üstü gösterim, SMS, rehber vb. cihaz izinleri eklenmedi. Paket com.foody; versionCode 11, versionName 1.10.
+- 1.9 kaynak commit'i 7ce67cd ile yayınlanan 1.10 kaynak commit'i karşılaştırıldı: android/app/release.keystore blob'u aynı; imza yapılandırması korunuyor. Anahtar dosyasının içeriği bu kontrolde okunmadı. CI, izin listesi dışındaki izinlerde yayını durdurmayı sürdürüyor.
+- Açık gerçek risk: depo public ve release imza anahtarı Git'te izleniyor (PROJE.md'de de belgelenmiş). Anahtarı sadece son commit'ten kaldırmak geçmişteki ifşayı çözmez. Güvenli anahtar saklama ve gerekiyorsa imza geçişi, mevcut cihazlara güncelleme uyumluluğu planlanarak ayrı ele alınmalı; bu kontrolde imza döndürülmedi veya cihaz kurulumu değiştirilmedi.
+- Bankaların özel taramaları/gerçek banka uygulamaları cihazda denenmedi; evrensel uyum veya sıfır risk garantisi verilmez. APK, yayın dosyası ve canlı sunucu bu kontrol sırasında değiştirilmedi. Önceki açık işler korunur.
+
+
 ## 2026-10-25 — Codex: Foody 1.10 GitHub APK yayını tamamlandı
 
 - Kullanıcı açıkça GitHub'daki APK'nın güncellenmesini istedi. PR #2 kontrolleri geçtikten sonra kullanılan `claude/weeklyfood-bot-review-08wbec` dalına squash ile birleştirildi: `488982310d9c33e9eb2adb290f4c03692c1b26b5`.
