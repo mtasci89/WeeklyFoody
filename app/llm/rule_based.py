@@ -58,10 +58,10 @@ class RuleBasedLLMProvider(LLMProvider):
             return result(Intent.ADD_RECIPE, recipe_text=message if _has_recipe_details(message) else None)
         if any(w in text for w in ("bundan sonra", "artık")) or text.startswith("/addpreference"):
             return result(Intent.ADD_PREFERENCE, preference=PreferencePayload(rule=message.replace("/addpreference", "").strip()))
-        if any(w in text for w in ("değiştir", "olmasın", "koy", "çıkar", "kişi olacağız", "kişiyiz", "yemeyeceğiz", "dışarıda", "yerine")):
-            return result(Intent.MODIFY_PLAN)
         if _looks_like_recipe_text(message):
             return result(Intent.ADD_RECIPE, recipe_text=message)
+        if any(w in text for w in ("değiştir", "olmasın", "koy", "çıkar", "kişi olacağız", "kişiyiz", "yemeyeceğiz", "dışarıda", "yerine")):
+            return result(Intent.MODIFY_PLAN)
         if text.startswith("/discover") or (any(w in text for w in ("bul", "öner", "keşfet", "ara")) and any(w in text for w in ("tarif", "yemek", "yemeği"))) or "farklı şeyler öner" in text:
             return result(Intent.DISCOVER_RECIPE, discovery_query=message.replace("/discover", "").strip())
         if text.startswith("/shopping") or "alışveriş" in text:
@@ -166,7 +166,9 @@ def _has_recipe_details(message: str) -> bool:
 
 def _looks_like_recipe_text(message: str) -> bool:
     text = message.casefold()
-    return _has_recipe_details(message) and not text.startswith("/") and not any(
+    first_line = text.splitlines()[0] if text.splitlines() else ""
+    mentions_day = re.search(r"\b(?:pazartesi|cumartesi|çarşamba|perşembe|salı|cuma|pazar)\w*", first_line)
+    return _has_recipe_details(message) and not mentions_day and not text.startswith("/") and not any(
         phrase in text for phrase in ("menüyü", "menü", "alışveriş", "pantry", "tercih")
     )
 

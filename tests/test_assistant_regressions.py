@@ -188,3 +188,23 @@ async def test_edit_waits_for_publishing_and_remains_an_unpublished_draft(db, se
     assert session.state == SessionState.AWAITING_APPROVAL
     assert session.draft_version == 2
     assert session.published_at is None
+
+
+@pytest.mark.asyncio
+async def test_recipe_instructions_are_not_confused_with_menu_changes():
+    router = RuleBasedLLMProvider()
+    result = await router.route_intent('Tavuk Fajita\n600 gr tavuk\n2 biber\nTavuğu tavaya koy ve pişir.')
+    assert result.intent == Intent.ADD_RECIPE
+    result = await router.route_intent('Salı balığı çıkar.\nÇarşamba 6 kişi olacağız.')
+    assert result.intent == Intent.MODIFY_PLAN
+
+
+@pytest.mark.asyncio
+async def test_followup_recipe_name_completes_revision(db, settings):
+    session = await MealPlannerService(db, settings).create_or_get_weekly_session(date(2026, 8, 31))
+    revision = RevisionService(db, settings)
+    await revision.revise(session, 'Salı Bilinmeyen yemek koy.')
+    assert session.context['clarification']
+    await revision.revise(session, 'Kuru Fasulye')
+    assert not session.context.get('clarification')
+    assert any(i.recipe.name == 'Kuru Fasulye' for i in session.meal_plan.items if i.date.weekday() == 1)

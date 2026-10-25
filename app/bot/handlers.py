@@ -46,7 +46,7 @@ class TelegramHandlers:
         await reply(update.effective_message, "Merhaba! Menü, tarif ve alışveriş işlerini buradan yönetebiliriz.\n\nMenüyü görmek için 🍽 Menü’ye dokun. Onaylı menüyü de değiştirebilirsin: “Salı balık yerine Kuru Fasulye koy.”\n\nDeğişiklikler tekrar onayladığında alıcılara gönderilir.", reply_markup=home_keyboard())
 
     async def help(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-        await reply(update.effective_message, 
+        await reply(update.effective_message,
             "Menüdeki bir yemeği veya kişi sayısını değiştirmek için yaz:\n• Salı balığı çıkar.\n• Çarşamba Kuru Fasulye koy.\n• Cumartesi 6 kişi olacağız.\n\nOnaylı menü de düzenlenebilir. Değişiklikleri inceleyip tekrar onayla.\nBir isteği iptal etmek için “iptal” yaz.\n\n/menu /approve /regenerate /recipes /recipe <ad> /addrecipe /deleterecipe <ad>\n"
             "/discover <istek> /candidates /approverecipe <ad>\n"
             "/preferences /addpreference <kural> /deletepreference <kural>\n"
@@ -112,7 +112,7 @@ class TelegramHandlers:
         text = update.effective_message.text or ""
         if not _has_recipe_details(text):
             context.user_data["awaiting_recipe_text"] = True
-            await reply(update.effective_message, 
+            await reply(update.effective_message,
                 "Tabii. Tarifin adını ve malzemelerini yazıp gönder. Örn:\n\n"
                 "Tavuk Fajita\n600 gr tavuk\n2 biber\n1 soğan\nBaharatlarla sotele."
             )
@@ -306,7 +306,7 @@ class TelegramHandlers:
                     await reply(update.effective_message, "Tamam, tarif eklemeyi iptal ettim.")
                     return
                 if not _has_recipe_details(message):
-                    await reply(update.effective_message, 
+                    await reply(update.effective_message,
                         "Bunu tarif olarak kaydetmem için en az tarif adı ve bir malzeme satırı lazım. "
                         "Örn:\n\nTavuk Fajita\n600 gr tavuk\n2 biber"
                     )
@@ -339,7 +339,7 @@ class TelegramHandlers:
                 recipe_text = routed.recipe_text or message
                 if not _has_recipe_details(recipe_text):
                     context.user_data["awaiting_recipe_text"] = True
-                    await reply(update.effective_message, 
+                    await reply(update.effective_message,
                         "Tabii. Eklemek istediğin tarifi adı ve malzemeleriyle gönder. "
                         "Instagram/link varsa aynı mesaja koyabilirsin.\n\n"
                         "Örn:\nTavuk Fajita\n600 gr tavuk\n2 biber\n1 soğan"

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from datetime import date, timedelta
 
 from sqlalchemy.orm import Session
@@ -37,7 +38,11 @@ class RevisionService:
         service = RecipeService(self.db)
         recipes = service.list_recipes()
         pending = (session.context or {}).get("pending_revision")
-        request = f"{message}. {pending}" if pending else message
+        if pending:
+            pending_has_day = re.search(r"\b(?:pazartesi|cumartesi|çarşamba|perşembe|salı|cuma|pazar)\w*", pending.casefold())
+            request = f"{pending}. {message}" if pending_has_day else f"{message}. {pending}"
+        else:
+            request = message
         context = {
             "recipes": [{"id": r.id, "name": r.name, "category": r.category, "meal_type": r.meal_type} for r in recipes],
             "current_plan": [{"date": i.date.isoformat(), "day_index": i.date.weekday(), "meal_slot": i.meal_slot, "recipe": i.recipe.name} for i in session.meal_plan.items],
