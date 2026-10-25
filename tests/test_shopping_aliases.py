@@ -94,6 +94,13 @@ class ShoppingAliasesTest(unittest.TestCase):
         items = self.rows([('kırmızı biber', 2, 'adet'), ('ince doğranmış kırmızı biber', 3, 'adet')])
         self.assertEqual(items[0].format(), '5 adet kırmızı biber')
 
+    def test_uppercase_turkish_unit_names_are_equivalent(self):
+        items = self.rows([('sarımsak', 4, 'DİŞ'), ('sarımsak', 14, 'diş')])
+        self.assertEqual(items[0].format(), '18 diş sarımsak')
+
+    def test_decimal_comma_fraction_in_name_does_not_break_the_list(self):
+        self.assertEqual(normalize_ingredient('1,5/2 demet dereotu', None, None), ('dereotu', 0.75, 'demet'))
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -38,7 +38,7 @@ class NormalizedQuantity:
 def normalize_unit(unit: str | None) -> str | None:
     if not unit:
         return None
-    text = " ".join(unit.strip().casefold().split())
+    text = " ".join(unit.strip().casefold().replace("i\u0307", "i").split())
     return UNIT_ALIASES.get(text, text)
 
 

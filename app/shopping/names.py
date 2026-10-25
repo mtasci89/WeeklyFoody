@@ -52,7 +52,7 @@ def normalize_ingredient(name: str, quantity: float | None, unit: str | None) ->
                 numerator, denominator = amount.split("/")
                 if float(denominator) == 0:
                     return name, None, unit
-                quantity = float(numerator) / float(denominator)
+                quantity = float(numerator.replace(",", ".")) / float(denominator)
             else:
                 quantity = float(amount.replace(",", "."))
     if quantity is None and name.startswith("birkaç yaprak "):
