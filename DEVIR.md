@@ -5,6 +5,17 @@ Son güncelleme: **2026-10-25 — Codex**. Önce [PROJE.md](PROJE.md) dosyasın�
 
 
 
+
+## 2026-10-25 — Codex: alışverişte aynı malzemeyi tek satırda toplama
+
+- Kullanıcının 1.10 ekran görüntülerindeki farklı isimli aynı malzemeler ele alındı: dana kuşbaşı + kuşbaşı dana eti + kuşbaşı et; kuşbaşı tavuk göğsü + tavuk göğsü; adetle verilen limonun suyu + limon; doğrama/ezme notları; Türkçe/ASCII yazım ve boşluklar.
+- Ortak `app/shopping/names.py` yalnızca alışveriş kimliğini normalleştirir. Kaydedilmiş tarifler ve malzemeler değiştirilmez. Servis miktarı normalleştirip porsiyona göre ölçekler; kiler eşleşmesi de aynı adları kullanır.
+- Toplama kg/g ve l/ml çevriminden sonra, satın alma yuvarlamasından önce yapılır. Farklı birimler tek malzeme satırında ayrı miktarlar olarak korunur (4 adet + 14 diş sarımsak); baş/diş veya gram/adet oranı uydurulmaz. Taze/kuru, dana/kuzu, tavuk eti/tavuk suyu gibi farklı ürünler korunur. Belirsiz kuşbaşı et yalnızca listede tek açık et türü olduğunda o gruba katılır.
+- Değişenler: app/shopping/{names,aggregator,units,service}.py; tests/test_shopping.py; yeni tests/test_shopping_aliases.py ve tests/test_shopping_grouped_api.py. Android kodu, APK, imza ve izinler değişmedi; API alanları aynı. Uygulama/PDF/metin aynı sunucu listesini kullanır.
+- Yerel kontrol: 21 bağımsız normalleştirme/toplama testi başarılı; Python sözdizimi ve git diff --check geçti. Tam Python/API CI testleri henüz çalıştırılacak. Canlı veritabanı veya sunucu değiştirilmedi.
+- Sonraki adım: CI sonucunu doğrula, kullanılan GitHub dalına al. Kullanıcı Ayarlar > Sunucuyu güncelle ve Alışveriş > Yenile ile etkinleştirebilir; APK yeniden kurulmaz. Önceki açık güvenlik/bakım işleri korunur.
+
+
 ## 2026-10-25 — Codex: banka uygulamalarıyla uyum için APK güvenlik kontrolü
 
 - Kullanıcının talebiyle 1.10 izin/imza düzeni yeniden kontrol edildi. Yayımlanan kaynak `4889823`; son release işinin (40200902266) izin denetimi ve yayın adımları başarılı. Yayın günlüğünde yalnızca `android.permission.INTERNET` ve `com.foody.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION` var.

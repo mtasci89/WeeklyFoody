@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from app.config import Settings
 from app.db.models import MealPlan, MealPlanItem, PantryItem
 from app.recipes.service import categorize_ingredient
+from app.shopping.names import canonical_name, name_key, normalize_ingredient
 from app.shopping.aggregator import ShoppingAggregator, ShoppingIngredient, ShoppingListItem
 
 CATEGORY_ORDER = [
@@ -27,7 +28,7 @@ class ShoppingListService:
         self.settings = settings
 
     def generate(self, plan: MealPlan) -> list[ShoppingListItem]:
-        pantry = {p.ingredient_name.casefold() for p in self.db.scalars(select(PantryItem))}
+        pantry = {name_key(canonical_name(p.ingredient_name)) for p in self.db.scalars(select(PantryItem))}
         raw: list[ShoppingIngredient] = []
         for item in plan.items:
             raw.extend(self._ingredients_for_item(item, pantry))
@@ -44,16 +45,16 @@ class ShoppingListService:
         scale = (item.servings or self.settings.default_servings) / recipe.servings
         ingredients: list[ShoppingIngredient] = []
         for ingredient in recipe.ingredients:
-            name = ingredient.ingredient.name
+            name, quantity, unit = normalize_ingredient(ingredient.ingredient.name, ingredient.quantity, ingredient.unit)
             ingredients.append(
                 ShoppingIngredient(
                     name=name,
-                    quantity=ingredient.quantity * scale if ingredient.quantity is not None else None,
-                    unit=ingredient.unit,
+                    quantity=quantity * scale if quantity is not None else None,
+                    unit=unit,
                     # Kayitli kategori eski (alt dize esleyen) kuralla atanmis
                     # olabilir; liste her seferinde guncel kuralla siniflanir.
                     category=categorize_ingredient(name),
-                    pantry=name.casefold() in pantry,
+                    pantry=name_key(name) in pantry,
                 )
             )
         return ingredients
