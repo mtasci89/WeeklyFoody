@@ -11,7 +11,7 @@ class PlannedMeal(BaseModel):
     date: str
     meal_slot: str
     recipe_id: str
-    servings: int | None = None
+    servings: int | None = Field(default=None, ge=1, le=100)
     reason: str | None = None
 
 
@@ -64,7 +64,7 @@ class RevisionOperation(BaseModel):
     meal_slot: str | None = None
     recipe_name: str | None = None
     exclude_recipe_name: str | None = None
-    servings: int | None = None
+    servings: int | None = Field(default=None, ge=1, le=100)
     instruction: str | None = None
 
 
@@ -91,3 +91,4 @@ class LLMProvider(Protocol):
 
 def json_schema(model: type[BaseModel]) -> str:
     return json.dumps(model.model_json_schema(), ensure_ascii=False)
+

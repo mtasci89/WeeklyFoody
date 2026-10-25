@@ -64,13 +64,13 @@ class ShoppingListService:
             category_items = grouped.get(category)
             if not category_items:
                 continue
-            lines.append(f"\n*{self._category_title(category)}*")
+            lines.append(f"\n{self._category_title(category)}")
             for item in category_items:
                 lines.append(f"- {item.format()}")
         for category, category_items in grouped.items():
             if category in CATEGORY_ORDER:
                 continue
-            lines.append(f"\n*{category}*")
+            lines.append(f"\n{category}")
             for item in category_items:
                 lines.append(f"- {item.format()}")
         return "\n".join(lines)
@@ -85,4 +85,5 @@ class ShoppingListService:
             "Evde kontrol et": "🏠 Evde kontrol et",
         }
         return icons.get(category, category)
+
 

@@ -70,7 +70,13 @@ For an always-on setup, deploy the GitHub repo to Railway and use Railway Postgr
 
 ## Web Panel
 
-The app includes a small read-only web panel for browsing the recipe database, candidate recipes, pantry items, and preferences.
+The web panel opens an interactive Turkish meal-planning assistant. It shows a weekly menu, its version and approval state, day-level edit shortcuts, a chat composer, a shopping-list preview, and an explicit approval/send button. It also includes recipe, candidate, pantry and preference pages.
+
+Approved and published menus can be revised. A successful revision creates a new draft version, retains the last final menu in persistent session context, updates shopping quantities, and requires approval before sending the new version. Clarification requests leave the menu and its approval state unchanged. An interrupted send resumes from recorded recipient/message progress when approved again. Telegram itself does not offer idempotent sends: a process crash between a successful API response and saving progress can still duplicate that message.
+
+The Telegram bot has a persistent navigation keyboard and version-bound inline buttons. Old buttons cannot approve a newer draft. Use `/menu` to load the latest version, then write a day and change, for example `Cumartesi 6 kişi olacağız.` Only servings change in that request. Unknown or incomplete changes ask a follow-up question instead of replacing the whole week. Write `iptal` to cancel a pending request.
+
+The Python app serves this assistant at `/`. The unrelated React/Vite portfolio app under `src/` is not the WeeklyFoody interface; `npm run dev` and the existing Vercel setup start that separate app. Run the Python service below to use WeeklyFoody.
 
 By default it runs on localhost only:
 
@@ -156,7 +162,7 @@ Cumartesi 6 kişi olacağız.
 Bu hafta iki kere tavuk olmasın.
 ```
 
-The revision engine preserves unrelated days and changes only the targeted dish where possible.
+The revision engine preserves unrelated days, validates course roles and permanent preferences, and allows edits to approved or published menus. Changes produce a new draft and must be approved again before recipients receive the update.
 
 ## Initial Recipes
 
@@ -312,3 +318,4 @@ Tests mock external Telegram/LLM behavior and cover planner preferences, repetit
 - Gemini and OpenAI network providers are implemented; a deterministic fallback is used when no key is configured or a provider fails.
 - URL recipe ingestion and web recipe discovery are interface-ready but intentionally not active by default.
 - Natural-language understanding is Turkish-oriented with LLM support and rule-based fallback; uncertain permanent rules should be clarified by the admin.
+

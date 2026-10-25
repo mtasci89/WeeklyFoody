@@ -2,20 +2,22 @@ from __future__ import annotations
 
 import logging
 from collections import Counter
-from datetime import date
+from datetime import date, datetime, timedelta
+from zoneinfo import ZoneInfo
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.config import Settings, base_meal_slot, course_role
 from app.db.models import MealPlan, MealPlanItem, Recipe, SessionState, WeeklyPlanningSession
-from app.llm.base import WeeklyPlanOutput
+from app.llm.base import WeeklyPlanOutput, PlannedMeal
+from app.llm.rule_based import RuleBasedLLMProvider
 from app.llm import build_llm_provider
 from app.memory.preferences import PreferenceService
 from app.planner.candidate_selector import CandidateSelector
 from app.planner.dates import next_week_start, week_dates, week_end
 from app.planner.scorer import CandidateScorer
-from app.planner.validator import PlanValidator
+from app.planner.validator import PlanValidator, PlanValidationError
 
 logger = logging.getLogger(__name__)
 
@@ -31,8 +33,6 @@ class MealPlannerService:
         session = self.db.scalar(select(WeeklyPlanningSession).where(WeeklyPlanningSession.week_start == week_start))
         if session and not regenerate:
             return session
-        if session and session.state in (SessionState.APPROVED, SessionState.PUBLISHED):
-            raise ValueError("Cannot regenerate an approved or published plan")
         if session is None:
             session = WeeklyPlanningSession(
                 week_start=week_start,
@@ -42,7 +42,13 @@ class MealPlannerService:
             )
             self.db.add(session)
             self.db.flush()
+        expected_version = session.draft_version
         output = await self._generate_structured_plan(week_start)
+        self.db.refresh(session)
+        if session.draft_version != expected_version:
+            raise ValueError("Menü bu sırada değişti. Son sürümü inceleyip tekrar dene.")
+        if regenerate and session.meal_plan:
+            remember_published_plan(session)
         self._persist_plan(session, output, status="draft")
         session.state = SessionState.AWAITING_ADMIN_FEEDBACK
         session.draft_version += 1 if regenerate else 0
@@ -63,7 +69,7 @@ class MealPlannerService:
                 role = course_role(slot)
                 candidates = selector.select(base_meal_slot(slot), hard, week_start, course_role=role)
                 if not candidates:
-                    candidates = selector.select(base_meal_slot(slot), hard, week_start)
+                    raise ValueError(f"{role} için uygun onaylı tarif yok. Önce bu kategoride tarif ekle.")
                 scored = scorer.score(candidates, target_date, used_proteins)
                 if scored:
                     selected = scored[:20]
@@ -88,7 +94,12 @@ class MealPlannerService:
             "serving_overrides": {},
         }
         output = await self.llm.generate_plan(context)
-        PlanValidator(self.db).validate(output, dates, self.settings.planning_slots, hard)
+        try:
+            PlanValidator(self.db).validate(output, dates, self.settings.planning_slots, hard)
+        except PlanValidationError:
+            logger.warning("invalid_llm_plan_using_local_fallback")
+            output = await RuleBasedLLMProvider().generate_plan(context)
+            PlanValidator(self.db).validate(output, dates, self.settings.planning_slots, hard)
         return output
 
     def _persist_plan(self, session: WeeklyPlanningSession, output: WeeklyPlanOutput, status: str) -> MealPlan:
@@ -117,14 +128,32 @@ class MealPlannerService:
             raise ValueError("No meal plan exists")
         if session.state == SessionState.PUBLISHED:
             return
+        PlanValidator(self.db).validate(
+            plan_output(session), week_dates(session.week_start), self.settings.planning_slots,
+            PreferenceService(self.db).hard_rules(),
+        )
         session.state = SessionState.APPROVED
         session.meal_plan.status = "final"
         self.db.commit()
         logger.info("plan_approved week_start=%s session_id=%s", session.week_start, session.id)
 
     def current_session(self, week_start: date | None = None) -> WeeklyPlanningSession | None:
-        week_start = week_start or next_week_start(timezone=self.settings.timezone)
-        return self.db.scalar(select(WeeklyPlanningSession).where(WeeklyPlanningSession.week_start == week_start))
+        if week_start is not None:
+            return self.db.scalar(select(WeeklyPlanningSession).where(WeeklyPlanningSession.week_start == week_start))
+        upcoming = self.current_session(next_week_start(timezone=self.settings.timezone))
+        if upcoming:
+            return upcoming
+        today = datetime.now(ZoneInfo(self.settings.timezone)).date()
+        return self.current_session(today - timedelta(days=today.weekday()))
+
+    def session_for_message(self, message: str) -> WeeklyPlanningSession | None:
+        text = message.casefold()
+        today = datetime.now(ZoneInfo(self.settings.timezone)).date()
+        if "gelecek hafta" in text or "önümüzdeki hafta" in text:
+            return self.current_session(next_week_start(today))
+        if "bu hafta" in text:
+            return self.current_session(today - timedelta(days=today.weekday())) or self.current_session()
+        return self.current_session()
 
     def _recipe_context(self, recipe: Recipe) -> dict:
         return {
@@ -153,3 +182,21 @@ def allowed_categories_for_role(role: str) -> list[str]:
     if normalized == "side":
         return ["side", "soup", "grain", "pasta", "pilaf"]
     return [normalized]
+
+
+def plan_output(session: WeeklyPlanningSession) -> WeeklyPlanOutput:
+    return WeeklyPlanOutput(meals=[
+        PlannedMeal(date=item.date.isoformat(), meal_slot=item.meal_slot, recipe_id=item.recipe_id, servings=item.servings)
+        for item in session.meal_plan.items
+    ])
+
+
+def remember_published_plan(session: WeeklyPlanningSession) -> None:
+    context = dict(session.context or {})
+    if session.state in (SessionState.APPROVED, SessionState.PUBLISHED):
+        context["previous_final"] = plan_output(session).model_dump()
+        context["previous_final_version"] = session.draft_version
+    context.pop("clarification", None)
+    session.context = context
+    session.published_at = None
+

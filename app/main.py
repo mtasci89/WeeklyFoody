@@ -5,7 +5,7 @@ import logging
 
 import uvicorn
 
-from app.bot.telegram import build_application
+from app.bot.telegram import build_application, TelegramBotNotifier
 from app.config import get_settings
 from app.db.session import init_db
 from app.logging_config import configure_logging
@@ -26,7 +26,7 @@ async def async_main() -> None:
     if settings.web_panel_enabled:
         web_server = uvicorn.Server(
             uvicorn.Config(
-                create_web_app(settings),
+                create_web_app(settings, notifier=TelegramBotNotifier(application.bot)),
                 host=settings.web_panel_host,
                 port=settings.web_panel_port,
                 log_level="warning",
@@ -38,6 +38,8 @@ async def async_main() -> None:
     scheduler.start()
     logger.info("application_started")
     await application.initialize()
+    if application.post_init:
+        await application.post_init(application)
     await application.start()
     await application.updater.start_polling()
     try:
@@ -59,3 +61,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+

@@ -92,12 +92,8 @@ async def test_revision_changes_only_matching_food_within_day(db, settings):
     service = MealPlannerService(db, settings)
     session = await service.create_or_get_weekly_session(date(2026, 8, 31))
     fish = RecipeService(db).find_recipe("Izgara Balık")
-    pasta = RecipeService(db).find_recipe("Makarna")
     tuesday_items = [item for item in session.meal_plan.items if item.date == date(2026, 9, 1)]
-    for item in tuesday_items:
-        item.recipe_id = pasta.id
-        item.recipe = pasta
-    first_tuesday = tuesday_items[0]
+    first_tuesday = next(item for item in tuesday_items if course_role(item.meal_slot) == "main")
     first_tuesday.recipe_id = fish.id
     first_tuesday.recipe = fish
     db.commit()
@@ -115,3 +111,4 @@ def test_excluded_inactive_recipes_are_not_candidates(db):
     RecipeService(db).disable_recipe("Makarna")
     selected = CandidateSelector(db).select("dinner", [], date(2026, 8, 31), recent_weeks=3)
     assert "Makarna" not in {recipe.name for recipe in selected}
+

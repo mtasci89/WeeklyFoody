@@ -20,6 +20,7 @@ class FeedbackService:
         replacement_recipe_id: str | None = None,
         permanent: bool = False,
         context: dict | None = None,
+        commit: bool = True,
     ) -> Feedback:
         feedback = Feedback(
             session_id=session_id,
@@ -30,8 +31,9 @@ class FeedbackService:
             context=context or {},
         )
         self.db.add(feedback)
-        self.db.commit()
-        self.db.refresh(feedback)
+        if commit:
+            self.db.commit()
+            self.db.refresh(feedback)
         return feedback
 
     def rejected_counts(self) -> Counter[str]:
@@ -45,4 +47,5 @@ class FeedbackService:
         for row in self.db.scalars(select(Feedback).where(Feedback.replacement_recipe_id.is_not(None))):
             counts[row.replacement_recipe_id] += 1
         return counts
+
 

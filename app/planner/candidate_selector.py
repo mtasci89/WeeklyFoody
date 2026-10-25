@@ -19,7 +19,7 @@ class CandidateSelector:
             )
         )
         excluded = self._excluded_terms(hard_rules)
-        recent_ids = self._recent_recipe_ids(week_start, recent_weeks)
+        recent_ids = self._recent_recipe_ids(week_start, recent_weeks) if recent_weeks else set()
         filtered = []
         for recipe in recipes:
             text = " ".join(
@@ -59,7 +59,7 @@ class CandidateSelector:
             select(MealPlanItem)
             .join(MealPlanItem.plan)
             .join(WeeklyPlanningSession)
-            .where(WeeklyPlanningSession.week_start >= cutoff, WeeklyPlanningSession.state.in_([SessionState.APPROVED, SessionState.PUBLISHED]))
+            .where(WeeklyPlanningSession.week_start >= cutoff, WeeklyPlanningSession.week_start < week_start, WeeklyPlanningSession.state.in_([SessionState.APPROVED, SessionState.PUBLISHED]))
         )
         return {row.recipe_id for row in rows}
 
@@ -73,3 +73,4 @@ class CandidateSelector:
                 stop = {"bundan", "sonra", "artık", "asla", "bir", "daha", "do", "not", "suggest", "avoid", "exclude", "önerme", "olmasın"}
                 terms.update(w for w in words if len(w) > 2 and w not in stop)
         return terms
+

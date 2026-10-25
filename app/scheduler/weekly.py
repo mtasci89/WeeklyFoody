@@ -74,12 +74,11 @@ async def weekly_plan_job(settings_values: dict) -> None:
     with SessionLocal() as db:
         session = await MealPlannerService(db, settings).create_or_get_weekly_session()
         if _CURRENT_BOT and settings.admin_telegram_user_id:
-            await _CURRENT_BOT.send_message(
-                chat_id=settings.admin_telegram_user_id,
-                text=f"🍽️ Önümüzdeki haftanın yemek planını hazırladım.\n\n{format_meal_plan(session)}",
-                parse_mode="Markdown",
-                reply_markup=approval_keyboard(),
-            )
+            from app.bot.messages import reply
+            from app.bot.messages import split_message
+            parts = split_message(f"🍽️ Önümüzdeki haftanın yemek planını hazırladım.\n\n{format_meal_plan(session)}")
+            for index, part in enumerate(parts):
+                await _CURRENT_BOT.send_message(chat_id=settings.admin_telegram_user_id, text=part, reply_markup=approval_keyboard(session) if index == len(parts) - 1 else None)
             logger.info("draft_sent_to_admin session_id=%s", session.id)
 
 
@@ -108,3 +107,4 @@ async def weekly_recipe_discovery_job(settings_values: dict) -> None:
                 parse_mode="Markdown",
             )
             logger.info("weekly_recipe_discovery_sent candidates=%s", len(candidates))
+

@@ -21,7 +21,7 @@ class PlanValidator:
     def validate(self, plan: WeeklyPlanOutput, dates: list[date], meal_slots: list[str], hard_rules: list[str]) -> None:
         expected = {(d.isoformat(), slot) for d in dates for slot in meal_slots}
         actual = {(meal.date, meal.meal_slot) for meal in plan.meals}
-        if expected != actual:
+        if expected != actual or len(plan.meals) != len(expected):
             missing = expected - actual
             extra = actual - expected
             raise PlanValidationError(f"Invalid meal slots. Missing={missing} Extra={extra}")
@@ -34,6 +34,9 @@ class PlanValidator:
         excluded = self._excluded_terms(hard_rules)
         for meal in plan.meals:
             recipe = recipes[meal.recipe_id]
+            from app.config import base_meal_slot
+            if recipe.meal_type != base_meal_slot(meal.meal_slot):
+                raise PlanValidationError(f"Recipe meal type does not match {meal.meal_slot}: {recipe.name}")
             text = " ".join([recipe.name, recipe.protein_type or "", " ".join(i.ingredient.name for i in recipe.ingredients)]).casefold()
             if any(term in text for term in excluded):
                 raise PlanValidationError(f"Hard preference violation: {recipe.name}")
@@ -45,3 +48,4 @@ class PlanValidator:
         from app.planner.candidate_selector import CandidateSelector
 
         return CandidateSelector(self.db)._excluded_terms(hard_rules)
+

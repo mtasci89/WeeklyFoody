@@ -13,6 +13,8 @@ class NaturalLanguageRouter:
 
     async def route(self, message: str, context: dict | None = None) -> IntentOutput:
         rule_result = await self.rules.route_intent(message, context or {})
+        if rule_result.intent == Intent.GENERAL_QUESTION and rule_result.confidence >= 0.95:
+            return rule_result
         if rule_result.intent not in {Intent.UNKNOWN, Intent.GENERAL_QUESTION} and rule_result.confidence >= 0.88:
             return rule_result
         llm_result = await self.llm.route_intent(message, context or {})
@@ -22,3 +24,4 @@ class NaturalLanguageRouter:
 
     async def answer_general_question(self, message: str, context: dict | None = None) -> str:
         return await self.llm.answer_general_question(message, context or {})
+

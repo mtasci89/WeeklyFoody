@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 
+from telegram import BotCommand
 from telegram.ext import Application, CallbackQueryHandler, CommandHandler, MessageHandler, filters
 
 from app.bot.handlers import TelegramHandlers
@@ -13,7 +14,9 @@ logger = logging.getLogger(__name__)
 def build_application(settings: Settings):
     if not settings.telegram_bot_token:
         raise ValueError("TELEGRAM_BOT_TOKEN is required to run the Telegram bot")
-    application = Application.builder().token(settings.telegram_bot_token).build()
+    async def setup_commands(application):
+        await application.bot.set_my_commands([BotCommand("menu", "Menüyü gör ve düzenle"), BotCommand("shopping", "Alışveriş listesi"), BotCommand("recipes", "Tarif kütüphanesi"), BotCommand("regenerate", "Yeni menü hazırla"), BotCommand("help", "Kullanım örnekleri")])
+    application = Application.builder().token(settings.telegram_bot_token).post_init(setup_commands).build()
     handlers = TelegramHandlers(settings, application.bot)
 
     commands = {
@@ -42,6 +45,13 @@ def build_application(settings: Settings):
         application.add_handler(CommandHandler(name, callback))
     application.add_handler(CallbackQueryHandler(handlers.callback))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handlers.text))
+    async def on_error(update, context):
+        logger.error("telegram_handler_failed", exc_info=context.error)
+        if update and update.effective_message:
+            from app.bot.messages import reply
+            text = str(context.error) if isinstance(context.error, ValueError) else "İşlemi tamamlayamadım. Menüye /menu ile bakıp tekrar deneyebilirsin. Gönderim yarıda kaldıysa /approve ile kaldığı yerden devam edebilirsin."
+            await reply(update.effective_message, text)
+    application.add_error_handler(on_error)
     return application
 
 
@@ -51,3 +61,4 @@ class TelegramBotNotifier:
 
     async def send_message(self, chat_id: int, text: str, **kwargs) -> None:
         await self.bot.send_message(chat_id=chat_id, text=text, **kwargs)
+

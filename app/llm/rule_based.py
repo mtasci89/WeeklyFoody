@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import re
+
 from typing import Any
 
 from app.llm.base import Intent, IntentOutput, LLMProvider, PlannedMeal, PreferencePayload, RevisionOperation, RevisionOutput, WeeklyPlanOutput
@@ -38,91 +40,73 @@ class RuleBasedLLMProvider(LLMProvider):
         return WeeklyPlanOutput(meals=meals, notes="Kural tabanlı yedek plan.")
 
     async def route_intent(self, message: str, context: dict[str, Any] | None = None) -> IntentOutput:
-        text = message.casefold().strip()
+        text = message.casefold().strip().rstrip(".! ")
+        def result(intent, **kwargs):
+            return IntentOutput(intent=intent, confidence=0.95, raw_request=message, **kwargs)
+        if re.search(r"\bonaylama(?:yacağım|dım|yın)?\b|\bonaylamıyorum\b|\bonay verme\b", text):
+            return result(Intent.GENERAL_QUESTION)
+        if "adayı onayla" in text or "bu tarifi tariflerime ekle" in text or text.startswith("/approverecipe"):
+            name = re.sub(r"/approverecipe|bu tarifi tariflerime ekle|adayı onayla", "", message, flags=re.I).strip()
+            return result(Intent.APPROVE_RECIPE_CANDIDATE, recipe_name=name or None)
+        if text in {"onayla", "onaylıyorum", "menüyü onayla", "menüyü onaylıyorum", "bu menüyü onayla", "/approve", "tamamdır", "bu liste iyi", "güzel oldu"}:
+            return result(Intent.APPROVE_PLAN)
+        if text.startswith("/regenerate") or any(w in text for w in ("yeniden oluştur", "yeniden hazırla", "baştan oluştur", "baştan hazırla")):
+            return result(Intent.REGENERATE_PLAN)
+        if text.startswith("/candidates") or "aday tarif" in text:
+            return result(Intent.SHOW_RECIPE_CANDIDATES)
+        if text.startswith("/addrecipe") or "bu tarifi kaydet" in text or any(w in text for w in ("tarif ekle", "tarifi ekle", "yemek ekle", "tarif kaydet")):
+            return result(Intent.ADD_RECIPE, recipe_text=message if _has_recipe_details(message) else None)
+        if any(w in text for w in ("bundan sonra", "artık")) or text.startswith("/addpreference"):
+            return result(Intent.ADD_PREFERENCE, preference=PreferencePayload(rule=message.replace("/addpreference", "").strip()))
+        if any(w in text for w in ("değiştir", "olmasın", "koy", "çıkar", "kişi olacağız", "kişiyiz", "yemeyeceğiz", "dışarıda", "yerine")):
+            return result(Intent.MODIFY_PLAN)
         if _looks_like_recipe_text(message):
-            return IntentOutput(intent=Intent.ADD_RECIPE, confidence=0.92, recipe_text=message, raw_request=message)
-        if "/approve" in text or any(word in text for word in ("onaylıyorum", "onayla", "tamamdır", "bu liste iyi", "güzel oldu")):
-            return IntentOutput(intent=Intent.APPROVE_PLAN, confidence=0.95, raw_request=message)
-        if "/regenerate" in text or "yeniden" in text or "baştan" in text:
-            return IntentOutput(intent=Intent.REGENERATE_PLAN, confidence=0.9, raw_request=message)
-        if "/candidates" in text or "aday tarif" in text:
-            return IntentOutput(intent=Intent.SHOW_RECIPE_CANDIDATES, confidence=0.9, raw_request=message)
-        if "/approverecipe" in text or "bu tarifi tariflerime ekle" in text or "adayı onayla" in text:
-            name = message.replace("/approverecipe", "").replace("bu tarifi tariflerime ekle", "").replace("adayı onayla", "").strip()
-            return IntentOutput(intent=Intent.APPROVE_RECIPE_CANDIDATE, confidence=0.85, recipe_name=name or None, raw_request=message)
-        if "/addrecipe" in text or "bu tarifi kaydet" in text or any(phrase in text for phrase in ("tarif ekle", "tarifi ekle", "yemek ekle", "tarif kaydet")):
-            return IntentOutput(intent=Intent.ADD_RECIPE, confidence=0.92, recipe_text=message if _has_recipe_details(message) else None, raw_request=message)
-        if "/discover" in text or any(word in text for word in ("bul", "öner", "keşfet", "ara")) and any(word in text for word in ("tarif", "yemek", "yemeği")) or "farklı şeyler öner" in text:
-            query = message.replace("/discover", "").strip()
-            return IntentOutput(intent=Intent.DISCOVER_RECIPE, confidence=0.82, discovery_query=query or message, raw_request=message)
-        if "/shopping" in text or "alışveriş" in text:
-            return IntentOutput(intent=Intent.SHOW_SHOPPING_LIST, confidence=0.9, raw_request=message)
-        if "/menu" in text or "menü" in text or "listeyi göster" in text:
-            return IntentOutput(intent=Intent.SHOW_MENU, confidence=0.8, raw_request=message)
-        if "/recipes" in text or "tarifler" in text:
-            return IntentOutput(intent=Intent.SHOW_RECIPE if "/recipe " in text else Intent.GENERAL_QUESTION, confidence=0.75, raw_request=message)
-        if "bundan sonra" in text or "/addpreference" in text or "artık" in text:
-            return IntentOutput(
-                intent=Intent.ADD_PREFERENCE,
-                confidence=0.8,
-                preference=PreferencePayload(type="hard", rule=message.replace("/addpreference", "").strip()),
-                raw_request=message,
-            )
-        if "/pantryadd" in text or "evde var" in text:
-            return IntentOutput(intent=Intent.ADD_PANTRY_ITEM, confidence=0.8, pantry_item=message.replace("/pantryadd", "").strip(), raw_request=message)
-        if any(word in text for word in ("değiştir", "olmasın", "koy", "çıkar", "kişi olacağız", "yemeyeceğiz", "dışarıda")):
-            return IntentOutput(intent=Intent.MODIFY_PLAN, confidence=0.82, raw_request=message)
-        if "?" in text or any(word in text for word in ("nasıl", "nedir", "ne yap", "yardım", "hangi", "kaç", "kim")):
+            return result(Intent.ADD_RECIPE, recipe_text=message)
+        if text.startswith("/discover") or (any(w in text for w in ("bul", "öner", "keşfet", "ara")) and any(w in text for w in ("tarif", "yemek", "yemeği"))) or "farklı şeyler öner" in text:
+            return result(Intent.DISCOVER_RECIPE, discovery_query=message.replace("/discover", "").strip())
+        if text.startswith("/shopping") or "alışveriş" in text:
+            return result(Intent.SHOW_SHOPPING_LIST)
+        if text.startswith("/menu") or "menü" in text or "listeyi göster" in text:
+            return result(Intent.SHOW_MENU)
+        if text.startswith("/recipe "):
+            return result(Intent.SHOW_RECIPE, recipe_name=message.split(" ", 1)[1])
+        if "tercihler" in text or text == "/preferences":
+            return result(Intent.SHOW_PREFERENCES)
+        if text.startswith("/pantryadd") or "evde var" in text:
+            return result(Intent.ADD_PANTRY_ITEM, pantry_item=message.replace("/pantryadd", "").replace("evde var", "").strip())
+        if "?" in text or any(w in text for w in ("nasıl", "nedir", "ne yap", "yardım", "hangi", "kaç", "tarifler")):
             return IntentOutput(intent=Intent.GENERAL_QUESTION, confidence=0.7, raw_request=message)
         return IntentOutput(intent=Intent.UNKNOWN, confidence=0.2, raw_request=message)
 
     async def parse_revision(self, message: str, context: dict[str, Any] | None = None) -> RevisionOutput:
         text = message.casefold()
-        operations: list[RevisionOperation] = []
-        days = {
-            "pazartesi": "monday",
-            "salı": "tuesday",
-            "çarşamba": "wednesday",
-            "perşembe": "thursday",
-            "cuma": "friday",
-            "cumartesi": "saturday",
-            "pazar": "sunday",
-        }
-        known_recipes = [r["name"] for r in (context or {}).get("recipes", [])]
-        recipe_terms = _recipe_terms(known_recipes)
-        day_hits = sorted((text.find(tr_day), tr_day, en_day) for tr_day, en_day in days.items() if tr_day in text)
-        for tr_day, en_day in days.items():
-            if tr_day in text:
-                segment = _day_segment(text, tr_day, day_hits)
-                servings = None
-                if "kişi" in segment:
-                    for token in segment.replace(".", " ").split():
-                        if token.isdigit():
-                            servings = int(token)
-                            break
+        days = {"pazartesi": "monday", "salı": "tuesday", "çarşamba": "wednesday", "perşembe": "thursday", "cuma": "friday", "cumartesi": "saturday", "pazar": "sunday"}
+        day_pattern = r"\b(" + "|".join(sorted(days, key=len, reverse=True)) + r")(?:['’]?(?:ya|ye|yı|yi|yü|yu|da|de|dan|den|nın|nin|nun|nün|daki|deki|ki|kü))?\b"
+        hits = list(re.finditer(day_pattern, text))
+        if not hits:
+            return RevisionOutput(needs_clarification=True, clarification_question="Hangi günü değiştireyim? Örneğin: Salı balık yerine Kuru Fasulye koy.")
+        recipes = (context or {}).get("recipes", [])
+        operations = []
+        for index, hit in enumerate(hits):
+            segment = text[hit.end():hits[index + 1].start() if index + 1 < len(hits) else len(text)]
+            if any(w in segment for w in ("dışarıda", "yemeyeceğiz")):
+                return RevisionOutput(needs_clarification=True, clarification_question="Bu günün öğününü kaldırma henüz desteklenmiyor. Yerine daha hafif bir yemek seçelim mi?")
+            serving_match = re.search(r"\b(\d+)\s*kişi", segment)
+            servings = int(serving_match.group(1)) if serving_match else None
+            if servings is not None and not 1 <= servings <= 100:
+                return RevisionOutput(needs_clarification=True, clarification_question="Kişi sayısı 1 ile 100 arasında olmalı. Kaç kişi olacaksınız?")
+            removal = any(w in segment for w in ("olmasın", "çıkar", "değiştir", "yemeyelim"))
+            replacement_text = segment.split("yerine", 1)[-1] if "yerine" in segment else segment
+            recipe_name = next((r["name"] for r in sorted(recipes, key=lambda r: len(r["name"]), reverse=True) if r["name"].casefold() in replacement_text), None)
+            if removal and "yerine" not in segment and not any(w in segment for w in ("koy", "ekle")):
                 recipe_name = None
-                for known in known_recipes:
-                    if known.casefold() in segment:
-                        recipe_name = known
-                        break
-                exclude_recipe_name = None
-                if any(word in segment for word in ("olmasın", "çıkar", "değiştir", "yemeyelim")):
-                    for term in recipe_terms:
-                        if _contains_term(segment, term):
-                            exclude_recipe_name = term
-                            break
-                if recipe_name or exclude_recipe_name or servings or any(word in segment for word in ("dışarıda", "yemeyeceğiz")):
-                    operations.append(
-                        RevisionOperation(
-                            day_name=en_day,
-                            recipe_name=recipe_name,
-                            exclude_recipe_name=exclude_recipe_name,
-                            servings=servings,
-                            instruction=message,
-                        )
-                    )
-        if not operations:
-            operations.append(RevisionOperation(instruction=message))
+            exclude = None
+            if removal or "yerine" in segment:
+                source = segment.split("yerine", 1)[0]
+                exclude = next((term for term in _recipe_terms([r["name"] for r in recipes]) if _contains_term(source, term)), None)
+            if not recipe_name and not exclude and servings is None:
+                return RevisionOutput(needs_clarification=True, clarification_question="Hangi yemeği değiştireyim? Gün ve yemek adı yazabilirsin: Salı balığı çıkar.")
+            operations.append(RevisionOperation(day_name=days[hit.group(1)], recipe_name=recipe_name, exclude_recipe_name=exclude, servings=servings))
         return RevisionOutput(operations=operations)
 
     async def answer_general_question(self, message: str, context: dict[str, Any] | None = None) -> str:
@@ -185,3 +169,4 @@ def _looks_like_recipe_text(message: str) -> bool:
     return _has_recipe_details(message) and not text.startswith("/") and not any(
         phrase in text for phrase in ("menüyü", "menü", "alışveriş", "pantry", "tercih")
     )
+
