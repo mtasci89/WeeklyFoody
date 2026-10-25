@@ -339,17 +339,39 @@ class AnaViewModel(app: Application) : AndroidViewModel(app) {
     private fun planHaftasi(): String = _menu.value.veri?.plan?.let { haftaKodu(it.haftaBaslangic) } ?: "aktif"
 
     /** Elle yapılan değişiklikten sonra: yeni menüyü göster, farkı vurgula. */
+    private fun onbellegiGuncelle(cevap: MenuCevap) {
+        val plan = cevap.plan ?: return
+        haftalar = when {
+            haftalar.first?.plan?.haftaBaslangic == plan.haftaBaslangic -> cevap to haftalar.second
+            haftalar.second?.plan?.haftaBaslangic == plan.haftaBaslangic -> haftalar.first to cevap
+            haftaKodu(plan.haftaBaslangic) == "gelecek_hafta" -> haftalar.first to cevap
+            else -> cevap to haftalar.second
+        }
+    }
+
     private fun elleDegisti(cevap: MenuCevap, metin: String) {
         val eski = _menu.value.veri?.plan
         _menu.value = Yuk(veri = cevap)
         val yeni = cevap.plan ?: return
+        onbellegiGuncelle(cevap)
+        _hafta.value = if (yeni.onaylanabilir) "taslak" else "onayli"
         val fark = planFarki(eski?.takeIf { it.id == yeni.id }, yeni)
         if (fark.isNotEmpty()) _sonDegisiklik.value = SonDegisiklik(yeni.id, metin, fark)
     }
 
     /** Sohbetteki karttan onay: kartın haftası, ekranda hangi hafta açık olursa olsun. */
     fun planiOnayla(plan: Plan) = islem("Menü onaylanıyor…") {
-        val cevap = sunucu.menuyuOnayla(haftaKodu(plan.haftaBaslangic))
+        // Eski sunucularda da eski sohbet kartı başka bir sürümü sessizce onaylayamaz.
+        val hafta = haftaKodu(plan.haftaBaslangic)
+        val son = sunucu.menu(hafta)
+        val guncel = son.plan
+        if (guncel == null || guncel.id != plan.id || guncel.versiyon != plan.versiyon) {
+            onbellegiGuncelle(son)
+            _menu.value = Yuk(veri = son)
+            throw Sunucu.Hata("Menü değişmiş. Son sürümü inceleyip tekrar onayla.", 409)
+        }
+        val cevap = sunucu.menuyuOnayla(hafta, plan.id, plan.versiyon)
+        onbellegiGuncelle(cevap)
         // Eski sunucu Telegram'dan gönderdiğini söyleyebilir; uygulamada onay yalnızca kesinleştirir.
         bildir(cevap.mesaj?.takeIf { "Telegram" !in it } ?: "Menü onaylandı. Onaylı menü, tarifleri ve alışveriş listesi hazır.")
         _hafta.value = "onayli"
@@ -571,6 +593,7 @@ class AnaViewModel(app: Application) : AndroidViewModel(app) {
             )
         }
         val plan = c.menu?.plan
+        if (c.planDegisti && c.menu != null) onbellegiGuncelle(c.menu)
         if (c.planDegisti && plan != null && plan.onaylanabilir) {
             // Asistan taslağı değiştirdi: Menü > Taslak güncel hâliyle açılır, değişenler vurgulu.
             _hafta.value = "taslak"

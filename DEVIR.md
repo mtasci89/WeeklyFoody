@@ -2,6 +2,18 @@
 
 Son güncelleme: **2026-10-24 — Claude**. Önce [PROJE.md](PROJE.md) dosyasını okuyun.
 
+
+## 2026-10-25 — Codex: APK kaynak dalına uygun menü düzenleme ve asistan kullanımı (1.10)
+
+- Kaynak doğrulandı: yayınlanan `foody.apk`, `claude/weeklyfood-bot-review-08wbec` dalındaki `7ce67cd` sürümünden üretilmiş. `main` eski Telegram uygulamasıdır. Önceki Codex PR #1 bu nedenle telefon uygulamasını güncellemez; onun web ekranı Android ekranı değildir.
+- Android menü tablosundaki `onaylanabilir` düzenleme kilidi kaldırıldı: onaylı yemek ve haftalık mezeler için de tarif/değiştir/asistana yaz/çıkar seçenekleri açılır. Onay işleminden sonra değiştirilemeyeceğini söyleyen ekran ve araç açıklamaları düzeltildi.
+- Asistan önerileri sohbet başladıktan sonra da görünür; dokunmak mesajı otomatik göndermek yerine yazı alanını doldurur. Düzenlenen menü doğru Taslak bölümüne geçer ve yerel haftalık önbellek güncellenir.
+- Sohbet kartı onayı Android'de güncel menüyle karşılaştırılır; API isteği isteğe bağlı `plan_id` ve `versiyon` alır, eski kartı 409 ile reddeder (eski istemciler korunur). Onaylı menü yeniden taslak yapılırken önceki kesin menü oturum bağlamına kaydedilir ve `published_at` sıfırlanır.
+- Ayarlar'da uygulama sürümü ve resmi APK indirme sayfası bağlantısı; APK ile sunucu güncellemesinin ayrı olduğu açıklandı. Android 1.10 / versionCode 11, mevcut imza korunur.
+- Kontroller: kaynak Python sözdizimi ve `git diff --check` geçti. CI 40199881385 üzerinde Python 379 test geçti; Android raporunda 60 test, 0 hata, 5 canlı test atlandı (55 başarılı). assembleRelease başarılı; iki yerel Android ekran görüntüsü üretildi ve Asistan görüntüsü incelendi. APK manifesti ayrıca okundu: com.foody, versionCode 11, versionName 1.10; yalnızca INTERNET ve AndroidX iç izni. APK SHA-256: 331cda9f616d49e86058a9b842d73bc4fadbe7fffb14db7f0dea342338cfcd32. Bu sonuçlar 1371258 commit’i için doğrulandı; son belge/açıklama ve CI izin denetimi eklemeleri işlevi değiştirmez. Canlı sunucu/bot/gerçek Gemini çağrılmadı, `.env` veya gerçek veritabanı değiştirilmedi.
+- Sonraki adım: hazırlanan APK'yı ve kurulum adımlarını kullanıcıya ver; PR #2 gerçek Android kaynak dalını hedefler. Sunucuya dağıtım ve mevcut `uygulama-son` yayınını değiştirme yapılmadı. Önceki açık bakım işleri korunur.
+
+
 ## Son tamamlanan iş (Claude, 2026-10-25): "listeyi sıfırladı", 3 gün nohut, Kore tavuğu (1.9)
 
 Kullanıcı (sinirli, "yapamazsan Codex'e vereceğim"): "Komple listeyi sıfırladı; yeni tarifler

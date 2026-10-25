@@ -285,6 +285,14 @@ class MealAgentToolset:
     def _reopen(self, session) -> str:
         """Onaylı menü değiştirilmek istenirse yeniden taslağa döner (Telegram yok; onay
         yalnızca kesinleştirme). Kullanıcıya söylenecek notu döndürür."""
+        context = dict(session.context or {})
+        context["previous_final"] = {
+            "version": session.draft_version,
+            "published_at": session.published_at.isoformat() if session.published_at else None,
+            "meals": [{"date": i.date.isoformat(), "slot": i.meal_slot, "recipe_id": i.recipe_id, "servings": i.servings} for i in session.meal_plan.items] if session.meal_plan else [],
+        }
+        session.context = context
+        session.published_at = None
         session.state = SessionState.AWAITING_APPROVAL
         if session.meal_plan is not None:
             session.meal_plan.status = "draft"
@@ -457,8 +465,8 @@ class MealAgentToolset:
             ogun_slotu: str = "",
             hafta: Literal["aktif", "bu_hafta", "gelecek_hafta"] = "aktif",
         ) -> str:
-            """Plandaki bir öğünü başka bir tarifle değiştirir. Onaylanmış veya
-            yayınlanmış planlar değiştirilemez.
+            """Plandaki bir öğünü başka bir tarifle değiştirir. Onaylı veya
+            yayınlanmış menüler de düzenlenebilir; başarılı değişiklik menüyü yeniden onay bekleyen taslağa çevirir.
 
             Args:
                 tarih: Değişecek günün ISO tarihi, örn. 2026-10-20. Haftalık
@@ -1058,7 +1066,8 @@ class MealAgentToolset:
                 if existing and existing.state in (SessionState.APPROVED, SessionState.PUBLISHED):
                     return (
                         f"{week_start} haftası zaten onaylanmış/yayınlanmış. "
-                        "Yeni plan kuramam; kullanıcıya bunu söyle."
+                        "Birkaç yemek değişecekse ogun_degistir veya yenisiyle_degistir kullan. "
+                        "Kullanıcı açıkça baştan hazırlamayı istiyorsa mevcut menüyü okuduktan sonra plan_kaydet(uzerine_yaz=true) kullan; yeni taslak yeniden onaylanmalı."
                     )
                 hard = PreferenceService(db).hard_rules()
                 selector = CandidateSelector(db)
@@ -1464,8 +1473,8 @@ class MealAgentToolset:
         @beta_async_tool
         async def menuyu_onayla() -> str:
             """Aktif taslak menüyü onaylar; alıcılar tanımlıysa menü ve alışveriş
-            listesi onlara Telegram'dan gönderilir. Onaylanan menü artık
-            değiştirilemez. YALNIZCA kullanıcı bu mesajda açıkça onaylamak
+            listesi Telegram gönderimi açıksa onlara gönderilir. Onaylı menü
+            düzenlenebilir; değişiklikten sonra tekrar onay gerekir. YALNIZCA kullanıcı bu mesajda açıkça onaylamak
             istediğini söylediyse çağır ("onayla", "tamam bu olsun, gönder");
             kendi başına asla çağırma.
             """

@@ -22,6 +22,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -32,6 +33,7 @@ import com.foody.BuildConfig
 
 @Composable
 fun AyarlarEkran(vm: AnaViewModel, geri: () -> Unit) {
+    val uri = LocalUriHandler.current
     val ayar by vm.ayarlar.collectAsStateWithLifecycle()
     val baglanti by vm.baglanti.collectAsStateWithLifecycle()
     var kod by rememberSaveable { mutableStateOf("") }
@@ -107,7 +109,12 @@ fun AyarlarEkran(vm: AnaViewModel, geri: () -> Unit) {
                 OutlinedTextField(kod, { kod = it }, Modifier.fillMaxWidth(), placeholder = { Text("FOODY1.…") }, maxLines = 4)
                 Button(onClick = { vm.baglantiKoduKaydet(kod); kod = "" }, enabled = kod.isNotBlank()) { Text("Kaydet ve bağlan") }
             }
-            Text("Foody ${BuildConfig.VERSION_NAME}", fontSize = 12.sp, color = Renk.Soluk)
+            Kart(Modifier.fillMaxWidth()) {
+                BolumBasligi("Uygulama güncellemesi")
+                Text("Foody ${BuildConfig.VERSION_NAME}", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                Text("GitHub'dan yeni foody.apk dosyasını indirip mevcut uygulamanın üzerine kur. Uygulamayı silmen gerekmez. Sunucu güncellemesi ayrı bir işlemdir.", fontSize = 13.sp, color = Renk.Soluk)
+                OutlinedButton(onClick = { uri.openUri("https://github.com/mtasci89/WeeklyFoody/releases/tag/uygulama-son") }) { Text("APK indirme sayfasını aç") }
+            }
         }
     }
 }
