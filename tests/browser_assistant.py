@@ -1,8 +1,9 @@
 import json
+from datetime import date, timedelta
 from pathlib import Path
 from playwright.sync_api import sync_playwright
 html=(Path(__file__).resolve().parents[1] / 'app/panel.html').read_text().replace('__PANEL_TOKEN__','preview-token')
-data={'can_publish':True,'reply':'','sessions':[{'id':'preview','label':'26 Ekim - 1 Kasım'}], 'plan':{'id':'preview','version':1,'state':'PUBLISHED','status':'Gönderildi','label':'26 Ekim - 1 Kasım','can_publish':True,'shopping':'🛒 Alışveriş Listesi\n\nSebze & Meyve\n- 6 adet domates\n- 2 adet soğan', 'days':[{'name':name,'label':str(26+i)+'.10','meals':[{'name':main,'role':'Ana yemek','servings':4,'changed':False},{'name':'Haydari','role':'Meze/salata','servings':4,'changed':False},{'name':'Çoban Salata','role':'Meze/salata','servings':4,'changed':False},{'name':'Bulgur Pilavı','role':'Yan','servings':4,'changed':False}]} for i,(name,main) in enumerate(zip(['Pazartesi','Salı','Çarşamba','Perşembe','Cuma','Cumartesi','Pazar'],['Fırında Tavuk','Izgara Balık','Kuru Fasulye','Sebze Yemeği','Izgara Köfte','Nohut','Mercimek Köftesi']))]}}
+data={'can_publish':True,'reply':'','sessions':[{'id':'preview','label':'26 Ekim - 1 Kasım'}], 'plan':{'id':'preview','version':1,'state':'PUBLISHED','status':'Gönderildi','label':'26 Ekim - 1 Kasım','can_publish':True,'shopping':'🛒 Alışveriş Listesi\n\nSebze & Meyve\n- 6 adet domates\n- 2 adet soğan', 'days':[{'name':name,'label':(date(2026,10,26)+timedelta(days=i)).strftime('%d.%m'),'meals':[{'name':main,'role':'Ana yemek','servings':4,'changed':False},{'name':'Haydari','role':'Meze/salata','servings':4,'changed':False},{'name':'Çoban Salata','role':'Meze/salata','servings':4,'changed':False},{'name':'Bulgur Pilavı','role':'Yan','servings':4,'changed':False}]} for i,(name,main) in enumerate(zip(['Pazartesi','Salı','Çarşamba','Perşembe','Cuma','Cumartesi','Pazar'],['Fırında Tavuk','Izgara Balık','Kuru Fasulye','Sebze Yemeği','Izgara Köfte','Nohut','Mercimek Köftesi']))]}}
 Path('artifacts').mkdir(exist_ok=True)
 errors=[]
 with sync_playwright() as p:
