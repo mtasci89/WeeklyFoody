@@ -17,6 +17,10 @@ logger = logging.getLogger(__name__)
 _publish_locks: WeakValueDictionary = WeakValueDictionary()
 
 
+def session_lock(session_id: str):
+    return _publish_locks.setdefault(session_id, asyncio.Lock())
+
+
 class Notifier(Protocol):
     async def send_message(self, chat_id: int, text: str, **kwargs) -> None: ...
 
@@ -26,7 +30,7 @@ class WeeklyWorkflowService:
         self.db, self.settings, self.notifier = db, settings, notifier
 
     async def publish_final(self, session: WeeklyPlanningSession) -> bool:
-        lock = _publish_locks.setdefault(session.id, asyncio.Lock())
+        lock = session_lock(session.id)
         async with lock:
             self.db.refresh(session)
             if session.state == SessionState.PUBLISHED:

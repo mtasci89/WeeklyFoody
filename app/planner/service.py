@@ -29,6 +29,14 @@ class MealPlannerService:
         self.llm = build_llm_provider(settings)
 
     async def create_or_get_weekly_session(self, week_start: date | None = None, regenerate: bool = False) -> WeeklyPlanningSession:
+        from app.workflow import session_lock
+        week_start = week_start or next_week_start(timezone=self.settings.timezone)
+        existing = self.current_session(week_start)
+        async with session_lock(existing.id if existing else week_start.isoformat()):
+            self.db.expire_all()
+            return await self._create_or_get_weekly_session(week_start, regenerate)
+
+    async def _create_or_get_weekly_session(self, week_start: date | None = None, regenerate: bool = False) -> WeeklyPlanningSession:
         week_start = week_start or next_week_start(timezone=self.settings.timezone)
         session = self.db.scalar(select(WeeklyPlanningSession).where(WeeklyPlanningSession.week_start == week_start))
         if session and not regenerate:

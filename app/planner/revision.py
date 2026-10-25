@@ -25,6 +25,12 @@ class RevisionService:
         self.llm = build_llm_provider(settings)
 
     async def revise(self, session: WeeklyPlanningSession, message: str) -> WeeklyPlanningSession:
+        from app.workflow import session_lock
+        async with session_lock(session.id):
+            self.db.refresh(session)
+            return await self._revise(session, message)
+
+    async def _revise(self, session: WeeklyPlanningSession, message: str) -> WeeklyPlanningSession:
         if not session.meal_plan:
             raise ValueError("Değiştirilecek menü bulunamadı. Önce yeni menü oluştur.")
         expected_version = session.draft_version

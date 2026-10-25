@@ -169,3 +169,22 @@ def test_assistant_auth_and_screen(db, settings):
     assert 'a&amp;&lt;token&gt;' in response.text
     assert 'a&<token>' not in response.text
     assert 'Alışveriş listesi' in response.text
+
+
+@pytest.mark.asyncio
+async def test_edit_waits_for_publishing_and_remains_an_unpublished_draft(db, settings):
+    import asyncio
+    planner = MealPlannerService(db, settings)
+    session = await planner.create_or_get_weekly_session(date(2026, 8, 31))
+    planner.approve(session)
+    started = asyncio.Event()
+    async def send(*args, **kwargs):
+        started.set()
+        await asyncio.sleep(0.01)
+    publishing = asyncio.create_task(WeeklyWorkflowService(db, settings, SimpleNamespace(send_message=send)).publish_final(session))
+    await started.wait()
+    revising = asyncio.create_task(RevisionService(db, settings).revise(session, 'Cumartesi 6 kişi olacağız.'))
+    await asyncio.gather(publishing, revising)
+    assert session.state == SessionState.AWAITING_APPROVAL
+    assert session.draft_version == 2
+    assert session.published_at is None
