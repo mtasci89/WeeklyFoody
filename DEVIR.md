@@ -1,6 +1,17 @@
 # WeeklyFoody — devir notu
 
-Son güncelleme: **2026-10-24 — Claude**. Önce [PROJE.md](PROJE.md) dosyasını okuyun.
+Son güncelleme: **2026-10-25 — Codex**. Önce [PROJE.md](PROJE.md) dosyasını okuyun.
+
+
+
+## 2026-10-25 — Codex: Foody 1.10 GitHub APK yayını tamamlandı
+
+- Kullanıcı açıkça GitHub'daki APK'nın güncellenmesini istedi. PR #2 kontrolleri geçtikten sonra kullanılan `claude/weeklyfood-bot-review-08wbec` dalına squash ile birleştirildi: `488982310d9c33e9eb2adb290f4c03692c1b26b5`.
+- Son PR kontrolü 40200440855 başarılı (Python ve Android; APK izin denetimi dahil). Ardından mevcut yayın akışı 40200902266, API sözleşmesi + Android test/derleme + izin denetimi + yayın adımlarını başarıyla tamamladı.
+- `uygulama-son` sürümündeki `foody.apk` yeni dosyayla değiştirildi. Asset kimliği 675219455; güncelleme zamanı 2026-10-25T14:13:35Z. Yayın açıklaması yukarıdaki kaynak commit'ini doğruluyor. Kaynaktaki Android sürümü 1.10, versionCode 11; paket ve imza yapılandırması korundu.
+- İndirme: https://github.com/mtasci89/WeeklyFoody/releases/download/uygulama-son/foody.apk . Eski uygulama silinmeden üzerine kurulabilir.
+- Canlı sunucuda komut, servis yeniden başlatma veya veri değişikliği yapılmadı. Kullanıcı APK kurulumundan sonra Ayarlar > Sunucuyu güncelle ile sunucu değişikliklerini etkinleştirebilir; bu işlem henüz kullanıcı tarafından doğrulanmadı.
+- Gerçek telefonda güncelleme kurulumu ve canlı Gemini davranışı doğrulanmadı. Önceki açık bakım işleri korunur.
 
 
 ## 2026-10-25 — Codex: APK kaynak dalına uygun menü düzenleme ve asistan kullanımı (1.10)
