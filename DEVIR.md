@@ -1,5 +1,15 @@
 # WeeklyFoody — devir notu
 
+## 2026-10-26 — Codex: Foody ve Cal Track APK yayınları tamamlandı
+
+- Foody PR #4 kullanılan dala birleştirildi: 23938f0d1af9670c288271d228b7a549ff612906. CI 40389966383: 407 Python/API testi ve Android test/derleme/izin denetimi başarılı. Yayın akışı 40391325049 başarılı; uygulama-son/foody.apk asset 679304272, güncelleme 2026-10-26T20:01:11Z. Android 1.11 / versionCode 12.
+- Cal-Track PR #1 kullanılan claude/caltrack-android-app-RBhZu dalına birleştirildi: ab8a78cdafabbdd08aea2e617f57046e99ae9785. Kaynak CI 40390344422'de 29 test, 0 hata/atlama; imzalı APK'nın ikili manifesti com.caltrack, 1.1 / versionCode 2 doğrulandı. Son yayın 40391981791 başarılı; latest/cal-track.apk asset 679322402, güncelleme 2026-10-26T20:08:16Z.
+- İki uygulamanın paketleri, imza düzenleri ve cihaz izinleri korundu; yeni cihaz izni eklenmedi. Yayımlanan Foody APK izin denetimi INTERNET + AndroidX iç imza izniyle geçti.
+- Etkinleştirme: iki APK'yı eski uygulamaları silmeden üzerine kur; Foody > Ayarlar > Sunucuyu güncelle; Foody > Ayarlar > Cal Track bağlantı kodunu kopyala; Cal Track > Bugünkü yemekler > bağlantı simgesi > kodu yapıştır > Bağlan. Sonra takvimden gün, yemek, gram/adet/porsiyon ve öğün seçerek gösterilen kaloriyi aynı güne ekle.
+- Canlı sunucu, kullanıcı verisi, gerçek Gemini veya fiziksel telefon değiştirilmedi/denenmedi. Kalori/gram/adet dönüşümleri tahmini olarak gösterilir. Önceki açık bakım/güvenlik işleri korunur. Sonraki somut adım kullanıcının cihazda bu kabul akışını denemesidir.
+- Bu son commit yalnızca devir notudur; APK'ların yukarıda doğrulanan ürün kaynaklarını değiştirmez.
+
+
 ## 2026-10-26 — Codex: Cal Track bağlantısı ve yemek takvimi
 
 - Tarihli, salt okunur Cal Track API'si eklendi. Yalnızca ilgili haftanın onaylı/yayımlanmış menüsü; günlük tarifler + haftalık mezeler; yinelenen tarifler tek satır. Eksik tarih/yanlış anahtar reddedilir, okuma veriyi değiştirmez ve model çağırmaz.
