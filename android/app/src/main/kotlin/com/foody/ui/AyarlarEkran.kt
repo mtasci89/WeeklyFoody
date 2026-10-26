@@ -34,6 +34,7 @@ import com.foody.BuildConfig
 @Composable
 fun AyarlarEkran(vm: AnaViewModel, geri: () -> Unit) {
     val uri = LocalUriHandler.current
+    val clipboard = androidx.compose.ui.platform.LocalClipboardManager.current
     val ayar by vm.ayarlar.collectAsStateWithLifecycle()
     val baglanti by vm.baglanti.collectAsStateWithLifecycle()
     var kod by rememberSaveable { mutableStateOf("") }
@@ -98,6 +99,14 @@ fun AyarlarEkran(vm: AnaViewModel, geri: () -> Unit) {
                     CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
                     Text("Sunucu güncelleniyor…", fontSize = 14.sp)
                 } else Button(onClick = { guncelleSor = true }) { Text("Sunucuyu güncelle") }
+            }
+            if (ayar.hazir) Kart(Modifier.fillMaxWidth()) {
+                BolumBasligi("Cal Track bağlantısı")
+                Text("Onaylı yemeklerini Cal Track'te tarihine göre gör. Kodu Cal Track > Bugünkü yemekler bölümüne bir kez yapıştır.")
+                OutlinedButton(onClick = {
+                    clipboard.setText(androidx.compose.ui.text.AnnotatedString(com.foody.data.CalTrackKodu.olustur(ayar)))
+                    vm.bilgiVer("Cal Track bağlantı kodu kopyalandı.")
+                }) { Text("Cal Track bağlantı kodunu kopyala") }
             }
             Kart(Modifier.fillMaxWidth()) {
                 BolumBasligi(if (ayar.hazir) "Yeni bağlantı kodu" else "Bağlantı kodu")

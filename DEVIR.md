@@ -1,6 +1,14 @@
 # WeeklyFoody — devir notu
 
-Son güncelleme: **2026-10-25 — Codex**. Önce [PROJE.md](PROJE.md) dosyasını okuyun.
+## 2026-10-26 — Codex: Cal Track bağlantısı ve yemek takvimi
+
+- Tarihli, salt okunur Cal Track API'si eklendi. Yalnızca ilgili haftanın onaylı/yayımlanmış menüsü; günlük tarifler + haftalık mezeler; yinelenen tarifler tek satır. Eksik tarih/yanlış anahtar reddedilir, okuma veriyi değiştirmez ve model çağırmaz.
+- Yönetici anahtarı paylaşılmadan Foody Ayarlar'dan `FOODYCal1.` bağlantı kodu kopyalanır (HMAC-SHA256 türetilmiş dar yetkili anahtar + HTTPS/SPKI). Bu anahtar yönetim API'sinde geçersizdir. Menü'de takvim simgesi seçilen günün aynı listesini gösterir.
+- Android 1.11 / versionCode 12; imza, paket ve izinler korunur. Cal-Track'teki eş özellik 1.1'dir. Canlı sunucu ve kullanıcı veritabanları değiştirilmedi.
+- Kontroller: Python sözdizimi ve diff kontrolü geçti; tarih/hafta sınırları, taslak gizliliği, yetki ayrımı ve kod paritesi testleri eklendi. Tam CI 40389966383 başarılı: Python/API 407 test geçti (5 mevcut uyarı); Android birim/ekran testleri, assembleRelease ve APK izin denetimi geçti. Test edilen ürün commit’i bd31ad4d2f3b22bd2cedfe6cc37dd104fbdb8f5a.
+- Sonraki adım: kullanılan dala birleştir ve 1.11 APK yayınını doğrula; Cal Track CI/yayın sonucu henüz bekleniyor. Kullanıcı Foody'de Sunucuyu güncelle, iki APK'yı üzerine kur ve kodu Cal Track'e bir kez yapıştır. Önceki açık bakım/güvenlik işleri korunur.
+
+Son güncelleme: **2026-10-26 — Codex**. Önce [PROJE.md](PROJE.md) dosyasını okuyun.
 
 
 

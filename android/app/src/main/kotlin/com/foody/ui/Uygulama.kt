@@ -63,8 +63,10 @@ fun Uygulama(vm: AnaViewModel) {
                     tarifAc = { id -> nav.navigate("tarif/$id") },
                     ayarlar = { nav.navigate("ayarlar") },
                     asistanaGit = { nav.ustDuzey("asistan") },
+                    takvimAc = { nav.navigate("takvim") },
                 )
             }
+            composable("takvim") { TakvimEkran(vm, geri = { nav.popBackStack() }, tarifAc = { nav.navigate("tarif/$it") }) }
             composable("alisveris") { AlisverisEkran(vm) }
             composable("tarifler") { TariflerEkran(vm, tarifAc = { id -> nav.navigate("tarif/$id") }) }
             composable("kurallar") { KurallarEkran(vm) }

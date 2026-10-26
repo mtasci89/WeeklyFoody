@@ -119,6 +119,19 @@ class AnaViewModel(app: Application) : AndroidViewModel(app) {
     private val _hafta = MutableStateFlow("taslak")
     val hafta: StateFlow<String> = _hafta.asStateFlow()
 
+    private val _gunYemekleri = MutableStateFlow(Yuk<com.foody.data.GunYemekleri>())
+    val gunYemekleri = _gunYemekleri.asStateFlow()
+    private var gunIsi: kotlinx.coroutines.Job? = null
+    fun gunYemekleriniGetir(tarih: String) {
+        gunIsi?.cancel()
+        _gunYemekleri.value = Yuk(yukleniyor = true)
+        gunIsi = viewModelScope.launch {
+            try { _gunYemekleri.value = Yuk(veri = sunucu.gunYemekleri(tarih)) }
+            catch (e: kotlinx.coroutines.CancellationException) { throw e }
+            catch (e: Exception) { _gunYemekleri.value = Yuk(hata = e.message ?: "Yemekler alınamadı.") }
+        }
+    }
+
     private val _menu = MutableStateFlow(Yuk<MenuCevap>())
     val menu: StateFlow<Yuk<MenuCevap>> = _menu.asStateFlow()
 
