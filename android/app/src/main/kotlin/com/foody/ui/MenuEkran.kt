@@ -56,7 +56,7 @@ import com.foody.data.TarifOzet
 private val BOLUMLER = listOf("taslak" to "Taslak", "onayli" to "Onaylı menü")
 
 @Composable
-fun MenuEkran(vm: AnaViewModel, tarifAc: (String) -> Unit, ayarlar: () -> Unit, asistanaGit: () -> Unit) {
+fun MenuEkran(vm: AnaViewModel, tarifAc: (String) -> Unit, ayarlar: () -> Unit, asistanaGit: () -> Unit, takvimAc: () -> Unit = {}) {
     val durum by vm.menu.collectAsStateWithLifecycle()
     val ayar by vm.ayarlar.collectAsStateWithLifecycle()
     val hafta by vm.hafta.collectAsStateWithLifecycle()
@@ -78,6 +78,7 @@ fun MenuEkran(vm: AnaViewModel, tarifAc: (String) -> Unit, ayarlar: () -> Unit, 
             "Menü",
             plan?.let { "${kisaTarih(it.haftaBaslangic)} – ${kisaTarih(it.haftaBitis)} · ${it.durumMetni}" },
         ) {
+            IconButton(onClick = takvimAc) { Icon(Icons.Rounded.CalendarMonth, "Yemek takvimi") }
             if (plan != null) IconButton(onClick = {
                 val ad = "Foody menü ${kisaTarih(plan.haftaBaslangic)} – ${kisaTarih(plan.haftaBitis)}"
                 runCatching { pdfPaylas(baglam, ad, menuSatirlari(cevap)) }.onFailure { vm.bilgiVer("PDF oluşturulamadı: ${it.message}") }

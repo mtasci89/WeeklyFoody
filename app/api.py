@@ -14,6 +14,8 @@ import asyncio
 import base64
 import binascii
 import logging
+import hashlib
+import hmac
 import secrets
 from collections import defaultdict
 from collections.abc import Callable
@@ -369,6 +371,58 @@ def create_api_app(
             "degisiklikler": changes,
         }
 
+    # A Cal Track connection can only read dated, approved dishes. Its derived
+    # token is not accepted by the administration router below.
+    read_token = hmac.new(expected, b"foody-caltrack-read-v1", hashlib.sha256).hexdigest().encode()
+
+    async def require_food_reader(request: Request) -> None:
+        header = request.headers.get("authorization", "")
+        token = header[7:].strip().encode() if header[:7].lower() == "bearer " else b""
+        if not token or not (secrets.compare_digest(token, read_token) or secrets.compare_digest(token, expected)):
+            await asyncio.sleep(1)
+            raise HTTPException(status_code=401, detail="Foody bağlantı kodu geçersiz.")
+
+    daily = APIRouter(prefix="/api/v1/caltrack", dependencies=[Depends(require_food_reader)])
+
+    @daily.get("/yemekler")
+    def daily_foods(tarih: date) -> dict:
+        from sqlalchemy import select
+
+        with session_factory() as db:
+            session = db.scalar(select(WeeklyPlanningSession).where(
+                WeeklyPlanningSession.week_start <= tarih,
+                WeeklyPlanningSession.week_end >= tarih,
+                WeeklyPlanningSession.state.in_(FINAL_STATES),
+            ).order_by(WeeklyPlanningSession.week_start.desc()).limit(1))
+            items = session.meal_plan.items if session and session.meal_plan else []
+            # Weekly mezes remain available on every day, but are never logged
+            # as eaten automatically. Repeated slots for a recipe become one row.
+            foods = {}
+            for item in sorted(items, key=lambda i: (is_weekly_slot(i.meal_slot), i.meal_slot)):
+                weekly = is_weekly_slot(item.meal_slot)
+                if item.date != tarih and not weekly:
+                    continue
+                recipe = item.recipe
+                if recipe.id in foods:
+                    continue
+                nutrition = recipe.nutrition
+                foods[recipe.id] = {
+                    "id": recipe.id,
+                    "ad": recipe.name,
+                    "kategori": recipe.category,
+                    "haftalik": weekly,
+                    "porsiyon": recipe.servings,
+                    "kcal": nutrition.calories_kcal if nutrition else None,
+                    "protein": nutrition.protein_g if nutrition else None,
+                    "tahmini": bool(nutrition.estimated) if nutrition else None,
+                    "kaynak": nutrition.source if nutrition else None,
+                    "malzemeler": recipe_detail(recipe, recipe.servings)["malzemeler"],
+                    "hazirlanis": recipe.instructions or "",
+                }
+            return {"tarih": tarih.isoformat(), "plan_id": session.id if session else None,
+                    "yemekler": list(foods.values())}
+
+    app.include_router(daily)
     api = APIRouter(prefix="/api/v1", dependencies=[Depends(require_token)])
 
     @api.get("/durum")

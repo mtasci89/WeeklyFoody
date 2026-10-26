@@ -225,3 +225,12 @@ Ayarlar'daki APK indirme bağlantısı telefonu, Sunucuyu güncelle düğmesi su
 ## Alışveriş kalemlerini birleştirme
 
 `app/shopping/names.py` farklı yazım ve hazırlık notlarını alışveriş kimliğine dönüştürür; tarif verisi değiştirilmez. `ShoppingAggregator` aynı ürün ve kiler durumunu tek satıra indirir. Uyumlu metrik miktarlar toplanır, farklı birimler `4 adet + 14 diş` gibi tek satırda korunur; dönüşüm oranı tahmin edilmez. Farklı et türleri, taze/kuru ürünler ve tavuk eti/suyu birleştirilmez. Birleştirme porsiyon ölçeklemesinden sonra, satın alma yuvarlamasından önce yapılır. API biçimi ve Android izinleri değişmez; bu tür düzeltmeler sunucu güncellemesiyle etkinleşir.
+
+
+## Cal Track ve tarihli yemek listesi (1.11)
+
+`GET /api/v1/caltrack/yemekler?tarih=YYYY-MM-DD` yalnızca o tarihi kapsayan onaylı/yayımlanmış menüyü okur; başka haftaya düşmez, taslakları veya yendi kaydı üretmez. Haftalık mezeler haftanın her gününde seçenek olarak görünür; aynı tarif tek satırdır. Tarifin tamamının malzemeleri ve porsiyon başına mevcut kcal/protein, kaynak/tahmin bilgisi aktarılır. Bu okuma LLM çağırmaz, tarif/veritabanı değiştirmez.
+
+Foody > Ayarlar > Cal Track bağlantı kodunu kopyala, Cal Track > Bugünkü yemekler > bağlantı bölümüne bir kez yapıştır. `FOODYCal1.` kodu HTTPS adresi, SPKI pini ve HMAC-SHA256(APP_API_TOKEN, "foody-caltrack-read-v1") türetilmiş yalnızca okuma anahtarı taşır. Bu anahtar yönetim uçlarında kabul edilmez; ana APP_API_TOKEN değişince bağlantı da yenilenir. Foody Menü > takvim, aynı tarihli listeyi gösterir. Android 1.11 / versionCode 12; mevcut paket, imza ve izin düzeni korunur.
+
+Cal Track miktar kaydını kendi yerel veritabanına yazar; Foody'ye tüketim verisi göndermez. Gram/adet dönüşümü tarif özelinde Gemini tahminidir; Foody'de pişmiş gram/adet verisi olmadığı için tam ölçüm iddiası yoktur. Kullanıcı miktar/öğünü seçer ve kayıt öncesi kalori toplamını görür. Ayrıntı Cal-Track deposunun PROJE.md'sindedir.

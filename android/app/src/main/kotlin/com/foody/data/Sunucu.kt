@@ -105,6 +105,8 @@ class Sunucu(private val ayarlar: () -> Ayarlar.Degerler) {
         }
     }
 
+    suspend fun gunYemekleri(tarih: String) = cagir("GET", "caltrack/yemekler", mapOf("tarih" to tarih), cevirici = GunYemekleri.serializer())
+
     suspend fun durum() = cagir("GET", "durum", cevirici = DurumCevap.serializer())
 
     /** Sunucu kendini GitHub'daki son koda günceller ve yeniden başlar (deploy/kendini-guncelle.sh). */

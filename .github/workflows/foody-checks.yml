@@ -43,11 +43,11 @@ jobs:
           assert permissions <= allowed, permissions - allowed
           print("APK izinleri uygun:", sorted(permissions))
           PYTHON
-      - run: cp android/app/build/outputs/apk/release/app-release.apk out/foody-1.10.apk
+      - run: cp android/app/build/outputs/apk/release/app-release.apk out/foody-1.11.apk
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: foody-1.10
+          name: foody-1.11
           path: |
             out/
             android/app/build/reports/tests/
