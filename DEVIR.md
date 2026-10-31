@@ -20,6 +20,8 @@
   assembleRelease başarılı; APK manifesti com.foody 1.12/13, yalnızca INTERNET + AndroidX iç izni.
   Çoklu seçim ekran görüntüsü incelendi. Canlı sunucu, gerçek Gemini/Google arama ve telefon
   denenmedi; günlük keşfin gerçek arama kalitesi ve ücretsiz kotada çalışması doğrulanmadı.
+- Yayın: uygulama.yml run 41234997331 başarılı (92c92f3); uygulama-son/foody.apk asset 696306772,
+  2026-10-31T19:41:01Z, 3 515 830 bayt (yerel imzalı derlemeyle aynı boyut).
 - Etkinleştirme: APK'yı üzerine kur; Ayarlar > Sunucuyu güncelle. İlk günlük keşif ertesi sabah
   çalışır ya da Tarifler > Adaylar > "Bugünün tariflerini getir".
 - Açık: "5 kez bağlanamadı"nın gerçek nedeni sunucu günlüğüyle doğrulanmadı
