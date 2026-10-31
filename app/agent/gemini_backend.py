@@ -392,6 +392,21 @@ class GeminiBackend:
             text += "\n\nKaynaklar:\n" + "\n".join(sources[:5])
         return text
 
+    async def search_text(self, prompt: str) -> tuple[str, list[str]]:
+        """Google aramalı serbest istek: (metin, ["başlık: bağlantı", ...])."""
+        response = await self._generate(
+            ModelCursor(), prompt, types.GenerateContentConfig(tools=[types.Tool(google_search=types.GoogleSearch())]),
+        )
+        candidate = response.candidates[0] if response.candidates else None
+        text = text_of(candidate.content) if candidate is not None else ""
+        sources = []
+        metadata = candidate.grounding_metadata if candidate is not None else None
+        for chunk in (metadata.grounding_chunks or []) if metadata is not None else []:
+            web = chunk.web
+            if web is not None and web.uri:
+                sources.append(f"{web.title or web.domain or 'kaynak'}: {web.uri}")
+        return text, sources[:20]
+
     async def ping(self) -> str:
         response = await self._generate(ModelCursor(), "Sadece 'tamam' yaz.")
         return text_of(response.candidates[0].content) if response.candidates else ""

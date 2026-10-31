@@ -96,17 +96,22 @@ fun TariflerEkran(vm: AnaViewModel, tarifAc: (String) -> Unit) {
         ) {
             if (sekme == 2) item {
                 Kart(Modifier.fillMaxWidth(), renk = Renk.AcikYesil) {
-                    Text("Web'de yeni tarif ara", fontWeight = FontWeight.Bold)
+                    Text("Her gün internetten yeni tarifler", fontWeight = FontWeight.Bold)
                     Text(
-                        "Asistan internette arar, bulduklarını kaynağıyla aday olarak ekler. Adaylar haftalık menüye \"yeni\" olarak girer; beğendiklerini listene eklersin.",
+                        "Asistan her sabah yemek sitelerinde ve sosyal medyada popüler olan 10 yeni tarifi kaynağıyla buraya ekler " +
+                            "(kurallarına uyan, listende olmayanlar). Adaylar haftalık menüye \"yeni\" olarak girer; beğendiklerini listene eklersin. " +
+                            "Menüye hiç girmeyen adaylar 30 gün sonra listeden kalkar.",
                         fontSize = 13.sp, color = Renk.Soluk,
                     )
                     if (durum.kesifSuruyor) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
                         Text("Arıyorum… bir iki dakika sürebilir", fontSize = 13.sp)
-                    } else Button(onClick = { kesifPenceresi = true }) {
-                        Icon(Icons.Rounded.TravelExplore, contentDescription = null)
-                        Text("  Tarif ara")
+                    } else Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Button(onClick = { vm.gunlukKesif() }) { Text("Bugünün tariflerini getir") }
+                        androidx.compose.material3.OutlinedButton(onClick = { kesifPenceresi = true }) {
+                            Icon(Icons.Rounded.TravelExplore, contentDescription = null)
+                            Text(" Konu ara")
+                        }
                     }
                     durum.kesifSonucu?.let { Text(it, fontSize = 13.sp) }
                 }

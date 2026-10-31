@@ -74,12 +74,16 @@ def build_prompt(role: str, replacing: str, request: str, avoid: list[str], rule
 
 
 def build_batch_prompt(
-    targets: list[tuple[str, str, str]], request: str, avoid: list[str], rules: list[str], rest: list[str], extra: int = 2
+    targets: list[tuple], request: str, avoid: list[str], rules: list[str], rest: list[str], extra: int = 2
 ) -> str:
-    """targets: (rol, gün, yerine konacak yemek). Hepsi TEK istekte: öneriler birbirini görür."""
-    listed = "\n".join(
-        f"{n}) {day} — {ROLE_TEXT.get(role, role)} (şunun yerine: {old})" for n, (role, day, old) in enumerate(targets, 1)
-    )
+    """targets: (rol, gün, yerine konacak yemek[, o günün tabağındaki diğer yemekler]).
+    Hepsi TEK istekte: öneriler birbirini görür."""
+    def line(n, target):
+        role, day, old, *more = target
+        plate = f"; o günün tabağında: {more[0]}" if more and more[0] else ""
+        return f"{n}) {day} — {ROLE_TEXT.get(role, role)} (şunun yerine: {old}{plate})"
+
+    listed = "\n".join(line(n, target) for n, target in enumerate(targets, 1))
     lines = [
         f"Bir ailenin haftalık menüsünde şu {len(targets)} öğün için YENİ yemek öner:",
         listed,
@@ -94,6 +98,10 @@ def build_batch_prompt(
         "çeşitlemeleri (frittata / tagine gibi aynı malzemeli) olmasın; farklı mutfaklardan olsun.",
         "- Haftanın geri kalanındaki yemeklerle de çakışmasın; ana malzemesi onlardan farklı olsun.",
         "- Değiştirilen yemeğin benzeri (aynı ana malzeme + aynı pişirme) olmasın.",
+        "- Günün tabağı bir bütün: yan yemek/çorba o günün ana yemeğine uysun, ana yemek de yanındakilere. "
+        "Aynı mutfak ailesinden ya da birbirini tamamlayan şeyler seç (Kore usulü tavuğun yanına bulgur pilavı "
+        "değil, sade pirinç ya da Asya usulü sebze); ikisi birden hamur/pilav/patates olmasın, aynı ana malzeme "
+        "iki tabakta olmasın. Aynı günün iki öğünü birlikte değişiyorsa birbirine göre seç.",
         "- Evde, normal bir markette bulunan malzemelerle yapılabilsin; 4 kişilik.",
         "- Malzemeleri ayrı satırlarda miktarıyla yaz; hazırlanışı 3-6 kısa adımda yaz; 'neden' alanında bir "
         "cümleyle neden iyi bir seçim olduğunu söyle. Yemek adlarını Türkçe yaz.",

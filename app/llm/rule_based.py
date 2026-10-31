@@ -2,7 +2,9 @@ from __future__ import annotations
 
 from typing import Any
 
+from app.config import course_role
 from app.llm.base import Intent, IntentOutput, LLMProvider, PlannedMeal, PreferencePayload, RevisionOperation, RevisionOutput, WeeklyPlanOutput
+from app.planner.pairing import pairing_penalty
 
 
 class RuleBasedLLMProvider(LLMProvider):
@@ -19,6 +21,7 @@ class RuleBasedLLMProvider(LLMProvider):
         slot_indexes = {slot: 0 for slot in slots}
         for date_value in dates:
             used_recipe_ids: set[str] = set()
+            today_main = None
             for slot in slots:
                 slot_candidates = candidates_by_slot.get(slot) or candidates
                 if not slot_candidates:
@@ -27,6 +30,14 @@ class RuleBasedLLMProvider(LLMProvider):
                 recipe = slot_candidates[slot_index % len(slot_candidates)]
                 if recipe["id"] in used_recipe_ids:
                     recipe = next((candidate for candidate in slot_candidates if candidate["id"] not in used_recipe_ids), recipe)
+                if today_main is not None and course_role(slot) in ("side", "soup"):
+                    # Günün tabağı: sıradaki birkaç aday arasından ana yemeğe en uyanı.
+                    count = len(slot_candidates)
+                    window = [slot_candidates[(slot_index + k) % count] for k in range(min(count, 6))]
+                    window = [r for r in window if r["id"] not in used_recipe_ids] or [recipe]
+                    recipe = min(window, key=lambda r: pairing_penalty(today_main, r))
+                if today_main is None and course_role(slot) == "main":
+                    today_main = recipe
                 meals.append(
                     PlannedMeal(
                         date=date_value,
@@ -226,7 +237,12 @@ def constrained_plan(context: dict[str, Any]) -> WeeklyPlanOutput:
                     lower_bound = sum(min(r["calories_kcal"] for r in pool) for pool in pools[index:])
                     if energy + lower_bound > cap:
                         return None
-                for recipe in pools[index]:
+                choices = pools[index]
+                main = next((r for r, role in zip(selected, roles) if role == "main"), None)
+                if main is not None and roles[index] in ("side", "soup"):
+                    # Günün tabağı: ana yemeğe uyan yan yemekler önce denenir.
+                    choices = sorted(choices, key=lambda r: pairing_penalty(main, r))
+                for recipe in choices:
                     if recipe["id"] in used:
                         continue
                     kcal = recipe.get("calories_kcal") or 0
@@ -237,6 +253,7 @@ def constrained_plan(context: dict[str, Any]) -> WeeklyPlanOutput:
                         return found
                 return None
 
+            roles = [course_role(slot) for slot in slots]
             selected = search(0, [], set(), 0)
             if selected is None:
                 raise RuleViolation(f"{day} {base}: aday havuzunda yemek sayısı/kalori kurallarına uygun bir öğün bulunamadı.")

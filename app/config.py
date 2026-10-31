@@ -89,6 +89,11 @@ class Settings(BaseSettings):
     # Bağlantı kodu ve güncelleme bildirimleri bundan etkilenmez.
     telegram_menu_messages: bool = False
 
+    # Her gün internetten yeni aday tarifler (Tarifler > Adaylar; haftalık "yeni" yemekler bunlardan).
+    daily_discovery_enabled: bool = True
+    daily_discovery_count: int = Field(default=10, ge=1, le=20)
+    daily_discovery_time: str = "05:43"
+
     recipe_discovery_enabled: bool = True
     recipe_discovery_day: str = "saturday"
     recipe_discovery_time: str = "18:00"

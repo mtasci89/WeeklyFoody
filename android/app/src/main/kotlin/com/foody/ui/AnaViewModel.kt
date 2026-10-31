@@ -74,7 +74,8 @@ const val HAFTAYI_YENILE_ISTEK =
 fun seciliMesaj(secili: List<SeciliOgun>, metin: String): String {
     if (secili.isEmpty()) return metin
     val satirlar = secili.joinToString("\n") { "- ${it.gun} ${it.rol} (tarih=${it.tarih}, slot=${it.slot}, hafta=${it.hafta}): ${it.tarif}" }
-    return "Menüde seçtiğim yemek:\n$satirlar\n\n$metin".trim()
+    val baslik = if (secili.size > 1) "Menüde seçtiğim yemekler:" else "Menüde seçtiğim yemek:"
+    return "$baslik\n$satirlar\n\n$metin".trim()
 }
 
 /** Plan haftasının sunucudaki adı: içinde bulunduğumuz hafta "bu_hafta", sonrası "gelecek_hafta". */
@@ -103,6 +104,11 @@ fun bolumSec(bolum: String, bu: MenuCevap?, gelecek: MenuCevap?): MenuCevap? {
     }
     return uyan ?: (bu ?: gelecek)?.copy(plan = null, mesaj = null)
 }
+
+/** Sunucunun işlem metninden kullanıcıya gösterilecek kısım (modele yönelik satırlar atılır). */
+fun islemOzeti(mesaj: String, yedek: String): String = mesaj.lines()
+    .filterNot { "tarif_onayla" in it || it.isBlank() }
+    .joinToString("\n").ifBlank { yedek }
 
 /** Taslakta son yapılan değişiklik: Menü > Taslak'ta üstte gösterilir, değişen yemekler vurgulanır. */
 data class SonDegisiklik(val planId: String, val metin: String, val degisiklikler: List<Degisiklik>)
@@ -292,6 +298,7 @@ class AnaViewModel(app: Application) : AndroidViewModel(app) {
     // --- menü ------------------------------------------------------------------
 
     fun haftaSec(hafta: String) {
+        if (hafta != _hafta.value) secimiBitir()
         _hafta.value = hafta
         if (haftalar.first != null || haftalar.second != null) {
             _menu.value = Yuk(veri = bolumSec(hafta, haftalar.first, haftalar.second))
@@ -391,14 +398,104 @@ class AnaViewModel(app: Application) : AndroidViewModel(app) {
         menuYenile()
     }
 
-    /** "Yerine yeni bir yemek bul": sohbet gerekmeden, kütüphanede olmayan bir yemek konur. */
-    fun yenisiniBul(o: SeciliOgun, istek: String = "") = islem("Yeni yemek hazırlanıyor… (15-40 sn)") {
-        val cevap = sunucu.yenisiniBul(o.tarih, o.slot, o.hafta, istek)
-        val metin = cevap.mesaj.orEmpty().lines()
-            .filterNot { "tarif_onayla" in it || it.isBlank() }
-            .joinToString("\n").ifBlank { "${o.tarif} yerine yeni bir yemek kondu." }
-        elleDegisti(cevap, metin)
+    /**
+     * "Yerine yeni bir yemek bul": sohbet gerekmeden, kütüphanede olmayan bir yemek konur.
+     * İş sunucuda arka planda çalışır; bağlantı arada koparsa iş ve sonucu kaybolmaz.
+     */
+    fun yenisiniBul(o: SeciliOgun, istek: String = "") = islem("Yeni yemek hazırlanıyor… (15-60 sn)") {
+        val c = IsBekleyici.bekle(
+            baslat = { sunucu.topluBaslat("yenisi", listOf(o.tarih to o.slot), o.hafta, istek) },
+            durum = sunucu::isDurumu,
+            // Eski sunucu: toplu iş ucu yok, cevabı tek istekte bekleyen eski yol.
+            eskiYol = {
+                val eski = _menu.value.veri?.plan
+                val cevap = sunucu.yenisiniBul(o.tarih, o.slot, o.hafta, istek)
+                SohbetCevap(
+                    metin = cevap.mesaj.orEmpty(), planDegisti = true, menu = cevap,
+                    degisiklikler = cevap.plan?.let { planFarki(eski?.takeIf { e -> e.id == it.id }, it) }.orEmpty(),
+                )
+            },
+        )
+        topluSonucu(c, "${o.tarif} yerine yeni bir yemek kondu.")
+    }
+
+    // --- çoklu seçim -------------------------------------------------------------
+
+    /** Menüde seçili yemekler ("tarih|slot", mezeler "HAFTA|slot"). */
+    private val _secim = MutableStateFlow<Set<String>>(emptySet())
+    val secim: StateFlow<Set<String>> = _secim.asStateFlow()
+    private val _secimModu = MutableStateFlow(false)
+    val secimModu: StateFlow<Boolean> = _secimModu.asStateFlow()
+
+    fun secimiBaslat(anahtar: String? = null) {
+        _secimModu.value = true
+        _secim.value = setOfNotNull(anahtar)
+    }
+
+    fun secimDegistir(anahtar: String) = _secim.update { if (anahtar in it) it - anahtar else it + anahtar }
+
+    fun secimiBitir() {
+        _secimModu.value = false
+        _secim.value = emptySet()
+    }
+
+    /** Seçili yemekler, menüdeki sırasıyla. */
+    fun seciliOgunler(): List<SeciliOgun> {
+        val plan = _menu.value.veri?.plan ?: return emptyList()
+        val hafta = haftaKodu(plan.haftaBaslangic)
+        val secili = _secim.value
+        return plan.gunler.flatMap { g ->
+            g.ogunler.filter { degisimAnahtari(g.tarih, it.slot) in secili }
+                .map { SeciliOgun(g.tarih, g.gun, it.slot, it.rol, it.tarif, hafta) }
+        } + plan.mezeler.filter { degisimAnahtari(HAFTA, it.slot) in secili }
+            .map { SeciliOgun(HAFTA, "Haftanın mezeleri", it.slot, it.rol, it.tarif, hafta) }
+    }
+
+    /** Seçilenlerin hepsi tek istekte yeni yemeklerle değişir (öneriler birbirini ve günün tabağını görür). */
+    fun secilenleriYenile(istek: String = "") {
+        val secili = seciliOgunler()
+        if (secili.isNotEmpty()) topluIslem("yenisi", secili, istek)
+    }
+
+    fun secilenleriCikar() {
+        val secili = seciliOgunler()
+        if (secili.isNotEmpty()) topluIslem("cikar", secili)
+    }
+
+    /** Seçilenleri asistanın yazı alanına koyar; kullanıcı ne istediğini yazıp gönderir. */
+    fun secilenleriAsistanaYaz() {
+        val secili = seciliOgunler()
+        if (secili.isEmpty()) return
+        taslakAyarla(seciliMesaj(secili, ""))
+        secimiBitir()
+    }
+
+    private fun topluIslem(tur: String, secili: List<SeciliOgun>, istek: String = "") {
+        val metin = if (tur == "yenisi") "${secili.size} yemek için yeni yemekler hazırlanıyor… (30-90 sn)"
+        else "${secili.size} yemek çıkarılıyor…"
+        islem(metin) {
+            val c = IsBekleyici.bekle(
+                baslat = { sunucu.topluBaslat(tur, secili.map { it.tarih to it.slot }, secili.first().hafta, istek) },
+                durum = sunucu::isDurumu,
+                eskiYol = { throw Sunucu.Hata("Çoklu seçim için sunucuyu güncelle (Ayarlar > Sunucuyu güncelle).") },
+            )
+            secimiBitir()
+            topluSonucu(c, if (tur == "yenisi") "Seçilen yemekler değişti." else "Seçilen yemekler çıkarıldı.")
+        }
+    }
+
+    /** Elle yapılan (tekli/toplu) değişikliğin sonucu: menü güncellenir, değişenler vurgulanır. */
+    private fun topluSonucu(c: SohbetCevap, yedekMetin: String) {
+        val menu = c.menu ?: run { menuYenile(); return }
+        val plan = menu.plan ?: run { menuYenile(); return }
+        _menu.value = Yuk(veri = menu)
+        onbellegiGuncelle(menu)
+        _hafta.value = if (plan.onaylanabilir) "taslak" else "onayli"
+        val metin = islemOzeti(c.metin, yedekMetin)
+        if (c.degisiklikler.isNotEmpty()) _sonDegisiklik.value = SonDegisiklik(plan.id, metin, c.degisiklikler)
+        else bildir(metin)
         alisverisYenile()
+        tarifleriYenile() // yeni yemekler aday tarif olarak eklendi
     }
 
     fun ogunDegistir(tarih: String, slot: String, tarif: String) = islem {
@@ -503,6 +600,23 @@ class AnaViewModel(app: Application) : AndroidViewModel(app) {
     fun tarifiCikar(id: String) = islem {
         bildir(sunucu.tarifiCikar(id).mesaj)
         tarifleriYenile()
+    }
+
+    /** Günlük internet keşfini şimdi çalıştırır (normalde sunucu her sabah kendisi yapar). */
+    fun gunlukKesif() {
+        if (testModu || _tarifler.value.kesifSuruyor) return
+        viewModelScope.launch {
+            _tarifler.update { it.copy(kesifSuruyor = true, kesifSonucu = null) }
+            runCatching {
+                IsBekleyici.bekle(
+                    baslat = { sunucu.gunlukKesfiBaslat() },
+                    durum = sunucu::isDurumu,
+                    eskiYol = { throw Sunucu.Hata("Bu özellik için sunucuyu güncelle (Ayarlar > Sunucuyu güncelle).") },
+                )
+            }
+                .onSuccess { c -> _tarifler.update { it.copy(kesifSuruyor = false, kesifSonucu = c.metin) }; tarifleriYenile() }
+                .onFailure { e -> _tarifler.update { it.copy(kesifSuruyor = false, kesifSonucu = e.message) } }
+        }
     }
 
     fun tarifKesfet(konu: String) {

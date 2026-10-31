@@ -25,6 +25,8 @@ import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.MenuBook
 import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.rounded.Checklist
+import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.RadioButtonUnchecked
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -65,6 +67,11 @@ fun MenuEkran(vm: AnaViewModel, tarifAc: (String) -> Unit, ayarlar: () -> Unit, 
     val tarifler by vm.tarifler.collectAsStateWithLifecycle()
     val son by vm.sonDegisiklik.collectAsStateWithLifecycle()
     val islemMetni by vm.islemMetni.collectAsStateWithLifecycle()
+    val secimModu by vm.secimModu.collectAsStateWithLifecycle()
+    val secim by vm.secim.collectAsStateWithLifecycle()
+    // null: kapalı; metin: toplu "yenileriyle değiştir" penceresindeki not.
+    var topluNot by remember { mutableStateOf<String?>(null) }
+    var topluCikar by remember { mutableStateOf(false) }
     val baglam = androidx.compose.ui.platform.LocalContext.current
     val cevap = durum.veri
     val plan = cevap?.plan
@@ -79,6 +86,12 @@ fun MenuEkran(vm: AnaViewModel, tarifAc: (String) -> Unit, ayarlar: () -> Unit, 
             "Menü",
             plan?.let { "${kisaTarih(it.haftaBaslangic)} – ${kisaTarih(it.haftaBitis)} · ${it.durumMetni}" },
         ) {
+            if (plan != null && !isleniyor) IconButton(onClick = { if (secimModu) vm.secimiBitir() else vm.secimiBaslat() }) {
+                Icon(
+                    if (secimModu) Icons.Rounded.Close else Icons.Rounded.Checklist,
+                    contentDescription = if (secimModu) "Seçimi kapat" else "Birden çok yemek seç",
+                )
+            }
             IconButton(onClick = takvimAc) { Icon(Icons.Rounded.CalendarMonth, "Yemek takvimi") }
             if (plan != null) IconButton(onClick = {
                 val ad = "Foody menü ${kisaTarih(plan.haftaBaslangic)} – ${kisaTarih(plan.haftaBitis)}"
@@ -151,14 +164,26 @@ fun MenuEkran(vm: AnaViewModel, tarifAc: (String) -> Unit, ayarlar: () -> Unit, 
                 MenuTablosu(
                     cevap,
                     degisen = bunun?.let { degisenAnahtarlar(it.degisiklikler) } ?: emptySet(),
-                    tikla = { gun, ogun -> if (!isleniyor) secilen = gun to ogun },
-                    mezeEkle = if (!isleniyor) { { mezeEklenecek = true } } else null,
+                    tikla = { gun, ogun ->
+                        if (isleniyor) Unit
+                        else if (secimModu) vm.secimDegistir(degisimAnahtari(gun?.tarih ?: HAFTA, ogun.slot))
+                        else secilen = gun to ogun
+                    },
+                    mezeEkle = if (!isleniyor && !secimModu) { { mezeEklenecek = true } } else null,
+                    secili = if (secimModu) secim else null,
+                    uzunBas = { gun, ogun ->
+                        if (!isleniyor) {
+                            val anahtar = degisimAnahtari(gun?.tarih ?: HAFTA, ogun.slot)
+                            if (secimModu) vm.secimDegistir(anahtar) else vm.secimiBaslat(anahtar)
+                        }
+                    },
                 )
             }
             if (plan.onaylanabilir) {
                 Text(
-                    "Bir yemeğe dokun: tarifini aç, değiştir, çıkar, o güne yemek ekle ya da asistan yerine yenilikçi bir şey bulsun. " +
-                        "Daha büyük değişiklikleri Asistan'a yaz.",
+                    if (secimModu) "Değiştirmek istediğin yemeklere dokun, sonra alttan ne yapılacağını seç."
+                    else "Bir yemeğe dokun: tarifini aç, değiştir, çıkar ya da yerine yenilikçi bir şey bulunsun. " +
+                        "Birden çok yemeği birlikte değiştirmek için yemeğe uzun bas ya da üstteki seçim simgesine dokun.",
                     color = Renk.Soluk, fontSize = 13.sp, lineHeight = 18.sp,
                 )
                 Button(onClick = { onaySor = true }, Modifier.fillMaxWidth(), enabled = !isleniyor) {
@@ -168,7 +193,45 @@ fun MenuEkran(vm: AnaViewModel, tarifAc: (String) -> Unit, ayarlar: () -> Unit, 
                 Text("Onaylı menü de düzenlenebilir. Yemeğe dokunup değiştir; yeni taslağı inceledikten sonra tekrar onayla.", color = Renk.Soluk, fontSize = 13.sp)
             }
         }
+        if (plan != null && secimModu) SecimCubugu(
+            sayi = secim.size,
+            calisiyor = isleniyor,
+            yenile = { topluNot = "" },
+            asistanaYaz = { vm.secilenleriAsistanaYaz(); asistanaGit() },
+            cikar = { topluCikar = true },
+            vazgec = { vm.secimiBitir() },
+        )
     }
+
+    topluNot?.let { not ->
+        AlertDialog(
+            onDismissRequest = { topluNot = null },
+            title = { Text("${secim.size} yemek yenileriyle değişsin") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        "Hepsi birlikte, birbirinden ve haftanın geri kalanından farklı olacak şekilde seçilir; " +
+                            "yan yemekler o günün ana yemeğine uyar. İstersen bir not ekle.",
+                        color = Renk.Soluk, fontSize = 13.sp,
+                    )
+                    OutlinedTextField(
+                        not, { topluNot = it }, Modifier.fillMaxWidth().testTag("toplu_not"),
+                        placeholder = { Text("ör. daha hafif olsun, biri balık olsun") },
+                    )
+                }
+            },
+            confirmButton = { TextButton(onClick = { topluNot = null; vm.secilenleriYenile(not.trim()) }) { Text("Değiştir") } },
+            dismissButton = { TextButton(onClick = { topluNot = null }) { Text("Vazgeç") } },
+        )
+    }
+
+    if (topluCikar) AlertDialog(
+        onDismissRequest = { topluCikar = false },
+        title = { Text("${secim.size} yemek menüden çıkarılsın mı?") },
+        text = { Text(vm.seciliOgunler().joinToString("\n") { "${it.gun} · ${it.tarif}" }) },
+        confirmButton = { TextButton(onClick = { topluCikar = false; vm.secilenleriCikar() }) { Text("Çıkar", color = Renk.Kirmizi) } },
+        dismissButton = { TextButton(onClick = { topluCikar = false }) { Text("Vazgeç") } },
+    )
 
     if (onaySor) AlertDialog(
         onDismissRequest = { onaySor = false },
@@ -196,6 +259,7 @@ fun MenuEkran(vm: AnaViewModel, tarifAc: (String) -> Unit, ayarlar: () -> Unit, 
                         asistanaGit()
                     },
                     listedenDegistir = { secilen = null; degisecek = gun to ogun },
+                    cokluSec = { secilen = null; vm.secimiBaslat(degisimAnahtari(tarih, ogun.slot)) },
                     gunuEkle = gun?.let { g -> { secilen = null; eklenecek = g } },
                     cikar = { secilen = null; vm.ogunCikar(tarih, ogun.slot, ogun.tarif) },
                 )
@@ -242,15 +306,49 @@ fun OgunIslemleri(
     listedenDegistir: () -> Unit,
     cikar: () -> Unit,
     gunuEkle: (() -> Unit)? = null,
+    cokluSec: (() -> Unit)? = null,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
         Text(yer, color = Renk.Soluk, fontSize = 13.sp)
         IslemDugmesi("Tarifi aç", tarifiAc)
         IslemDugmesi("Yerine yepyeni bir yemek bul", yenilikci, vurgulu = true)
+        if (cokluSec != null) IslemDugmesi("Birden çok yemek seç (birlikte değiştir)", cokluSec)
         IslemDugmesi("Asistana başka bir şey söyle", asistanaYaz)
         IslemDugmesi("Listeden değiştir", listedenDegistir)
         if (gunuEkle != null) IslemDugmesi("Bu güne yan yemek / çorba ekle", gunuEkle)
         IslemDugmesi("Menüden çıkar", cikar, tehlikeli = true)
+    }
+}
+
+/** Çoklu seçim açıkken ekranın altındaki işlem çubuğu; testler doğrudan bunu çizer. */
+@Composable
+fun SecimCubugu(
+    sayi: Int,
+    calisiyor: Boolean,
+    yenile: () -> Unit,
+    asistanaYaz: () -> Unit,
+    cikar: () -> Unit,
+    vazgec: () -> Unit,
+) {
+    val etkin = sayi > 0 && !calisiyor
+    Column(
+        Modifier.fillMaxWidth().background(Renk.AcikTuruncu).padding(horizontal = 16.dp, vertical = 8.dp).testTag("secim_cubugu"),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                if (sayi == 0) "Değiştirmek istediğin yemeklere dokun" else "$sayi yemek seçili",
+                Modifier.weight(1f), fontWeight = FontWeight.Bold, fontSize = 15.sp, color = Renk.Murekkep,
+            )
+            TextButton(onClick = vazgec) { Text("Vazgeç") }
+        }
+        Button(onClick = yenile, Modifier.fillMaxWidth(), enabled = etkin) { Text("Yenileriyle değiştir") }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            androidx.compose.material3.OutlinedButton(onClick = asistanaYaz, Modifier.weight(1f), enabled = etkin) { Text("Asistana yaz") }
+            androidx.compose.material3.OutlinedButton(onClick = cikar, Modifier.weight(1f), enabled = etkin) {
+                Text("Çıkar", color = if (etkin) Renk.Kirmizi else Renk.Soluk)
+            }
+        }
     }
 }
 

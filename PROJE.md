@@ -234,3 +234,36 @@ Ayarlar'daki APK indirme bağlantısı telefonu, Sunucuyu güncelle düğmesi su
 Foody > Ayarlar > Cal Track bağlantı kodunu kopyala, Cal Track > Bugünkü yemekler > bağlantı bölümüne bir kez yapıştır. `FOODYCal1.` kodu HTTPS adresi, SPKI pini ve HMAC-SHA256(APP_API_TOKEN, "foody-caltrack-read-v1") türetilmiş yalnızca okuma anahtarı taşır. Bu anahtar yönetim uçlarında kabul edilmez; ana APP_API_TOKEN değişince bağlantı da yenilenir. Foody Menü > takvim, aynı tarihli listeyi gösterir. Android 1.11 / versionCode 12; mevcut paket, imza ve izin düzeni korunur.
 
 Cal Track miktar kaydını kendi yerel veritabanına yazar; Foody'ye tüketim verisi göndermez. Gram/adet dönüşümü tarif özelinde Gemini tahminidir; Foody'de pişmiş gram/adet verisi olmadığı için tam ölçüm iddiası yoktur. Kullanıcı miktar/öğünü seçer ve kayıt öncesi kalori toplamını görür. Ayrıntı Cal-Track deposunun PROJE.md'sindedir.
+
+## Günlük tarif keşfi, tabak uyumu, çoklu seçim, kararlılık (1.12, 2026-10-31)
+
+Kullanıcı istekleri: her gün internetten (Instagram vb.) 10 yeni tarif; taslakta
+çoklu seçimle değişiklik; günün ana yemeği ile yan yemeği uyumlu olsun; art arda
+"sunucuya bağlanamadı" hatası olmasın.
+
+- **Günlük keşif** (`app/agent/daily_discovery.py`): her sabah `DAILY_DISCOVERY_TIME`
+  (varsayılan 05:43, `DAILY_DISCOVERY_COUNT`=10, `DAILY_DISCOVERY_ENABLED`). Google aramalı
+  tek Gemini isteği (yemek siteleri + sosyal medyada popüler olanlar), sonra
+  yapılandırma isteği. Kütüphanede/adaylarda olan, kurala aykırı, aynı günün
+  çeşitlemesi olan elenir; az kalırsa bir kez daha aranır. Kalanlar `candidate`,
+  etiket `gunluk-kesif`, kaynak alanında site/bağlantı. Menüye hiç girmeyen günlük
+  adaylar 30 gün sonra `inactive` olur (silinmez). Instagram giriş istediği için
+  doğrudan okunmaz; oradaki tarifler arama sonucuna düşen sayfalarından gelir.
+  Günlük keşif açıkken eski haftalık ajan keşfi çalışmaz. Elle: `POST /api/v1/kesif/gunluk/baslat`
+  (iş) ve uygulamada Tarifler > Adaylar > "Bugünün tariflerini getir".
+- **Tabak uyumu** (`app/planner/pairing.py`): ikisi de nişastalı, aynı ana malzeme,
+  uyuşmayan mutfak ailesi (Asya/Latin/İtalyan/Türk). YASAK DEĞİL: ajana "Tabak uyumu"
+  notu (çeşitlilik gözlemlerinde), sistem isteminde "Günün tabağı" bölümü,
+  `yenisiyle_degistir` istemine günün tabağı + seçimde uyumlu olan önce, yedek
+  planlayıcılarda (rule_based, constrained_plan) uyumlu yan yemek önce.
+- **Çoklu seçim**: `POST /api/v1/menu/toplu/baslat` {islem: yenisi|cikar, ogunler:[{tarih,slot}],
+  istek, hafta} → arka plan işi, sonuç sohbet cevabı biçiminde (menu + degisiklikler).
+  "yenisi" hepsini TEK `yenisiyle_degistir` çağrısıyla yapar. Uygulamada yemeğe uzun bas
+  ya da üstteki seçim simgesi → alttaki çubuk: Yenileriyle değiştir (isteğe bağlı not) /
+  Asistana yaz / Çıkar. Tekli "Yerine yepyeni bir yemek bul" da aynı işle çalışır
+  (eski sunucuda `/menu/yenisi`ye düşer).
+- **Kararlılık**: Telegram başlatılamazsa süreç artık çökmez (API ayakta kalır, Telegram
+  arka planda artan aralıkla yeniden denenir; `app/main.py start_telegram`). API
+  keep-alive 75 sn; uygulama boşta bağlantıyı 30 sn'de bırakır. Uygulama GET'leri ve
+  hiç ulaşamamış istekleri 3 kez sessizce yeniden dener; veri değiştiren isteği yolda
+  koptuysa tekrarlamaz; sertifika hatasını ayrı söyler (`Sunucu.tekrarDenenir`).

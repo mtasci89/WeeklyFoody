@@ -1,12 +1,14 @@
 package com.foody.data
 
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
+import okhttp3.ConnectionPool
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -20,7 +22,6 @@ import java.security.cert.X509Certificate
 import java.util.Base64
 import java.util.concurrent.TimeUnit
 import javax.net.ssl.SSLContext
-import javax.net.ssl.SSLException
 import javax.net.ssl.X509TrustManager
 
 /**
@@ -59,6 +60,9 @@ class Sunucu(private val ayarlar: () -> Ayarlar.Degerler) {
         val tls = SSLContext.getInstance("TLS").apply { init(null, arrayOf(guven), null) }
         val c = OkHttpClient.Builder()
             .sslSocketFactory(tls.socketFactory, guven)
+            // Boşta bağlantıyı sunucudan (75 sn) önce bırak: sunucunun kapattığı bağlantı yeniden kullanılmasın.
+            .connectionPool(ConnectionPool(5, 30, TimeUnit.SECONDS))
+            .retryOnConnectionFailure(true)
             .connectTimeout(15, TimeUnit.SECONDS)
             // Asistan bir menüyü birkaç adımda kurar; bir tur birkaç dakika sürebilir.
             .readTimeout(300, TimeUnit.SECONDS)
@@ -86,23 +90,28 @@ class Sunucu(private val ayarlar: () -> Ayarlar.Degerler) {
             .header("Accept", "application/json")
             .method(yontem, govde?.toRequestBody(jsonTip))
             .build()
-        try {
-            http(a.pin).newCall(istek).execute().use { r ->
-                val metin = r.body?.string().orEmpty()
-                if (!r.isSuccessful) throw Hata(hataMetni(r.code, metin), r.code)
-                esnekJson.decodeFromString(cevirici, metin)
+        var deneme = 1
+        while (true) {
+            try {
+                return@withContext http(a.pin).newCall(istek).execute().use { r ->
+                    val metin = r.body?.string().orEmpty()
+                    if (!r.isSuccessful) throw Hata(hataMetni(r.code, metin), r.code)
+                    esnekJson.decodeFromString(cevirici, metin)
+                }
+            } catch (e: Hata) {
+                throw e
+            } catch (e: IOException) {
+                // Mobil ağ ya da sunucunun yeniden başlaması anlık kopma yapar: güvenli istekler
+                // birkaç kez sessizce yeniden denenir; kullanıcı ancak hepsi başarısızsa hata görür.
+                if (deneme >= DENEME || !tekrarDenenir(yontem, e)) throw Hata(baglantiHatasi(e))
+                delay(BEKLEME_MS * deneme)
+                deneme++
+            } catch (e: kotlinx.serialization.SerializationException) {
+                throw Hata("Sunucunun cevabı okunamadı. Uygulamayı güncellemek gerekebilir.")
             }
-        } catch (e: Hata) {
-            throw e
-        } catch (e: SSLException) {
-            throw Hata("Sunucunun sertifikası beklenenden farklı. Telegram'da /uygulama ile yeni bağlantı kodu al.")
-        } catch (e: SocketTimeoutException) {
-            throw Hata("Sunucu zamanında cevap vermedi. Biraz sonra tekrar dene.")
-        } catch (e: IOException) {
-            throw Hata("Sunucuya ulaşılamadı. İnternet bağlantını ve sunucunun açık olduğunu kontrol et.")
-        } catch (e: kotlinx.serialization.SerializationException) {
-            throw Hata("Sunucunun cevabı okunamadı. Uygulamayı güncellemek gerekebilir.")
         }
+        @Suppress("UNREACHABLE_CODE")
+        throw IllegalStateException()
     }
 
     suspend fun gunYemekleri(tarih: String) = cagir("GET", "caltrack/yemekler", mapOf("tarih" to tarih), cevirici = GunYemekleri.serializer())
@@ -129,6 +138,21 @@ class Sunucu(private val ayarlar: () -> Ayarlar.Degerler) {
         "POST", "menu/yenisi",
         govde = buildJsonObject { put("tarih", tarih); put("slot", slot); put("hafta", hafta); put("istek", istek) }.toString(),
         cevirici = MenuCevap.serializer(),
+    )
+
+    /**
+     * Menüde seçilen yemeklere tek işlem ("yenisi" ya da "cikar"); arka planda çalışır,
+     * sonucu [isDurumu] ile sorulur. `ogunler`: (tarih ya da "HAFTA", slot).
+     */
+    suspend fun topluBaslat(islem: String, ogunler: List<Pair<String, String>>, hafta: String, istek: String = "") = cagir(
+        "POST", "menu/toplu/baslat",
+        govde = buildJsonObject {
+            put("islem", islem); put("hafta", hafta); put("istek", istek)
+            put("ogunler", kotlinx.serialization.json.buildJsonArray {
+                ogunler.forEach { (tarih, slot) -> add(buildJsonObject { put("tarih", tarih); put("slot", slot) }) }
+            })
+        }.toString(),
+        cevirici = IsBaslat.serializer(),
     )
 
     suspend fun menuTarifleri(hafta: String, kisi: Int = 0) = cagir(
@@ -182,6 +206,9 @@ class Sunucu(private val ayarlar: () -> Ayarlar.Degerler) {
         "POST", "kesif/baslat", govde = buildJsonObject { put("konu", konu) }.toString(), cevirici = IsBaslat.serializer(),
     )
 
+    /** Günlük internet keşfini şimdi başlatır (her sabah kendiliğinden de çalışır). */
+    suspend fun gunlukKesfiBaslat() = cagir("POST", "kesif/gunluk/baslat", govde = "{}", cevirici = IsBaslat.serializer())
+
     suspend fun isDurumu(id: String) = cagir("GET", "is/$id", cevirici = IsDurumu.serializer())
 
     suspend fun sohbetGecmisi() = cagir("GET", "sohbet", cevirici = SohbetGecmisi.serializer())
@@ -191,6 +218,36 @@ class Sunucu(private val ayarlar: () -> Ayarlar.Degerler) {
     )
 
     companion object {
+        const val DENEME = 3
+        const val BEKLEME_MS = 1_500L
+
+        /** Sunucunun açık anahtarı pinle eşleşmedi (gerçek sertifika sorunu; yeniden denemek boşuna). */
+        fun sertifikaHatasi(e: Throwable): Boolean =
+            generateSequence(e) { it.cause }.take(8).any { it is CertificateException }
+
+        /**
+         * Kopan istek yeniden denenebilir mi? GET her zaman (veri değiştirmez). Veri değiştiren
+         * istek yalnızca sunucuya hiç ulaşmadıysa (bağlantı kurulamadı): iki kez uygulanmasın.
+         * Cevap beklerken zaman aşımı yeniden denenmez (sunucu işi sürdürüyor olabilir).
+         */
+        fun tekrarDenenir(yontem: String, e: IOException): Boolean {
+            if (sertifikaHatasi(e)) return false
+            val baglanamadi = e is java.net.ConnectException || e is java.net.UnknownHostException ||
+                e is java.net.NoRouteToHostException ||
+                (e is SocketTimeoutException && e.message.orEmpty().contains("connect", ignoreCase = true))
+            if (baglanamadi) return true
+            if (e is SocketTimeoutException) return false
+            return yontem == "GET"
+        }
+
+        fun baglantiHatasi(e: IOException): String = when {
+            sertifikaHatasi(e) -> "Sunucunun sertifikası beklenenden farklı. Telegram'da /uygulama ile yeni bağlantı kodu al."
+            e is SocketTimeoutException && !e.message.orEmpty().contains("connect", ignoreCase = true) ->
+                "Sunucu zamanında cevap vermedi. Biraz sonra tekrar dene."
+            else -> "Sunucuya ulaşılamadı ($DENEME kez denendi). İnternet bağlantını kontrol et; sunucu yeniden " +
+                "başlıyorsa bir dakika sonra tekrar dene."
+        }
+
         /** /sohbet gövdesi: {"mesaj": "...", "gorseller": [{"mime": "image/jpeg", "veri": base64}]} (app/api.py ChatIn). */
         fun sohbetGovdesi(mesaj: String, ekler: List<Ek>): String = buildJsonObject {
             put("mesaj", mesaj)

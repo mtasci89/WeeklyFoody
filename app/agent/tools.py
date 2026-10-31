@@ -29,6 +29,7 @@ from app.recipes.nutrition import NutritionInput, nutrition_text, save_nutrition
 from app.db.models import MealPlan
 from app.planner.candidate_selector import CandidateSelector
 from app.planner.dates import TR_DAY_NAMES, next_week_start, this_week_start, week_dates, week_end
+from app.planner.pairing import PROTEIN_TYPES, PROTEIN_WORDS, dish_of, pairing_issues, pairing_penalty
 from app.planner.scorer import CandidateScorer
 from app.planner.service import MealPlannerService, allowed_categories_for_role
 from app.agent.rules import HouseRules
@@ -125,17 +126,6 @@ def selector_matches_role(db: Session, recipe: Recipe, role: str) -> bool:
     return CandidateSelector(db)._matches_course_role(recipe, role)
 
 
-PROTEIN_WORDS = [
-    ("balık", ("balık", "somon", "levrek", "çipura", "hamsi", "uskumru", "palamut", "ton ", "karides", "fish")),
-    ("tavuk", ("tavuk", "hindi", "chicken")),
-    ("kırmızı et", ("dana", "kuzu", "kıyma", "köfte", "bonfile", "biftek", "et sote", "etli", "beef", "lamb", "bulgogi")),
-    ("baklagil", ("nohut", "fasulye", "mercimek", "barbunya", "bakla", "legume")),
-    ("yumurta", ("yumurta", "menemen", "shakshuka", "egg")),
-]
-PROTEIN_TYPES = {"chicken": "tavuk", "fish": "balık", "beef": "kırmızı et", "lamb": "kırmızı et",
-                 "legumes": "baklagil", "egg": "yumurta", "eggs": "yumurta"}
-
-
 def protein_of(recipe) -> str:
     """Ana yemeğin protein grubu: kayıtlı türden, yoksa adından/malzemesinden."""
     kind = PROTEIN_TYPES.get((recipe.protein_type or "").casefold())
@@ -193,6 +183,21 @@ def variety_notes(session) -> list[str]:
         if len(days) >= 3 or consecutive:
             names = ", ".join(TR_DAY_NAMES[d.weekday()] for d in days)
             notes.append(f"'{word}' {len(days)} ana yemekte ({names}){' — arka arkaya' if consecutive else ''}.")
+    # Günün tabağı: ana yemek ile yan yemek/çorba birbirine uysun (kullanıcı isteği).
+    by_day: dict = {}
+    for item in daily:
+        by_day.setdefault(item.date, []).append(item)
+    for day, items in sorted(by_day.items()):
+        day_mains = [i for i in items if course_role(i.meal_slot) == "main"]
+        sides = [i for i in items if course_role(i.meal_slot) in ("side", "soup")]
+        for main in day_mains[:1]:
+            for side in sides:
+                issues = pairing_issues(main.recipe, side.recipe)
+                if issues:
+                    notes.append(
+                        f"Tabak uyumu, {TR_DAY_NAMES[day.weekday()]}: {main.recipe.name} + {side.recipe.name} — "
+                        + "; ".join(issues) + "."
+                    )
     return notes
 
 
@@ -790,7 +795,19 @@ class MealAgentToolset:
                         when = "Haftanın mezeleri" if is_weekly_slot(item.meal_slot) else (
                             f"{TR_DAY_NAMES[item.date.weekday()]} {item.date.isoformat()}"
                         )
-                        spec.append((role, when, item.recipe.name, item.meal_slot, day_text))
+                        # Günün tabağındaki diğer yemekler: yeni yemek onlara uysun.
+                        mates = [] if is_weekly_slot(item.meal_slot) else [
+                            i for i in items
+                            if i.date == item.date and not is_weekly_slot(i.meal_slot) and i is not item
+                        ]
+                        plate = ", ".join(
+                            f"{course_label(i.meal_slot)}: {i.recipe.name}" + (" (o da değişiyor)" if id(i) in target_ids else "")
+                            for i in mates
+                        )
+                        fixed = [
+                            (course_role(i.meal_slot), dish_of(i.recipe)) for i in mates if id(i) not in target_ids
+                        ]
+                        spec.append((role, when, item.recipe.name, item.meal_slot, day_text, plate, item.date, fixed))
                     cutoff = session.week_start - timedelta(weeks=4)
                     recent = db.scalars(
                         select(Recipe.name).join(MealPlanItem, MealPlanItem.recipe_id == Recipe.id).where(MealPlanItem.date >= cutoff)
@@ -802,7 +819,7 @@ class MealAgentToolset:
                     rules = MealRules.from_db(db)
                 try:
                     raw_ideas = await ask(
-                        build_batch_prompt([(r, w, old) for r, w, old, _, _ in spec], istek, avoid, house, rest),
+                        build_batch_prompt([(r, w, old, plate) for r, w, old, _, _, plate, _, _ in spec], istek, avoid, house, rest),
                         FRESH_SCHEMA,
                     )
                 except Exception as error:
@@ -811,7 +828,19 @@ class MealAgentToolset:
                 ideas = parse_ideas(raw_ideas)
                 results: list[str] = []
                 taken: set[int] = set()
-                for number, (role, when, old, slot, day_text) in enumerate(spec, 1):
+                picked_on: dict = {}  # gün -> o gün bu çağrıda seçilen (rol, yemek)
+
+                def plate_penalty(idea: dict, role: str, day, fixed: list) -> int:
+                    """Yeni yemek o günün tabağına ne kadar uymuyor (0 = uyumlu)."""
+                    dish = dish_of(idea)
+                    mates = [*fixed, *picked_on.get(day, [])]
+                    if role == "main":
+                        return sum(pairing_penalty(dish, d) for r, d in mates if r in ("side", "soup"))
+                    if role in ("side", "soup"):
+                        return sum(pairing_penalty(d, dish) for r, d in mates if r == "main")
+                    return 0
+
+                for number, (role, when, old, slot, day_text, _plate, day, fixed) in enumerate(spec, 1):
                     picked = None
                     with toolset.session_factory() as db:
                         service = RecipeService(db)
@@ -827,8 +856,12 @@ class MealAgentToolset:
                         def keys_of(k):
                             main = str(ideas[k].get("ana_malzeme") or "")
                             return key_words(ideas[k]["ad"]) | key_words(main) | ({main.strip().casefold()} - {""})
-                        # Önce ana malzemesi haftadakilerle ve diğer seçimlerle çakışmayan.
+                        # Önce ana malzemesi haftadakilerle ve diğer seçimlerle çakışmayan;
+                        # aralarında bu öğün için önerilen ve günün tabağına uyan öne.
                         fresh_first = [k for k in valid if not (keys_of(k) & used_keys)] or valid
+                        fresh_first.sort(
+                            key=lambda k: (ideas[k].get("icin") != number, plate_penalty(ideas[k], role, day, fixed))
+                        )
                         if fresh_first:
                             picked = fresh_first[0]
                             idea = ideas[picked]
@@ -848,6 +881,8 @@ class MealAgentToolset:
                             )
                             taken.add(picked)
                             used_keys |= keys_of(picked)
+                            if role in ("main", "side", "soup"):
+                                picked_on.setdefault(day, []).append((role, dish_of(idea)))
                     if picked is None:
                         results.append(f"- {when} ({old}): uygun yeni öneri çıkmadı, değişmedi.")
                         continue

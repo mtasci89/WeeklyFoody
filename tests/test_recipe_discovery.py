@@ -200,7 +200,7 @@ async def test_weekly_discovery_searches_each_category_and_reports_to_admin(sett
 
     make.available = _FakeAgent.available
     bot = _FakeBot()
-    configured = settings.model_copy(update={"recipe_discovery_queries": ["ana yemek", "meze"]})
+    configured = settings.model_copy(update={"recipe_discovery_queries": ["ana yemek", "meze"], "daily_discovery_enabled": False})
     monkeypatch.setattr(runner, "MealPlannerAgent", make)
     monkeypatch.setattr(weekly, "get_settings", lambda: configured)
     monkeypatch.setattr(weekly, "_CURRENT_BOT", bot)
@@ -213,3 +213,24 @@ async def test_weekly_discovery_searches_each_category_and_reports_to_admin(sett
     assert admin == settings.admin_telegram_user_id
     assert "eklendi #1" in text and "eklendi #2" in text
     assert "/candidates" in text
+
+
+@pytest.mark.asyncio
+async def test_weekly_agent_discovery_steps_aside_for_daily_discovery(settings, monkeypatch):
+    """Günlük keşif açıkken haftalık ajan turu çalışmaz (sohbet geçmişini de doldurmaz)."""
+    import app.agent.runner as runner
+    import app.scheduler.weekly as weekly
+
+    agents: list[_FakeAgent] = []
+
+    def make(*args, **kwargs):
+        agents.append(_FakeAgent())
+        return agents[-1]
+
+    make.available = _FakeAgent.available
+    monkeypatch.setattr(runner, "MealPlannerAgent", make)
+    monkeypatch.setattr(weekly, "get_settings", lambda: settings.model_copy(update={"daily_discovery_enabled": True}))
+
+    await weekly.weekly_recipe_discovery_job()
+
+    assert agents == []

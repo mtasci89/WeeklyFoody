@@ -1,17 +1,22 @@
 package com.foody.ui
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.rounded.RadioButtonUnchecked
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -99,6 +104,10 @@ fun MenuTablosu(
     tikla: ((Gun?, Ogun) -> Unit)? = null,
     gunEkle: ((Gun) -> Unit)? = null,
     mezeEkle: (() -> Unit)? = null,
+    /** Çoklu seçim açıkken seçili yemeklerin anahtarları; null ise seçim kapalı. */
+    secili: Set<String>? = null,
+    /** Uzun basınca (çoklu seçimi başlatmak için). */
+    uzunBas: ((Gun?, Ogun) -> Unit)? = null,
 ) {
     val plan = menu.plan ?: return
     Column(modifier, verticalArrangement = Arrangement.spacedBy(0.dp)) {
@@ -122,10 +131,12 @@ fun MenuTablosu(
                             vurgulu = degisimAnahtari(gun.tarih, ogun.slot) in degisen,
                             kalori = if (menu.kaloriGoster && !kompakt) ogun.kcal else null,
                             tikla = tikla?.let { t -> { t(gun, ogun) } },
+                            secildi = secili?.let { degisimAnahtari(gun.tarih, ogun.slot) in it },
+                            uzunBas = uzunBas?.let { u -> { u(gun, ogun) } },
                         )
                     }
                 }
-                if (gunEkle != null) IconButton(onClick = { gunEkle(gun) }) {
+                if (gunEkle != null && secili == null) IconButton(onClick = { gunEkle(gun) }) {
                     Icon(Icons.Rounded.Add, contentDescription = "${gun.gun} günü ekle", tint = Renk.Yesil)
                 }
             }
@@ -150,6 +161,8 @@ fun MenuTablosu(
                     vurgulu = degisimAnahtari(HAFTA, meze.slot) in degisen,
                     kalori = null,
                     tikla = tikla?.let { t -> { t(null, meze) } },
+                    secildi = secili?.let { degisimAnahtari(HAFTA, meze.slot) in it },
+                    uzunBas = uzunBas?.let { u -> { u(null, meze) } },
                 )
             }
         }
@@ -178,18 +191,41 @@ private fun KompaktSatir(yemekler: List<Pair<Ogun, Boolean>>, modifier: Modifier
     Text(metin, modifier, fontSize = 14.sp, lineHeight = 19.sp)
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun YemekSatiri(ogun: Ogun, ana: Boolean, kompakt: Boolean, vurgulu: Boolean, kalori: Int?, tikla: (() -> Unit)?) {
+private fun YemekSatiri(
+    ogun: Ogun, ana: Boolean, kompakt: Boolean, vurgulu: Boolean, kalori: Int?, tikla: (() -> Unit)?,
+    /** null: seçim kapalı; true/false: çoklu seçimde seçili mi. */
+    secildi: Boolean? = null,
+    uzunBas: (() -> Unit)? = null,
+) {
+    val zemin = when {
+        secildi == true -> Renk.AcikTuruncu
+        vurgulu -> Renk.AcikYesil
+        else -> Color.Transparent
+    }
     Row(
         Modifier.fillMaxWidth()
             .clip(RoundedCornerShape(8.dp))
-            .background(if (vurgulu) Renk.AcikYesil else Color.Transparent)
-            .then(if (tikla != null) Modifier.clickable(onClick = tikla) else Modifier)
-            .padding(horizontal = if (vurgulu) 6.dp else 0.dp, vertical = if (kompakt) 1.dp else 2.dp)
+            .background(zemin)
+            .then(
+                when {
+                    tikla != null && uzunBas != null -> Modifier.combinedClickable(onClick = tikla, onLongClick = uzunBas)
+                    tikla != null -> Modifier.clickable(onClick = tikla)
+                    else -> Modifier
+                }
+            )
+            .padding(horizontal = if (vurgulu || secildi == true) 6.dp else 0.dp, vertical = if (kompakt) 1.dp else 2.dp)
             .testTag("yemek_${ogun.slot}"),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
+        if (secildi != null) Icon(
+            if (secildi) Icons.Rounded.CheckCircle else Icons.Rounded.RadioButtonUnchecked,
+            contentDescription = if (secildi) "Seçili" else "Seçili değil",
+            tint = if (secildi) Renk.Turuncu else Renk.Soluk,
+            modifier = Modifier.size(20.dp),
+        )
         Text(
             ogun.tarif, Modifier.weight(1f, fill = false),
             fontSize = if (kompakt) 13.sp else if (ana) 15.sp else 14.sp,

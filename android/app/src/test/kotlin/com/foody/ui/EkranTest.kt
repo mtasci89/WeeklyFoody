@@ -17,6 +17,8 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.test.core.app.ApplicationProvider
 import com.foody.Ornek
@@ -153,6 +155,55 @@ class EkranTest {
         kural.onNodeWithContentDescription("Paylaş").performClick()
         kural.onNodeWithText("PDF olarak").assertExists()
         kural.onNodeWithText("Metin olarak").assertExists()
+    }
+
+    @Test fun cokluSecimleYemeklerBirlikteSecilir() {
+        val vm = vm()
+        var asistan = 0
+        kural.setContent { FoodyTema { MenuEkran(vm, tarifAc = {}, ayarlar = {}, asistanaGit = { asistan++ }) } }
+        val gunler = Ornek.menu.plan!!.gunler
+        val a = gunler[0].ogunler.first()
+        val b = gunler[1].ogunler.first()
+
+        // Uzun basmak seçimi başlatır ve o yemeği seçer.
+        kural.onAllNodesWithTag("yemek_${a.slot}")[0].performTouchInput { longClick() }
+        kural.onNodeWithTag("secim_cubugu").assertExists()
+        kural.onNodeWithText("1 yemek seçili").assertExists()
+        // Seçim açıkken dokunmak seçer/bırakır (işlem penceresi açılmaz).
+        kural.onAllNodesWithTag("yemek_${b.slot}")[1].performClick()
+        kural.onNodeWithText("2 yemek seçili").assertExists()
+        kural.onNodeWithText("Yerine yepyeni bir yemek bul").assertDoesNotExist()
+        assert(vm.seciliOgunler().map { it.tarif } == listOf(a.tarif, b.tarif)) { vm.seciliOgunler() }
+
+        kural.onNodeWithText("Asistana yaz").performClick()
+        assert(vm.taslak.value.startsWith("Menüde seçtiğim yemekler:\n- ${gunler[0].gun}")) { vm.taslak.value }
+        assert(vm.taslak.value.contains(b.tarif))
+        assert(asistan == 1 && !vm.secimModu.value)
+    }
+
+    @Test fun secimCubuguIslemleriSunar() {
+        val tiklanan = mutableListOf<String>()
+        kural.setContent {
+            FoodyTema {
+                SecimCubugu(
+                    sayi = 3, calisiyor = false, yenile = { tiklanan += "yeni" }, asistanaYaz = { tiklanan += "yaz" },
+                    cikar = { tiklanan += "cikar" }, vazgec = { tiklanan += "vazgec" },
+                )
+            }
+        }
+        kural.onNodeWithText("3 yemek seçili").assertExists()
+        listOf("Yenileriyle değiştir", "Asistana yaz", "Çıkar", "Vazgeç").forEach { kural.onNodeWithText(it).performClick() }
+        assert(tiklanan == listOf("yeni", "yaz", "cikar", "vazgec")) { tiklanan }
+    }
+
+    @Test fun secimSimgesiSecimiAcarVeKapatir() {
+        val vm = vm()
+        kural.setContent { FoodyTema { MenuEkran(vm, tarifAc = {}, ayarlar = {}, asistanaGit = {}) } }
+        kural.onNodeWithContentDescription("Birden çok yemek seç").performClick()
+        kural.onNodeWithText("Değiştirmek istediğin yemeklere dokun").assertExists()
+        kural.onNodeWithText("Yenileriyle değiştir").assertIsNotEnabled()
+        kural.onNodeWithContentDescription("Seçimi kapat").performClick()
+        kural.onNodeWithTag("secim_cubugu").assertDoesNotExist()
     }
 
     @Test fun yemekIslemleriTumSecenekleriSunar() {

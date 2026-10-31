@@ -39,5 +39,13 @@ class GoruntuTest {
             vm.ornekCevap(Ornek.isBitti.sonuc!!.copy(metin = "Salı'ya balık yerine Izgara Köfte koydum; Çoban Salata'yı meze listesinden çıkardım."))
         }
         kaydet("2_taslak_degisiklik.png")
+        // Çoklu seçim: iki günün ana yemeği seçili, altta işlem çubuğu.
+        kural.runOnIdle {
+            vm.sonDegisiklikGoruldu()
+            val gunler = Ornek.menu.plan!!.gunler
+            vm.secimiBaslat(degisimAnahtari(gunler[0].tarih, gunler[0].ogunler.first().slot))
+            vm.secimDegistir(degisimAnahtari(gunler[1].tarih, gunler[1].ogunler.first().slot))
+        }
+        kaydet("3_coklu_secim.png")
     }
 }

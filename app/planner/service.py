@@ -167,6 +167,7 @@ class MealPlannerService:
             "id": recipe.id,
             "name": recipe.name,
             "category": recipe.category,
+            "cuisine": recipe.cuisine,
             "meal_type": recipe.meal_type,
             "protein_type": recipe.protein_type,
             "vegetarian": recipe.vegetarian,

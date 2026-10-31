@@ -113,6 +113,19 @@ class RemoveIn(BaseModel):
     hafta: Literal["aktif", "bu_hafta", "gelecek_hafta"] = "aktif"
 
 
+class MealRef(BaseModel):
+    tarih: str = Field(min_length=1, max_length=20)
+    slot: str = Field(min_length=1, max_length=64)
+
+
+class BulkIn(BaseModel):
+    """Menüde birden çok yemek seçip tek seferde işlem (uygulamada çoklu seçim)."""
+    islem: Literal["yenisi", "cikar"]
+    ogunler: list[MealRef] = Field(min_length=1, max_length=40)
+    istek: str = Field(default="", max_length=500)
+    hafta: Literal["aktif", "bu_hafta", "gelecek_hafta"] = "aktif"
+
+
 FINAL_STATES = (SessionState.APPROVED, SessionState.PUBLISHED)
 
 
@@ -674,7 +687,8 @@ def create_api_app(
     jobs: dict[str, dict] = {}
     tasks: set[asyncio.Task] = set()
 
-    def start_job(message: str, images: list[Gorsel]) -> dict:
+    def start_task(work: Callable, kind: str = "sohbet") -> dict:
+        """`work()` arka planda çalışır; uygulama /is/{id} ile kısa isteklerle sorar."""
         import time
 
         now = time.monotonic()
@@ -685,19 +699,66 @@ def create_api_app(
 
         async def run() -> None:
             try:
-                jobs[job_id]["sonuc"] = await agent_answer(message, images, timeout=settings.agent_job_timeout_seconds)
+                jobs[job_id]["sonuc"] = await work()
                 jobs[job_id]["durum"] = "bitti"
             except HTTPException as error:
                 jobs[job_id].update(durum="hata", hata=str(error.detail))
             except Exception:
-                logger.exception("app_job_failed")
+                logger.exception("app_job_failed kind=%s", kind)
                 jobs[job_id].update(durum="hata", hata="Asistan bu isteği tamamlayamadı.")
 
         task = asyncio.create_task(run())
         tasks.add(task)
         task.add_done_callback(tasks.discard)
-        logger.info("app_job_started images=%s", len(images))
+        logger.info("app_job_started kind=%s", kind)
         return {"is": job_id, "durum": "calisiyor"}
+
+    def start_job(message: str, images: list[Gorsel]) -> dict:
+        return start_task(
+            lambda: agent_answer(message, images, timeout=settings.agent_job_timeout_seconds), kind=f"sohbet:{len(images)}"
+        )
+
+    async def bulk_edit(body: BulkIn) -> dict:
+        """Seçilen yemeklere tek işlem; cevap sohbet cevabı biçiminde (menü + değişenler)."""
+        with session_factory() as db:
+            before = plan_snapshot(db, settings)
+        if body.islem == "yenisi":
+            # Hepsi TEK istekte: öneriler birbirini ve günün tabağını görür.
+            result = await run_menu_tool(
+                "yenisiyle_degistir",
+                {"ogunler": [f"{o.tarih}|{o.slot}" for o in body.ogunler], "istek": body.istek, "hafta": body.hafta},
+            )
+            text = result["mesaj"]
+        else:
+            lines, result = [], None
+            # Aynı günün öğünleri silindikçe slotlar kaymaz; sıra önemli değil.
+            for meal in body.ogunler:
+                try:
+                    result = await run_menu_tool(
+                        "ogun_cikar", {"tarih": meal.tarih, "tarif_veya_slot": meal.slot, "hafta": body.hafta},
+                    )
+                    lines.append(result["mesaj"])
+                except HTTPException as error:
+                    lines.append(str(error.detail))
+            if result is None:
+                raise HTTPException(status_code=422, detail="\n".join(lines) or "Hiçbir yemek çıkarılamadı.")
+            text = "\n".join(lines)
+        changes: list[dict] = []
+        plan_id = (result.get("plan") or {}).get("id")
+        if plan_id:
+            with session_factory() as db:
+                changes = plan_changes(before.get(plan_id, {}), plan_snapshot(db, settings).get(plan_id, {}))
+        menu = {k: v for k, v in result.items() if k != "mesaj"}
+        return {
+            "metin": text, "ok": True, "araclar": [], "plan_degisti": True,
+            "kalori_ozeti": "", "menu": menu, "degisiklikler": changes,
+        }
+
+    @api.post("/menu/toplu/baslat")
+    async def bulk_start(body: BulkIn) -> dict:
+        if body.islem == "yenisi":
+            get_agent()  # yapay zekâ kapalıysa hemen 503
+        return start_task(lambda: bulk_edit(body), kind=f"toplu:{body.islem}:{len(body.ogunler)}")
 
     @api.post("/sohbet")
     async def chat(body: ChatIn) -> dict:
@@ -722,6 +783,27 @@ def create_api_app(
 
         get_agent()
         return start_job(discovery_prompt(body.konu, limit=3), [])
+
+    @api.post("/kesif/gunluk/baslat")
+    async def daily_discovery_start() -> dict:
+        """Günlük internet keşfini şimdi çalıştırır (normalde her sabah kendiliğinden)."""
+        from app.scheduler.weekly import run_daily_discovery
+
+        agent_ = get_agent()
+        backend = getattr(agent_, "gemini", None)
+        if backend is None:
+            raise HTTPException(status_code=503, detail="Günlük keşif yalnızca Gemini ile çalışır.")
+
+        async def work() -> dict:
+            names = await run_daily_discovery(settings, session_factory, backend=backend)
+            text = (
+                f"İnternetten {len(names)} yeni tarif buldum; Adaylar'da bekliyor:\n" + "\n".join(f"- {n}" for n in names)
+                if names else "Bugün kurallarına uyan, listende olmayan yeni tarif bulamadım. Biraz sonra tekrar dene."
+            )
+            return {"metin": text, "ok": bool(names), "araclar": [], "plan_degisti": False,
+                    "kalori_ozeti": "", "menu": None, "degisiklikler": []}
+
+        return start_task(work, kind="gunluk_kesif")
 
     @api.get("/is/{job_id}")
     def job_status(job_id: str) -> dict:

@@ -66,7 +66,52 @@ def build_scheduler(settings: Settings, bot=None) -> AsyncIOScheduler:
             max_instances=1,
             misfire_grace_time=3600,
         )
+    if settings.daily_discovery_enabled:
+        daily_hour, daily_minute = settings.daily_discovery_time.split(":", maxsplit=1)
+        scheduler.add_job(
+            daily_recipe_discovery_job,
+            trigger=CronTrigger(hour=int(daily_hour), minute=int(daily_minute), timezone=settings.timezone),
+            id="daily_recipe_discovery",
+            replace_existing=True,
+            coalesce=True,
+            max_instances=1,
+            misfire_grace_time=6 * 3600,
+        )
     return scheduler
+
+
+async def daily_recipe_discovery_job(**_legacy: object) -> None:
+    """Her gün internetten yeni aday tarifler (app/agent/daily_discovery.py)."""
+    settings = get_settings()
+    if not settings.daily_discovery_enabled:
+        return
+    try:
+        names = await run_daily_discovery(settings)
+    except Exception:
+        logger.exception("daily_recipe_discovery_failed")
+        return
+    logger.info("daily_recipe_discovery_completed count=%s", len(names))
+
+
+async def run_daily_discovery(settings: Settings, session_factory=SessionLocal, backend=None) -> list[str]:
+    """Günlük keşfi çalıştırır; yapay zekâ (Gemini) yoksa hiçbir şey yapmaz."""
+    from app.agent.daily_discovery import discover_daily, expire_old
+    from app.agent.runner import MealPlannerAgent
+
+    agent = None
+    if backend is None:
+        if settings.agent_provider != "gemini" or not MealPlannerAgent.available(settings):
+            logger.info("daily_recipe_discovery_skipped reason=no_gemini")
+            return []
+        agent = MealPlannerAgent(settings, session_factory)
+        backend = agent.gemini
+    try:
+        with session_factory() as db:
+            expire_old(db)
+            return await discover_daily(db, backend.search_text, backend.generate_json, settings.daily_discovery_count)
+    finally:
+        if agent is not None:
+            await agent.aclose()
 
 
 async def _notify_admin(settings: Settings, text: str) -> None:
@@ -166,6 +211,11 @@ async def weekly_recipe_discovery_job(**_legacy: object) -> None:
     settings = get_settings()
     logger.info("weekly_recipe_discovery_started")
     if not settings.recipe_discovery_enabled:
+        return
+    if settings.daily_discovery_enabled:
+        # Günlük keşif her gün yeni adaylar ekliyor; haftalık ajan turu sohbet geçmişini
+        # de dolduruyordu, artık gerekmiyor.
+        logger.info("weekly_recipe_discovery_skipped reason=daily_discovery")
         return
     from app.agent.runner import MealPlannerAgent
 

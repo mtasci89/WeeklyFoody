@@ -39,13 +39,14 @@ async def async_main() -> None:
     api_task = asyncio.create_task(api_server.serve()) if api_server is not None else None
     scheduler.start()
     logger.info("application_started")
-    await application.initialize()
-    await application.start()
-    await application.updater.start_polling()
-    await _announce_update(settings, application.bot)
+    # Telegram'a o an ulaşılamaması uygulama API'sini düşürmesin: eskiden burada atılan
+    # hata tüm süreci kapatıyor, servis 15 sn'de bir yeniden başlarken uygulama
+    # "sunucuya ulaşılamadı" alıyordu.
+    telegram_task = asyncio.create_task(start_telegram(application, settings))
     try:
         await asyncio.Event().wait()
     finally:
+        telegram_task.cancel()
         if web_server:
             web_server.should_exit = True
         if web_task:
@@ -54,9 +55,42 @@ async def async_main() -> None:
             api_server.should_exit = True
             await api_task
         scheduler.shutdown(wait=False)
-        await application.updater.stop()
-        await application.stop()
-        await application.shutdown()
+        await _stop_telegram(application)
+
+
+async def start_telegram(application, settings, first_delay: float = 10, max_delay: float = 600) -> bool:
+    """Telegram botunu başlatır; ağ hatasında artan aralıklarla yeniden dener."""
+    delay = first_delay
+    while True:
+        try:
+            await application.initialize()
+            if not application.running:
+                await application.start()
+            if not application.updater.running:
+                await application.updater.start_polling()
+            logger.info("telegram_started")
+            await _announce_update(settings, application.bot)
+            return True
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            logger.exception("telegram_start_failed retry_in=%s", delay)
+            await asyncio.sleep(delay)
+            delay = min(delay * 2, max_delay)
+
+
+async def _stop_telegram(application) -> None:
+    for step in (
+        lambda: application.updater.stop() if application.updater.running else None,
+        lambda: application.stop() if application.running else None,
+        application.shutdown,
+    ):
+        try:
+            result = step()
+            if result is not None:
+                await result
+        except Exception:
+            logger.exception("telegram_stop_failed")
 
 
 async def _announce_update(settings, bot) -> None:
@@ -99,6 +133,8 @@ def _app_api_server(settings, bot):
             ssl_keyfile=str(settings.app_api_key),
             log_level="warning",
             access_log=False,
+            # Uygulama bağlantıyı 30 sn boşta tutar; sunucu daha önce kapatıp yarış yaratmasın.
+            timeout_keep_alive=75,
         )
     )
     logger.info("app_api_started host=%s port=%s", settings.app_api_host, settings.app_api_port)

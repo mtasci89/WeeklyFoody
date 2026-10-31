@@ -49,7 +49,9 @@ class GeminiLLMProvider(LLMProvider):
             (
                 "You are a Turkish-speaking weekly meal planning assistant. Use only supplied recipe IDs. "
                 "Respect slot_requirements exactly: main slots need one main dish, meze slots need meze/salad dishes, "
-                "and side slots need soup, pilaf, pasta, quinoa, grain, or other side dishes. Prefer candidate_recipes_by_slot."
+                "and side slots need soup, pilaf, pasta, quinoa, grain, or other side dishes. Prefer candidate_recipes_by_slot. "
+                "Each day's dishes must go together as one plate: pick the side/soup to suit that day's main dish "
+                "(same or complementary cuisine; not two starches like pasta + pilaf; not the same main ingredient twice)."
             ),
             json.dumps(context, ensure_ascii=False),
             WeeklyPlanOutput,

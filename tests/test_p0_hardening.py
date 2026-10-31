@@ -51,7 +51,7 @@ def test_scheduler_jobstore_holds_no_secrets(tmp_path):
         stored = con.execute("select id, job_state from apscheduler_jobs").fetchall()
     finally:
         con.close()
-    assert {row[0] for row in stored} == {"weekly_meal_plan", "weekly_recipe_discovery"}
+    assert {row[0] for row in stored} == {"weekly_meal_plan", "weekly_recipe_discovery", "daily_recipe_discovery"}
     blob = b"".join(row[1] for row in stored)
     for name, value in SECRETS.items():
         assert value.encode() not in blob, f"{name} jobstore'a yazilmis"

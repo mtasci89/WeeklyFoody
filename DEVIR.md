@@ -1,5 +1,32 @@
 # WeeklyFoody — devir notu
 
+## 2026-10-31 — Claude: 1.12 — günlük 10 tarif, çoklu seçim, tabak uyumu, kararlılık
+
+- Bağlam: kullanıcı bu dört isteği Codex'e verdi; Codex "1.12 derlendi" dedi ama kredisi bitti ve
+  hiçbir şey GitHub'a gönderilmemişti (uzak dallarda en yüksek sürüm 1.11). İş 1.11
+  (a3aa41f) üzerine baştan yapıldı. Codex'in yerelde kalan çalışması varsa bununla çakışabilir.
+- Yapılanlar ve ayrıntı: PROJE.md "Günlük tarif keşfi, tabak uyumu, çoklu seçim, kararlılık (1.12)".
+- Değişen sunucu: app/agent/daily_discovery.py (yeni), app/planner/pairing.py (yeni),
+  app/agent/{tools,fresh,prompts,gemini_backend}.py, app/llm/{rule_based,gemini,openai}.py,
+  app/planner/service.py (aday sözlüğüne `cuisine`), app/scheduler/weekly.py, app/api.py,
+  app/main.py, app/config.py. Testler: test_pairing, test_bulk_edit, test_daily_discovery,
+  test_startup (yeni); test_p0_hardening ve test_recipe_discovery yeni davranışa göre güncellendi.
+- Değişen Android (1.12 / versionCode 13): Sunucu.kt (yeniden deneme, bağlantı havuzu,
+  topluBaslat, gunlukKesfiBaslat), AnaViewModel (seçim, toplu işler, günlük keşif),
+  MenuEkran (seçim simgesi, SecimCubugu, pencereler), MenuTablosu (seçim işaretleri, uzun
+  basma), TariflerEkran (günlük keşif kartı). Testler: EkranTest'e 3 test, YenidenDenemeTest (yeni),
+  GoruntuTest'e çoklu seçim görüntüsü.
+- Kontroller (yerel): Python 427 test geçti. Android 68 test (5 canlı test atlandı), 0 hata;
+  assembleRelease başarılı; APK manifesti com.foody 1.12/13, yalnızca INTERNET + AndroidX iç izni.
+  Çoklu seçim ekran görüntüsü incelendi. Canlı sunucu, gerçek Gemini/Google arama ve telefon
+  denenmedi; günlük keşfin gerçek arama kalitesi ve ücretsiz kotada çalışması doğrulanmadı.
+- Etkinleştirme: APK'yı üzerine kur; Ayarlar > Sunucuyu güncelle. İlk günlük keşif ertesi sabah
+  çalışır ya da Tarifler > Adaylar > "Bugünün tariflerini getir".
+- Açık: "5 kez bağlanamadı"nın gerçek nedeni sunucu günlüğüyle doğrulanmadı
+  (`./deploy/sunucu-gunluk.sh` ile `telegram_start_failed` / yeniden başlama izlenebilir).
+  Bellek (1 GB) ve bellekte tutulan işlerin yeniden başlamada kaybolması sürüyor. Önceki
+  açık işler (public repodaki imza anahtarı vb.) korunur.
+
 ## 2026-10-26 — Codex: Foody ve Cal Track APK yayınları tamamlandı
 
 - Foody PR #4 kullanılan dala birleştirildi: 23938f0d1af9670c288271d228b7a549ff612906. CI 40389966383: 407 Python/API testi ve Android test/derleme/izin denetimi başarılı. Yayın akışı 40391325049 başarılı; uygulama-son/foody.apk asset 679304272, güncelleme 2026-10-26T20:01:11Z. Android 1.11 / versionCode 12.
@@ -18,7 +45,7 @@
 - Kontroller: Python sözdizimi ve diff kontrolü geçti; tarih/hafta sınırları, taslak gizliliği, yetki ayrımı ve kod paritesi testleri eklendi. Tam CI 40389966383 başarılı: Python/API 407 test geçti (5 mevcut uyarı); Android birim/ekran testleri, assembleRelease ve APK izin denetimi geçti. Test edilen ürün commit’i bd31ad4d2f3b22bd2cedfe6cc37dd104fbdb8f5a.
 - Sonraki adım: kullanılan dala birleştir ve 1.11 APK yayınını doğrula; Cal Track CI/yayın sonucu henüz bekleniyor. Kullanıcı Foody'de Sunucuyu güncelle, iki APK'yı üzerine kur ve kodu Cal Track'e bir kez yapıştır. Önceki açık bakım/güvenlik işleri korunur.
 
-Son güncelleme: **2026-10-26 — Codex**. Önce [PROJE.md](PROJE.md) dosyasını okuyun.
+Son güncelleme: **2026-10-31 — Claude**. Önce [PROJE.md](PROJE.md) dosyasını okuyun.
 
 
 
