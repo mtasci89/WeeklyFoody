@@ -71,7 +71,7 @@ class MealPlannerService:
                 role = course_role(slot)
                 candidates = selector.select(base_meal_slot(slot), hard, week_start, course_role=role)
                 if not candidates:
-                    candidates = selector.select(base_meal_slot(slot), hard, week_start)
+                    raise ValueError(f"{slot} için uygun tarif yok; bu role uygun tarif ekleyin veya onaylayın.")
                 scored = scorer.score(candidates, target_date, used_proteins)
                 if scored:
                     selected = scored[:20]
@@ -163,10 +163,11 @@ class MealPlannerService:
         return self.this_week_session() or upcoming
 
     def _recipe_context(self, recipe: Recipe) -> dict:
+        from app.recipes.roles import recipe_category
         return {
             "id": recipe.id,
             "name": recipe.name,
-            "category": recipe.category,
+            "category": recipe_category(recipe),
             "cuisine": recipe.cuisine,
             "meal_type": recipe.meal_type,
             "protein_type": recipe.protein_type,

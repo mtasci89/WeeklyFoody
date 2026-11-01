@@ -32,7 +32,6 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.style.TextDecoration
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.foody.data.Degisiklik
@@ -226,18 +225,25 @@ private fun YemekSatiri(
             tint = if (secildi) Renk.Turuncu else Renk.Soluk,
             modifier = Modifier.size(20.dp),
         )
-        Text(
-            ogun.tarif, Modifier.weight(1f, fill = false),
-            fontSize = if (kompakt) 13.sp else if (ana) 15.sp else 14.sp,
-            fontWeight = if (ana || vurgulu) FontWeight.SemiBold else FontWeight.Normal,
-            color = if (ana || vurgulu) Renk.Murekkep else Renk.Soluk,
-            maxLines = 1, overflow = TextOverflow.Ellipsis,
-        )
-        if (ogun.yeni) Text(
-            "yeni", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Renk.Turuncu,
-            modifier = Modifier.clip(RoundedCornerShape(5.dp)).background(Renk.AcikTuruncu).padding(horizontal = 5.dp),
-        )
-        if (kalori != null) Text(kcalMetni(kalori, ogun.tahmini), fontSize = 11.sp, color = Renk.Soluk)
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(
+                ogun.tarif,
+                fontSize = if (kompakt) 13.sp else if (ana) 15.sp else 14.sp,
+                lineHeight = if (ana) 21.sp else 20.sp,
+                fontWeight = if (ana || vurgulu) FontWeight.SemiBold else FontWeight.Normal,
+                color = if (ana || vurgulu) Renk.Murekkep else Renk.Soluk,
+            )
+            if (ogun.yeni || kalori != null) Row(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                if (ogun.yeni) Text(
+                    "yeni", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Renk.Turuncu,
+                    modifier = Modifier.clip(RoundedCornerShape(5.dp)).background(Renk.AcikTuruncu).padding(horizontal = 5.dp),
+                )
+                if (kalori != null) Text(kcalMetni(kalori, ogun.tahmini), fontSize = 11.sp, color = Renk.Soluk)
+            }
+        }
     }
 }
 

@@ -539,6 +539,8 @@ class MealAgentToolset:
                     return f"{tarih} {chosen.meal_slot} zaten {replacement.name}. Değişiklik gerekmedi."
                 if replacement.status == RecipeStatus.INACTIVE:
                     return "Bu tarif pasifleştirilmiş, menüye konamaz."
+                if not weekly_target and not selector_matches_role(db, replacement, course_role(chosen.meal_slot)):
+                    return f"Değişiklik kaydedilmedi: {replacement.name}, {course_label(chosen.meal_slot)} rolüne uygun değil."
                 clash = toolset._clash(db, session, chosen.date, chosen.meal_slot, replacement, ignore=chosen)
                 if clash:
                     return f"Değişiklik kaydedilmedi: {clash}"
@@ -852,6 +854,7 @@ class MealAgentToolset:
                             k for k in ranked
                             if service.find_recipe(ideas[k]["ad"], include_inactive=True) is None
                             and not rules.excludes(as_probe(ideas[k]))
+                            and (role != "main" or selector_matches_role(db, as_probe(ideas[k]), role))
                         ]
                         def keys_of(k):
                             main = str(ideas[k].get("ana_malzeme") or "")

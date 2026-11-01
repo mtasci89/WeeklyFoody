@@ -672,15 +672,15 @@ async def test_house_rule_sets_the_weekly_new_dish_count(db, toolset):
 async def test_ogun_degistir_accepts_a_new_candidate_dish(db, settings, toolset):
     session = await MealPlannerService(db, settings).create_or_get_weekly_session(WEEK)
     target = next(i for i in session.meal_plan.items if i.date == WEEK and i.recipe.category == "main")
-    await call(toolset, "tarif_ekle", ad="Mantarlı Risotto", kategori="main", malzemeler=["300 gr pirinç"])
+    await call(toolset, "tarif_ekle", ad="Kuzu Kapama", kategori="main", malzemeler=["600 gr kuzu eti"])
 
     out = await call(
-        toolset, "ogun_degistir", tarih=WEEK.isoformat(), yeni_tarif="Mantarlı Risotto",
+        toolset, "ogun_degistir", tarih=WEEK.isoformat(), yeni_tarif="Kuzu Kapama",
         gerekce="Farklı bir şey denemek istediler", ogun_slotu=target.meal_slot,
     )
 
     assert "Değiştirildi" in out
-    assert "Mantarlı Risotto" in {i.recipe.name for i in session.meal_plan.items}
+    assert "Kuzu Kapama" in {i.recipe.name for i in session.meal_plan.items}
 
 
 @pytest.mark.asyncio

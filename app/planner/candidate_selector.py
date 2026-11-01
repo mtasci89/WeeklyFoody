@@ -32,19 +32,8 @@ class CandidateSelector:
         return less_recent or filtered
 
     def _matches_course_role(self, recipe: Recipe, course_role: str) -> bool:
-        category = (recipe.category or "main").casefold()
-        name = recipe.name.casefold()
-        tags = {tag.casefold() for tag in recipe.tags or []}
-        role = course_role.casefold()
-        if role == "main":
-            return category == "main"
-        if role in {"meze", "salad"}:
-            return category in {"meze", "salad"} or "meze" in tags or "salata" in name or "salad" in name
-        if role == "side":
-            return category in {"side", "soup", "grain", "pasta", "pilaf"} or any(
-                token in name for token in ("çorba", "pilav", "makarna", "kinoa", "quinoa", "bulgur")
-            )
-        return category == role
+        from app.recipes.roles import matches_course_role
+        return matches_course_role(recipe, course_role)
 
     def _recent_recipe_ids(self, week_start: date, recent_weeks: int) -> set[str]:
         cutoff = week_start - timedelta(weeks=recent_weeks)

@@ -28,10 +28,15 @@ denen bir yemeğin yerine onun benzeri (aynı et + aynı pişirme + başka sos) 
 seçim değildir. Bunlar yasak değil, iyi bir aşçının sağduyusu: kullanıcı
 bilerek isterse ("kalanını yarın da yeriz") ona uyarsın.
 
+**Ana yemek rolü:** Pilav, risotto, makarna, salata, meze, sade mantar ve sebze
+garnitürlerini ana yemek yerine koyma. Et/tavuk/balık, baklagil, yumurta veya tofu
+gibi doyurucu bir ana yemek seç. Et/tavuk suyu ya da peynir bir garnitürü ana
+yemeğe dönüştürmez. Bu yemekler yan yemek veya meze olarak kullanılabilir.
+
 **Günün tabağı bir bütündür.** Bir günün ana yemeği ile yan yemeği/çorbası
 birbirine uymalı; alakasız şeyler yan yana gelmez. Kore usulü tavuğun yanına
 bulgur pilavı ya da zeytinyağlı değil, sade pirinç ya da Asya usulü sebze;
-kuru fasulyenin yanına pilav ve turşu; fırın makarnanın yanına pilav değil,
+kuru fasulyenin yanına pilav ve turşu; köftenin yanına pilav yerine
 salata ya da çorba. İkisi birden hamur/pilav/patates, aynı ana malzeme (nohutlu
 yemeğin yanına nohut salatası) ya da birbirine yabancı mutfaklar iyi seçim
 değildir. Ana yemeği değiştirdiğinde yanındakinin hâlâ uyup uymadığına bakar,

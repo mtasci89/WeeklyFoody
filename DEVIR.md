@@ -1,5 +1,27 @@
 # WeeklyFoody — devir notu
 
+## 2026-11-01 — Codex: 1.13 — gerçek ana yemekler ve kesilmeyen yemek adları
+
+- Kullanıcı 1.12 taslağında siyez pilavı, köz patlıcan salatası ve mantarın ana yemek
+  seçildiğini; uzun yemek adlarının üç noktayla kesildiğini bildirdi.
+- 1.12'nin yayımlanmış f242f15 kaynağı üzerine çalışıldı; Claude'un günlük keşif,
+  çoklu seçim ve tabak uyumu uygulaması korundu. Eski yerel Codex taslağı kullanılmadı.
+- Ortak tarif rolü denetimi eklendi: yeni kayıtlar normalleştirilir; eski yanlış
+  etiketler seçimde elenir. Yeni öneri ve doğrudan değiştirme ana yemek rolünü
+  atlayamaz; onay/yayın geçersiz ana yemeği reddeder. Uygun tarif yokken başka
+  rolden doldurma kaldırıldı. Eski hatalı menü adım adım düzeltilebilir.
+- Android 1.13 / versionCode 14: ana/yan/meze adları tam ve çok satırlı; kalori ve
+  yeni rozeti altta. Seçim ve uzun basma korunur. Paket/imza/manifest değiştirilmedi.
+- Kontroller: 36 yeni rol regresyonu geçti; Python sözdizimi ve diff kontrolü geçti.
+  Tam Python ve Android/ekran/izin kontrolleri GitHub CI'da doğrulanacak. Yerel
+  TestClient testleri ortamın iş parçacığı/olay döngüsünde beklediği için henüz
+  tam yerel sonuç yok; bu durum uygulamada doğrulanmış hata sayılmadı.
+- Canlı sunucu/veritabanı/bot ve gerçek Gemini değiştirilmedi veya denenmedi.
+  Kullanıcı APK'yı üzerine kurup Ayarlar > Sunucuyu güncelle yapmalı; mevcut
+  hatalı taslağı çoklu seçimle düzeltmeli veya yeniden oluşturmalı.
+- Sıradaki adım: PR kontrolleri, kullanılan dala birleştirme ve APK yayınını doğrulama.
+  Önceki açık bakım/güvenlik işleri korunur.
+
 ## 2026-10-31 — Claude: 1.12 — günlük 10 tarif, çoklu seçim, tabak uyumu, kararlılık
 
 - Bağlam: kullanıcı bu dört isteği Codex'e verdi; Codex "1.12 derlendi" dedi ama kredisi bitti ve

@@ -28,7 +28,8 @@ class RecipeService:
             self.db.add(recipe)
         recipe.aliases = recipe_input.aliases
         recipe.cuisine = recipe_input.cuisine
-        recipe.category = recipe_input.category
+        from app.recipes.roles import recipe_category
+        recipe.category = recipe_category(recipe_input)
         recipe.meal_type = recipe_input.meal_type
         recipe.servings = recipe_input.servings
         recipe.instructions = recipe_input.instructions
