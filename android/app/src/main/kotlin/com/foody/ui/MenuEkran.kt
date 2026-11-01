@@ -251,6 +251,8 @@ fun MenuEkran(vm: AnaViewModel, tarifAc: (String) -> Unit, ayarlar: () -> Unit, 
             text = {
                 OgunIslemleri(
                     yer = "$yer · ${ogun.rol}",
+                    kaynak = ogun.kaynak,
+                    neden = ogun.neden,
                     tarifiAc = { secilen = null; tarifAc(ogun.tarifId) },
                     yenilikci = { secilen = null; vm.yenisiniBul(konu) },
                     asistanaYaz = {
@@ -307,9 +309,12 @@ fun OgunIslemleri(
     cikar: () -> Unit,
     gunuEkle: (() -> Unit)? = null,
     cokluSec: (() -> Unit)? = null,
+    kaynak: String = "",
+    neden: String = "",
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+    Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(2.dp)) {
         Text(yer, color = Renk.Soluk, fontSize = 13.sp)
+        if (kaynak.isNotBlank() || neden.isNotBlank()) TarifAciklamasi(kaynak, neden)
         IslemDugmesi("Tarifi aç", tarifiAc)
         IslemDugmesi("Yerine yepyeni bir yemek bul", yenilikci, vurgulu = true)
         if (cokluSec != null) IslemDugmesi("Birden çok yemek seç (birlikte değiştir)", cokluSec)

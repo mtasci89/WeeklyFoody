@@ -36,6 +36,7 @@ fun tarifMetni(t: TarifDetay): String = buildString {
     append(t.ad).append(" (").append(t.kisi).append(" kişilik)\n\nMalzemeler")
     t.malzemeler.forEach { m -> append("\n- ").append(listOf(m.miktar, m.ad).filter { it.isNotBlank() }.joinToString(" ")) }
     if (t.hazirlanis.isNotBlank()) append("\n\nHazırlanışı\n").append(t.hazirlanis)
+    if (t.neden.isNotBlank()) append("\n\nNeden bu yemek?\n").append(t.neden)
     if (t.kaynak.startsWith("http")) append("\n\nKaynak: ").append(t.kaynak)
 }
 
@@ -65,7 +66,7 @@ fun TarifEkran(vm: AnaViewModel, id: String, geri: () -> Unit) {
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             if (t.aday) Kart(Modifier.fillMaxWidth(), renk = Renk.Sari) {
-                Text("Yeni tarif: menüye \"yeni\" olarak girebilir. Beğendiysen kalıcı listene ekle; sonraki haftalarda da seçilir.", fontSize = 14.sp)
+                Text("Yeni tarif: beğendiysen favorilerin olarak kalıcı listene ekle. Kayıtlı yemekleri istediğinde yeniden menüye koyabilirsin.", fontSize = 14.sp)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedButton(onClick = { vm.tarifiCikar(t.id); geri() }, Modifier.weight(1f), enabled = !isleniyor) { Text("Çıkar") }
                     Button(onClick = { vm.tarifiOnayla(t.id) }, Modifier.weight(1f), enabled = !isleniyor) { Text("Listeye ekle") }
@@ -101,7 +102,7 @@ fun TarifEkran(vm: AnaViewModel, id: String, geri: () -> Unit) {
                     }
                 }
             }
-            if (t.kaynak.isNotBlank()) Text("Kaynak: ${t.kaynak}", fontSize = 12.sp, color = Renk.Soluk)
+            if (t.kaynak.isNotBlank() || t.neden.isNotBlank()) TarifAciklamasi(t.kaynak, t.neden)
         }
     }
 }

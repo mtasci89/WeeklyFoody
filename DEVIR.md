@@ -1,18 +1,27 @@
 # WeeklyFoody — devir notu
 
-## 2026-11-01 — Codex: 1.14 internetten yeni menü (ÇALIŞMA SÜRÜYOR)
+## 2026-11-01 — Codex: 1.14 — internetten yeni menü (CI/yayın bekliyor)
 
-- Kullanıcı planı onayladı: her hafta menü için yeni web araştırması, kütüphane
-  geçmiş/favori karşılaştırması; önce ana yemekler sonra uyumlu yanlar/mezeler.
-- Dal: codex/foody-1.14-web-menus; temel 3590e7c. Canlı sunucuya dokunulmadı.
-- Ortak WebMenuResearch eklendi: grounded aramadaki URL + tarif adı + malzeme/rol
-  denetimi, son dört haftayla benzerlik, başarısızlıkta eski havuza dönüş yok.
-  Tam araştırma doğrulanmadan yazma yok; hata halinde adaylar geri alınır.
-- Otomatik haftalık menü, plan_hazirla/plan_kaydet ve yenisiyle_degistir yeni akışa
-  bağlandı. Kayıtlı menü yalnız açık kutuphaneden=true seçimiyle; onay korunur.
-- Kontrol: 13 yeni çevrimdışı araştırma testi ve 110 ilgili eski test geçti.
-  Tam test, API/Android kaynak-gerekçe görünümü, CI ve APK yayını henüz tamamlanmadı.
-- Sonraki adım: kaynak/gerekçe ekranı ve sınır durum testleri, tam CI, sonra yayın.
+- Kullanıcı planı onayladı: yeni menü için internet araştırması; kütüphane geçmiş
+  ve favori arşivi. Ana yemekler önce, uyumlu yanlar ve haftalık mezeler sonra.
+- Dal codex/foody-1.14-web-menus, temel 3590e7c; ilk çalışan bölüm e63bbc6 ile
+  GitHub'a kaydedildi. Ayrıntı PROJE.md son bölümde.
+- WebMenuResearch: grounded kaynak URL + arama metnindeki ad + miktarlı malzeme/
+  hazırlanış/gerekçe/rol/ev kuralı denetimi; geçmişle benzerlik ve alternatif arama.
+  Arama başarısızsa eski havuza dönüş yok; aday ve plan yazımı atomik.
+- Otomatik plan, sohbet plan hazırlama/kaydetme ve tekli/toplu yeni yemek aynı
+  araştırmayı kullanır. Kayıtlı menü yalnız kutuphaneden=true ile açık istekte.
+  Başarısız araştırma veya hatalı kayıt onaylı menüyü taslağa döndürmez.
+- API/Android kaynak ve gerekçe görünümü eklendi; örnek sözleşmeler yenilendi.
+  Android 1.14/15, aynı imza/paket/izinler. Menü seçim penceresi kaydırılabilir.
+- Kontrol: ilk tam Python koşusunda 476 test geçti. Son ek regresyonlarla 41
+  araştırma/tekli/toplu değişiklik testi geçti. Son tam koşu ve Android CI sırada.
+- Canlı bot/sunucu/veritabanı ve gerçek Gemini/Google arama çalıştırılmadı.
+  Gerçek tarif arama kalitesi/kota ve telefon kurulumu henüz doğrulanmadı.
+- Sonraki adım: tam CI, kaynak ekran görüntüsü ve izin denetimi; kullanılan dala
+  birleştirip 1.14 APK yayınını doğrula. Kullanıcı APK üzerine kurup Ayarlar >
+  Sunucuyu güncelle yapacak ve menüyü internetten yeniden hazırlatacak.
+  Önceki açık bakım/güvenlik işleri korunur.
 
 ## 2026-11-01 — Codex: 1.13 — gerçek ana yemekler ve kesilmeyen yemek adları
 

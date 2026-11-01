@@ -63,7 +63,8 @@ def similarity(recipe, previous) -> float:
     overlap = len(a & b) / max(1, len(a | b))
     method = cooking_method(recipe)
     same_method = method and method == cooking_method(previous)
-    if same_method and protein_group(recipe) and protein_group(recipe) == protein_group(previous):
+    shared_core = bool(a & b) and (a <= b or b <= a or overlap >= 0.6)
+    if same_method and shared_core and protein_group(recipe) and protein_group(recipe) == protein_group(previous):
         return max(overlap, 0.85)
     return overlap if len(a & b) >= 2 else 0.0
 
@@ -92,7 +93,7 @@ def history(db, week_start):
     from sqlalchemy.orm import selectinload
     from app.db.models import RecipeIngredient
     return list(db.scalars(select(Recipe).join(MealPlanItem).where(
-        MealPlanItem.date >= week_start - timedelta(weeks=4), MealPlanItem.date < week_start,
+        MealPlanItem.date >= week_start - timedelta(weeks=4), MealPlanItem.date <= week_start + timedelta(days=6),
     ).options(selectinload(Recipe.ingredients).joinedload(RecipeIngredient.ingredient)).distinct()))
 
 
@@ -224,6 +225,9 @@ class WebMenuResearch:
                 others.append(Target(t.day, t.slot, t.role, plate))
             rows.update(await self.find(others, [*known, *[r["ad"] for r in rows.values()]], recent, rules, self.request))
         # All slots passed source/name/role/history checks before the first write.
+        service = RecipeService(db)
+        if any(service.find_recipe(row["ad"], include_inactive=True) for row in rows.values()):
+            raise MenuResearchError("Araştırma sırasında aynı tarif başka bir işlemde kaydedildi; mevcut menü korundu. Yeniden araştırmayı deneyin.")
         result = []
         for target in targets:
             row = rows[target.key]
@@ -238,7 +242,7 @@ class WebMenuResearch:
             if row.get("kcal") is not None or row.get("protein_g") is not None:
                 values["nutrition"] = {"calories_kcal": row.get("kcal"), "protein_g": row.get("protein_g"),
                                        "source": "Foody: tarif malzemelerinden yapay zekâ tahmini", "estimated": True}
-            recipe = RecipeService(db).upsert_recipe(RecipeInput(**values), commit=False)
+            recipe = service.upsert_recipe(RecipeInput(**values), commit=False)
             result.append((target, recipe))
         rules.validate([(t.day, t.slot, recipe) for t, recipe in result])
         output = WeeklyPlanOutput(meals=[PlannedMeal(date=t.day.isoformat(), meal_slot=t.slot, recipe_id=r.id)

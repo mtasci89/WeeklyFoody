@@ -233,6 +233,7 @@ class MealAgentToolset:
         # Bu turda plani okunan/degistirilen hafta: cevabin altina sistem
         # kalori ozetini eklemek icin.
         self.touched_session_id: str | None = None
+        self.researched_recipes: dict[date, set[str]] = {}
 
     async def _ensure_nutrition(self, db: Session, recipes) -> None:
         if self.estimator is None:
@@ -326,13 +327,13 @@ class MealAgentToolset:
             )
         return None
 
-    def _editable_session(self, db: Session, hafta: str, tarih: str = ""):
+    def _editable_session(self, db: Session, hafta: str, tarih: str = "", *, reopen: bool = True):
         """Değiştirilebilir plan oturumu ya da kullanıcıya söylenecek sorun."""
         session = self._session_for(db, hafta, tarih)
         if session is None or not session.meal_plan:
             return None, "Bu hafta için kayıtlı plan yok. Önce plan_hazirla + plan_kaydet ile kur."
         self.reopen_note = ""
-        if session.state in (SessionState.APPROVED, SessionState.PUBLISHED):
+        if reopen and session.state in (SessionState.APPROVED, SessionState.PUBLISHED):
             self.reopen_note = self._reopen(session)
         return session, None
 
@@ -722,14 +723,14 @@ class MealAgentToolset:
 
             toolset.calls.append(f"yenisiyle_degistir({len(ogunler)} öğün)")
             ask = getattr(toolset.estimator, "ask_json", None)
-            if ask is None:
+            if ask is None and not toolset.settings.menu_research_enabled:
                 return "Yeni tarif üretemiyorum (yapay zekâ kapalı). tarif_ekle ile tarifi kendin kaydedip ogun_degistir kullan."
             if not ogunler:
                 return "Hangi öğünler? ogunler listesine 'TARİH|SLOT' ver."
             async with FRESH_LOCK:  # aynı anda gelen çağrılar birbirinin seçtiğini görsün
                 first_date = next((o.split("|")[0] for o in ogunler if o.split("|")[0].strip().upper() != "HAFTA"), "")
                 with toolset.session_factory() as db:
-                    session, problem = toolset._editable_session(db, hafta, first_date)
+                    session, problem = toolset._editable_session(db, hafta, first_date, reopen=False)
                     if problem:
                         return problem
                     items = list(session.meal_plan.items)
@@ -1111,12 +1112,13 @@ class MealAgentToolset:
                     try:
                         output = await planner._generate_structured_plan(week_start)
                         lines = [f"Hafta: {week_start} - {week_end(week_start)}", "İNTERNETTEN YENİ ARAŞTIRMA — menü henüz kaydedilmedi.",
-                                 "Aşağıdaki kaynaklı önerileri değerlendir, plan_kaydet ile kaydet. Eski kütüphaneyle doldurma."]
+                                 "Kaynaklı tarifler aday olarak kaydedildi; tarif_ekle ile tekrar yazma. Bu turda önerileri değerlendir, plan_kaydet ile menüyü kaydet. Eski kütüphaneyle doldurma."]
                         for meal in output.meals:
                             recipe = db.get(Recipe, meal.recipe_id)
                             day = "HAFTA" if is_weekly_slot(meal.meal_slot) else meal.date
                             lines += [f"{day}|{meal.meal_slot}|{recipe.name}", f"  Kaynak: {recipe.source}", f"  Neden: {recipe.notes}"]
                         db.commit()  # only complete, validated candidate recipes; existing menu untouched
+                        toolset.researched_recipes[week_start] = {meal.recipe_id for meal in output.meals}
                         return "\n".join(lines)
                     except Exception as error:
                         db.rollback()
@@ -1174,7 +1176,7 @@ class MealAgentToolset:
                                 f"  {recipe.name} | {score:.0f}p | {seen_text}{red_text}"
                                 f"{', ' + recipe.protein_type if recipe.protein_type else ''}{effort_text} | {nutrition_text(recipe)}"
                             )
-                target = rules.new_dish_target(toolset.settings)
+                target = 0 if kutuphaneden else rules.new_dish_target(toolset.settings)
                 if target > 0:
                     from app.planner.novelty import untried_candidates
 
@@ -1297,7 +1299,9 @@ class MealAgentToolset:
                         continue
                     if toolset.settings.menu_research_enabled and not kutuphaneden:
                         from app.planner.research import TAG, source_url
-                        if not ({TAG, f"menu-hafta:{week_start}"} <= set(recipe.tags or []) and source_url(recipe.source or "")):
+                        if not (recipe.id in toolset.researched_recipes.get(week_start, set())
+                                and {TAG, f"menu-hafta:{week_start}"} <= set(recipe.tags or [])
+                                and source_url(recipe.source or "")):
                             problems.append(f"'{recipe.name}' bu hafta internetten araştırılmış yeni bir tarif değil; önce plan_hazirla çağır. Eski yemek yalnız açık kullanıcı isteğiyle seçilir.")
                             continue
                     role = course_role(slot)
@@ -1392,7 +1396,7 @@ class MealAgentToolset:
                 per_day = Counter(iso for iso, slot in parsed if not is_weekly_slot(slot))
                 weekly_count = sum(1 for _, slot in parsed if is_weekly_slot(slot))
                 new_names = [r.name for r in parsed.values() if r.status == RecipeStatus.CANDIDATE]
-                target = MealRules.from_db(db).new_dish_target(toolset.settings)
+                target = 0 if kutuphaneden else MealRules.from_db(db).new_dish_target(toolset.settings)
                 empty = sorted(valid_dates - set(per_day))
                 summary = [
                     f"{week_start} - {week_end(week_start)} haftası kaydedildi ({len(parsed)} öğün).",

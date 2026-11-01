@@ -13,6 +13,7 @@ from app.planner.research import MenuResearchError, TAG, Target, WebMenuResearch
 from app.planner.service import MealPlannerService
 from app.recipes.importer import RecipeInput
 from app.recipes.service import RecipeService
+from app.api import menu_json
 from test_no_repeat import WEEK, plan, toolset_for
 
 MAINS = ["Limonlu Hindi Kapama", "Nohutlu Ispanaklı Tagine", "Miso Soslu Somon", "Kuzu İncik",
@@ -87,6 +88,9 @@ async def test_entire_week_is_researched_main_first_and_no_library_is_selected(d
     assert all(TAG in i.recipe.tags and i.recipe.source.startswith("https://recipes.example/") for i in session.meal_plan.items)
     assert all(i.recipe.notes for i in session.meal_plan.items)
     assert session.state == SessionState.AWAITING_ADMIN_FEEDBACK
+    rendered = menu_json(db, session, settings)
+    first = rendered["plan"]["gunler"][0]["ogunler"][0]
+    assert first["kaynak"].startswith("https://recipes.example/") and first["neden"]
 
 
 @pytest.mark.parametrize("options", [{"bad_source": True}, {"bad_main": True}, {"absent_names": True}, {"failure": True}])
@@ -167,3 +171,69 @@ def test_same_protein_is_allowed_but_another_sauce_is_not_new():
     different = RecipeInput(name="Kore Usulü Tavuk Sote", protein_type="chicken")
     assert similarity(sauce, old) >= 0.8
     assert similarity(different, old) < 0.8
+    # Distinct dishes with the same protein and method are still allowed.
+    assert similarity(RecipeInput(name="Kuzu İncikli Fas Tagine", protein_type="lamb"),
+                      RecipeInput(name="Kuzu Yahni", protein_type="lamb")) < 0.8
+
+
+@pytest.mark.asyncio
+async def test_replacement_searches_web_and_preserves_source_and_reason(db, settings):
+    session = plan(db, [(0, "dinner_main", "Fırında Tavuk")])
+    fake = FakeWeb()
+    _, tools = toolset_for(db, configured(settings), fake)
+    result = await tools["yenisiyle_degistir"].call({"ogunler": [f"{WEEK}|dinner_main"]})
+    assert "Fırında Tavuk → Limonlu Hindi Kapama" in result, result
+    new = session.meal_plan.items[0].recipe
+    assert new.source.startswith("https://recipes.example/") and new.notes
+    assert len(fake.searches) == 1
+
+
+@pytest.mark.asyncio
+async def test_replacement_does_not_invent_recipe_when_search_fails(db, settings):
+    session = plan(db, [(0, "dinner_main", "Fırında Tavuk")])
+    session.state = SessionState.APPROVED
+    db.commit()
+    _, tools = toolset_for(db, configured(settings), FakeWeb(bad_source=True))
+    result = await tools["yenisiyle_degistir"].call({"ogunler": [f"{WEEK}|dinner_main"]})
+    assert "menü değiştirilmedi" in result
+    assert session.meal_plan.items[0].recipe.name == "Fırında Tavuk"
+    assert session.state == SessionState.APPROVED
+
+
+@pytest.mark.asyncio
+async def test_saving_bad_new_plan_does_not_reopen_final_menu(db, settings):
+    session = plan(db, [(0, "dinner_main", "Fırında Tavuk")])
+    session.state = SessionState.APPROVED
+    db.commit()
+    _, tools = toolset_for(db, configured(settings), FakeWeb())
+    text = await tools["plan_kaydet"].call({"ogunler": [f"{WEEK}|dinner_main|Fırında Tavuk"], "uzerine_yaz": True})
+    assert "Plan kaydedilmedi" in text
+    assert session.state == SessionState.APPROVED
+
+
+@pytest.mark.asyncio
+async def test_old_weekly_research_cannot_replace_a_new_search(db, settings):
+    new = configured(settings)
+    _, prepared_tools = toolset_for(db, new, FakeWeb())
+    text = await prepared_tools["plan_hazirla"].call({})
+    lines = [line for line in text.splitlines() if line.count("|") == 2]
+    assert lines
+    _, other_turn = toolset_for(db, new, FakeWeb())
+    text = await other_turn["plan_kaydet"].call({"ogunler": lines})
+    assert "Plan kaydedilmedi" in text and "plan_hazirla" in text
+
+
+@pytest.mark.asyncio
+async def test_search_cannot_reuse_a_library_alias(db, settings):
+    old = RecipeService(db).find_recipe("Fırında Tavuk")
+    old.aliases = [MAINS[0]]
+    db.commit()
+    with pytest.raises(MenuResearchError):
+        await MealPlannerService(db, configured(settings), researcher(configured(settings), FakeWeb())).create_or_get_weekly_session(WEEK)
+
+
+@pytest.mark.asyncio
+async def test_hard_exclusions_apply_to_new_web_recipes(db, settings):
+    PreferenceService(db).add("Hindi kullanma")
+    with pytest.raises(MenuResearchError):
+        await MealPlannerService(db, configured(settings), researcher(configured(settings), FakeWeb())).create_or_get_weekly_session(WEEK)
