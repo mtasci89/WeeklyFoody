@@ -357,3 +357,14 @@ aldı; Cal Track'te gemini-2.5-flash iyi çalışıyor. Kullanıcı model seçme
   `OFFLINE_SOURCE`, sonuç mesajının başında `OFFLINE_NOTE`). Başka hatalarda (400 şema vb.)
   eskisi gibi durur. Sunucu günlüğünde `agent_model_unavailable ... quota=` ve
   `menu_research_offline` satırları hangi kotanın dolduğunu gösterir.
+
+## Hazır menü yükleme (app/seed, 2026-11-01)
+
+Google araması kotadayken kullanıcı 2–6 Kasım menüsünü sohbette Claude'la seçti; PDF'leri
+aldı ve "menüyü, tarifleri, alışveriş listesini uygulamaya yükle" dedi. Bu ortamdan canlı
+sunucuya erişim yok (adres/anahtar yok, sırlar okunmaz). Çözüm: `app/seed/*.json` dosyası +
+`app/seed_import.py`. Sunucu açılırken (`app/main.py _apply_seed_menus`) uygulanmamış
+dosyaları bir kez uygular; uygulananlar `data/ice_aktarilanlar.json`. Dosya: tarifler
+(malzeme, hazırlanış, tahmini kcal/protein, `approved`), günler/slotlar, haftalık mezeler,
+`bos_gunler`, `onayla`. Kullanıcının seçtiği menü olduğu için ev kuralı uyarısı onayı
+durdurmaz (günlüğe `seed_rule_warning`). Geçmiş haftaya ait dosya yeni kurulumda uygulanmaz.

@@ -1,5 +1,18 @@
 # WeeklyFoody — devir notu
 
+## 2026-11-01 — Claude: 2–6 Kasım menüsü uygulamaya (tek seferlik yükleme)
+
+- Kota sürerken kullanıcıya sohbette Pzt–Cum menüsü, 5 meze, tarifler ve alışveriş listesi
+  hazırlandı (3 PDF gönderildi). Kullanıcı bunları uygulamada görmek istedi.
+- Yapılan: app/seed/menu-2026-11-02.json (16 tarif, 5 gün, 5 meze, hafta sonu boş, onaylı) +
+  app/seed_import.py + açılışta bir kez uygulama (app/main.py). Mevcut 2 Kas taslağının
+  Pzt–Paz günleri ve mezeleri bu menüyle değişir; tarifler kütüphaneye onaylı yazılır.
+  "Naneli Bezelye Püresi" adı bilerek: "ezme" adı meze rolüne düşüyor.
+- Testler: tests/test_seed_import.py (2); tam koşu geçti. Canlı sunucuda uygulanmadı.
+- Kullanıcı: Ayarlar > Sunucuyu güncelle. Uygulama "Onaylı menü"de önce içinde bulunulan
+  haftayı gösterdiği için 1 Kasım gecesi eski hafta görünebilir; 2 Kasım'dan itibaren bu
+  menü, tarifleri (Tarifler > Bu hafta) ve alışveriş listesi görünür.
+
 ## 2026-11-01 — Claude: 429 sürdü → aramasız yedek öneri
 
 - Sunucu güncellendikten sonra da 9 yemekte "429 (son denenen: gemini-3.1-flash-lite)": zincirin

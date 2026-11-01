@@ -19,6 +19,7 @@ async def async_main() -> None:
     settings = get_settings()
     configure_logging(settings.log_level)
     init_db()
+    _apply_seed_menus(settings)
     application = build_application(settings)
     scheduler = build_scheduler(settings, bot=application.bot)
     web_server = None
@@ -56,6 +57,17 @@ async def async_main() -> None:
             await api_task
         scheduler.shutdown(wait=False)
         await _stop_telegram(application)
+
+
+def _apply_seed_menus(settings) -> None:
+    """Depoya eklenmiş hazır menüleri bir kez yükler (app/seed_import.py)."""
+    try:
+        from app.db.session import SessionLocal
+        from app.seed_import import apply_pending
+
+        apply_pending(settings, SessionLocal)
+    except Exception:
+        logger.exception("seed_import_failed")
 
 
 async def start_telegram(application, settings, first_delay: float = 10, max_delay: float = 600) -> bool:
