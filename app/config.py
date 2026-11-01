@@ -84,6 +84,9 @@ class Settings(BaseSettings):
     # modelin düşünmesini istedi. Kapalıyken araçlar reddetmez; her değişiklikten
     # sonra modele "çeşitlilik gözlemleri" verilir, kararı model verir.
     no_repeat_meals: bool = False
+    # Menü varsayılanı: her hafta yeni internet araştırması; kütüphane yalnız geçmiş.
+    # False yalnızca açıkça eski kütüphane akışını isteyen kurulumlar içindir.
+    menu_research_enabled: bool = True
     # Menü Telegram'dan GİTMEZ: onay, pazar taslağı ve keşif mesajları yalnızca
     # uygulamada. (Kullanıcı: "Telegram kullanmayacağım, app yaptık.")
     # Bağlantı kodu ve güncelleme bildirimleri bundan etkilenmez.

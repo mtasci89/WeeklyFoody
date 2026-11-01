@@ -84,6 +84,7 @@ def build_samples(workdir: Path) -> dict[str, object]:
         admin_telegram_user_id=1,
         meal_slots=["dinner"],
         llm_provider="rule",
+        menu_research_enabled=False,
         app_api_token=TOKEN,
     )
     engine = create_engine(settings.database_url, future=True, connect_args={"check_same_thread": False})

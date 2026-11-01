@@ -1,0 +1,250 @@
+"""Fresh web research for a menu; the library supplies history, never a fallback.
+
+Search and structure calls are separate. A structured recipe must cite a URL
+returned by the grounded search and have its name in the searched text. Nothing
+is saved until every requested slot has a usable recipe.
+"""
+from __future__ import annotations
+
+import asyncio
+import json
+import re
+from dataclasses import dataclass
+from datetime import date, timedelta
+from urllib.parse import urlsplit
+
+from sqlalchemy import select
+
+from app.agent.fresh import MAIN_ROLE_RULE, as_probe, key_words, parse_ideas
+from app.config import WEEKLY_BASE, course_role, is_weekly_slot
+from app.db.models import MealPlanItem, Recipe
+from app.llm.base import PlannedMeal, WeeklyPlanOutput
+from app.memory.rules import MealRules
+from app.planner.dates import week_dates
+from app.planner.pairing import pairing_penalty, protein_group
+from app.recipes.importer import RecipeInput
+from app.recipes.roles import matches_course_role, recipe_category
+
+TAG = "menu-arastirmasi"
+URL = re.compile(r"https://[^\s<>\"\[\]]+")
+
+
+class MenuResearchError(ValueError):
+    pass
+
+
+def normalized(text: str) -> str:
+    return " ".join(text.casefold().replace("i\u0307", "i").translate(str.maketrans("çğıöşü", "cgiosu")).split())
+
+
+def source_url(text: str) -> str | None:
+    for match in URL.finditer(text or ""):
+        value = match.group().rstrip(".,;:)»}")
+        parsed = urlsplit(value)
+        if parsed.hostname and not parsed.username and not parsed.password:
+            return value
+    return None
+
+
+def cooking_method(recipe) -> str:
+    text = normalized(recipe.name + " " + (getattr(recipe, "instructions", None) or ""))
+    for name, words in (("fırın", ("firin", "roast", "baked")), ("ızgara", ("izgara", "grill")),
+                        ("sote", ("sote", "wok", "stir fry")), ("yahni", ("yahni", "guvec", "tagine", "tencere"))):
+        if any(word in text for word in words):
+            return name
+    return ""
+
+
+def similarity(recipe, previous) -> float:
+    """Sauce/name changes alone are not a new dish; protein alone is not a ban."""
+    a, b = key_words(recipe.name), key_words(previous.name)
+    if normalized(recipe.name) == normalized(previous.name):
+        return 1.0
+    overlap = len(a & b) / max(1, len(a | b))
+    method = cooking_method(recipe)
+    same_method = method and method == cooking_method(previous)
+    if same_method and protein_group(recipe) and protein_group(recipe) == protein_group(previous):
+        return max(overlap, 0.85)
+    return overlap if len(a & b) >= 2 else 0.0
+
+
+@dataclass(frozen=True)
+class Target:
+    day: date
+    slot: str
+    role: str
+    plate: str = ""
+
+    @property
+    def key(self):
+        return self.day, self.slot
+
+
+def targets_for_week(settings, rules, week_start):
+    effective = rules.settings_for_plan(settings)
+    targets = [Target(day, slot, course_role(slot)) for day in week_dates(week_start) for slot in effective.planning_slots]
+    targets += [Target(week_start, f"{WEEKLY_BASE}_meze_{i + 1}", "meze")
+                for i in range(rules.weekly_meze_target(settings))]
+    return targets
+
+
+def history(db, week_start):
+    from sqlalchemy.orm import selectinload
+    from app.db.models import RecipeIngredient
+    return list(db.scalars(select(Recipe).join(MealPlanItem).where(
+        MealPlanItem.date >= week_start - timedelta(weeks=4), MealPlanItem.date < week_start,
+    ).options(selectinload(Recipe.ingredients).joinedload(RecipeIngredient.ingredient)).distinct()))
+
+
+class WebMenuResearch:
+    def __init__(self, settings, search=None, ask=None):
+        self.settings, self.search, self.ask = settings, search, ask
+        self.request = ""
+
+    def connect(self):
+        if self.search is not None and self.ask is not None:
+            return
+        if not self.settings.gemini_api_key or not self.settings.agent_web_search_enabled:
+            raise MenuResearchError("İnternetten menü araştırması kullanılamıyor. Gemini anahtarı ve web araması gerekli; eski tariflerle menü doldurulmadı.")
+        from app.agent.gemini_backend import GeminiBackend
+        backend = GeminiBackend(self.settings)
+        self.search, self.ask = backend.search_text, backend.generate_json
+
+    async def find(self, targets, known, recent, rules, request="") -> dict[tuple, dict]:
+        from app.agent.daily_discovery import SCHEMA as RECIPE_SCHEMA
+        from copy import deepcopy
+        self.connect()
+        schema = deepcopy(RECIPE_SCHEMA)
+        item = schema["properties"]["tarifler"]["items"]
+        item["properties"].update({"icin": {"type": "integer"}, "kcal": {"type": "number"}, "protein_g": {"type": "number"}})
+        item["required"] += ["icin", "kaynak", "neden"]
+        found = {}
+        known_names = {normalized(name) for name in known}
+        for attempt in range(2):
+            pending = [target for target in targets if target.key not in found]
+            if not pending:
+                break
+            listing = "\n".join(f"{i}) {t.day}: {t.slot}, rol={t.role}; tabak: {t.plate or 'ana yemekle uyumlu seç'}"
+                                for i, t in enumerate(pending, 1))
+            prompt = (
+                "İnternette GERÇEK tarifleri araştır; eski kütüphaneden menü seçme. Aşağıdaki her hedef için "
+                "iki farklı alternatif bul. Önceki yemeklerin yalnız sosunu/adını değiştirme. "
+                "Normal market malzemeleri, mevsim, farklı mutfaklar ve pişirme yöntemleri düşün. "
+                "Et/tavuk/balık/baklagil dengesi kur; aynı proteinin farklı yöntemlerle kullanılması yasak değil. "
+                "Yemek siteleri ve erişilebilen Instagram/YouTube tariflerinden yararlan; erişemediğin sayfayı okumuş gibi yapma. "
+                "Her hedef numarasını, tam Türkçe adı, kaynak URL, miktarlı malzemeler, porsiyon ve gerçek hazırlanış adımlarını yaz. "
+                "Günün ana yemeği ve yan yemeği birbiriyle uyumlu olsun; ikisi birden nişastalı olmasın. "
+                + MAIN_ROLE_RULE + "\nHEDEFLER:\n" + listing
+                + "\nİSTEK:\n" + request[:3000]
+                + "\nEV KURALLARI:\n" + "\n".join(rules.summary())
+                + "\nSON DÖRT HAFTA (benzerlerini araştırma):\n" + ", ".join(r.name for r in recent)[:10000]
+                + "\nKÜTÜPHANE (bunları yeniden seçme):\n" + ", ".join(known)[:16000]
+                + "\nBU ARAŞTIRMADA SEÇİLENLER:\n" + ", ".join(row["ad"] for row in found.values())
+            )
+            try:
+                text, sources = await self.search(prompt)
+                allowed = {url for s in sources for url in [source_url(s)] if url}
+                if not text.strip() or not allowed:
+                    continue
+                raw = await self.ask(
+                    "Yalnız aşağıdaki arama sonucundaki tarifleri yapılandır. 'icin' hedef numarasıdır. "
+                    "Adı arama metnindeki Türkçe adıyla birebir koru. 'kaynak' yalnız KAYNAKLAR listesindeki "
+                    "ilgili tam HTTPS bağlantısı olsun. Okunmayan tarif/malzeme/adım uydurma. 'neden' bu "
+                    "yemeğin günün tabağına ve haftanın çeşitliliğine nasıl uyduğunu anlatsın. Miktarları aynen koru. "
+                    "'kcal' ve 'protein_g' bir porsiyon için tahmindir; bilinmiyorsa alanları yazma.\n"
+                    + listing + "\nARAMA:\n" + text + "\nKAYNAKLAR:\n" + "\n".join(sources), schema,
+                )
+                ideas = parse_ideas(raw)
+            except asyncio.CancelledError:
+                raise
+            except Exception as error:
+                raise MenuResearchError("İnternet araştırması tamamlanamadı; mevcut menü korundu, kütüphaneye dönülmedi.") from error
+            taken = {normalized(row["ad"]) for row in found.values()}
+            for index, target in enumerate(pending, 1):
+                choices = []
+                for idea in ideas:
+                    if idea.get("icin") != index:
+                        continue
+                    url = source_url(str(idea.get("kaynak") or ""))
+                    name = normalized(idea["ad"])
+                    if url not in allowed or name not in normalized(text) or name in known_names | taken:
+                        continue
+                    probe = as_probe(idea)
+                    probe.category = str(idea.get("kategori") or target.role)
+                    probe.instructions = str(idea.get("hazirlanis") or "")
+                    if not matches_course_role(probe, target.role) or rules.excludes(probe):
+                        continue
+                    if not probe.instructions.strip() or not str(idea.get("neden") or "").strip():
+                        continue
+                    from app.recipes.ingredient_lines import parse_ingredient
+                    ingredients = [parse_ingredient(line) for line in idea["malzemeler"]]
+                    if not any(i.quantity is not None and i.quantity > 0 for i in ingredients):
+                        continue
+                    closest = max((similarity(probe, old) for old in recent), default=0)
+                    if closest >= 0.8:  # a different sauce is not a new recipe
+                        continue
+                    score = closest * 4
+                    if target.role == "main":
+                        chosen_mains = [as_probe(row) for row in found.values() if row.get("kategori") == "main"]
+                        group = protein_group(probe)
+                        score += sum(1 for old in chosen_mains if group and group == protein_group(old)) * 0.6
+                        if chosen_mains and group and group == protein_group(chosen_mains[-1]):
+                            score += 2
+                    if target.role in {"side", "soup", "salad"} and target.plate:
+                        score += pairing_penalty(target.plate, idea)
+                    choices.append((score, idea, url, recipe_category(probe)))
+                if choices:
+                    _, chosen, url, category = min(choices, key=lambda row: row[0])
+                    found[target.key] = {**chosen, "kaynak": url, "kategori": category}
+                    taken.add(normalized(chosen["ad"]))
+        missing = [f"{t.day} {t.slot}" for t in targets if t.key not in found]
+        if missing:
+            raise MenuResearchError("Kaynağı ve tarifi doğrulanmış yeni yemek bulunamadı: " + ", ".join(missing)
+                                    + ". Menü değiştirilmedi; araştırmayı yeniden deneyebilirsin.")
+        return found
+
+    async def prepare(self, db, week_start):
+        from app.recipes.service import RecipeService
+        from app.recipes.ingredient_lines import parse_ingredient
+        rules = MealRules.from_db(db)
+        if rules.new_dishes == 0:
+            raise MenuResearchError("'Yeni yemek ekleme' kuralı internetten yeni menüyle çelişiyor. Önce bu kuralı düzenleyin veya açıkça kütüphaneden menü isteyin.")
+        targets = targets_for_week(self.settings, rules, week_start)
+        old = list(db.scalars(select(Recipe)))
+        known = [name for r in old for name in [r.name, *(r.aliases or [])]]
+        recent = history(db, week_start)
+        async with asyncio.timeout(min(480, self.settings.agent_job_timeout_seconds)):
+            mains = [t for t in targets if t.role == "main"]
+            rows = await self.find(mains, known, recent, rules, self.request)
+            others = []
+            for t in targets:
+                if t.role == "main":
+                    continue
+                plate = ", ".join(row["ad"] for key, row in rows.items() if key[0] == t.day and not is_weekly_slot(t.slot))
+                others.append(Target(t.day, t.slot, t.role, plate))
+            rows.update(await self.find(others, [*known, *[r["ad"] for r in rows.values()]], recent, rules, self.request))
+        # All slots passed source/name/role/history checks before the first write.
+        result = []
+        for target in targets:
+            row = rows[target.key]
+            values = dict(
+                name=row["ad"], category=row["kategori"], meal_type=self.settings.meal_slots[0],
+                ingredients=[parse_ingredient(line) for line in row["malzemeler"]],
+                servings=max(1, int(row.get("porsiyon") or self.settings.default_servings)),
+                instructions=row["hazirlanis"], cuisine=row.get("mutfak"), source=row["kaynak"],
+                notes=str(row["neden"]).strip(), tags=[TAG, f"menu-hafta:{week_start.isoformat()}"],
+                status="candidate", protein_type=row.get("protein"), vegetarian=bool(row.get("vejetaryen")),
+            )
+            if row.get("kcal") is not None or row.get("protein_g") is not None:
+                values["nutrition"] = {"calories_kcal": row.get("kcal"), "protein_g": row.get("protein_g"),
+                                       "source": "Foody: tarif malzemelerinden yapay zekâ tahmini", "estimated": True}
+            recipe = RecipeService(db).upsert_recipe(RecipeInput(**values), commit=False)
+            result.append((target, recipe))
+        rules.validate([(t.day, t.slot, recipe) for t, recipe in result])
+        output = WeeklyPlanOutput(meals=[PlannedMeal(date=t.day.isoformat(), meal_slot=t.slot, recipe_id=r.id)
+                                        for t, r in result], notes="İnternetten yeni araştırma; ana yemekler önce, uyumlu yan yemekler sonra.")
+        return output, result
+
+
+def researcher_for(settings, estimator=None):
+    return WebMenuResearch(settings, getattr(estimator, "search_text", None), getattr(estimator, "ask_json", None))

@@ -127,7 +127,7 @@ class MealPlannerAgent:
             return None
         from app.agent.nutrition import NutritionEstimator
 
-        return NutritionEstimator(self.gemini.generate_json)
+        return NutritionEstimator(self.gemini.generate_json, search_text=self.gemini.search_text)
 
     @classmethod
     def available(cls, settings: Settings) -> bool:

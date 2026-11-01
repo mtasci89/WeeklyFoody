@@ -1,5 +1,19 @@
 # WeeklyFoody — devir notu
 
+## 2026-11-01 — Codex: 1.14 internetten yeni menü (ÇALIŞMA SÜRÜYOR)
+
+- Kullanıcı planı onayladı: her hafta menü için yeni web araştırması, kütüphane
+  geçmiş/favori karşılaştırması; önce ana yemekler sonra uyumlu yanlar/mezeler.
+- Dal: codex/foody-1.14-web-menus; temel 3590e7c. Canlı sunucuya dokunulmadı.
+- Ortak WebMenuResearch eklendi: grounded aramadaki URL + tarif adı + malzeme/rol
+  denetimi, son dört haftayla benzerlik, başarısızlıkta eski havuza dönüş yok.
+  Tam araştırma doğrulanmadan yazma yok; hata halinde adaylar geri alınır.
+- Otomatik haftalık menü, plan_hazirla/plan_kaydet ve yenisiyle_degistir yeni akışa
+  bağlandı. Kayıtlı menü yalnız açık kutuphaneden=true seçimiyle; onay korunur.
+- Kontrol: 13 yeni çevrimdışı araştırma testi ve 110 ilgili eski test geçti.
+  Tam test, API/Android kaynak-gerekçe görünümü, CI ve APK yayını henüz tamamlanmadı.
+- Sonraki adım: kaynak/gerekçe ekranı ve sınır durum testleri, tam CI, sonra yayın.
+
 ## 2026-11-01 — Codex: 1.13 — gerçek ana yemekler ve kesilmeyen yemek adları
 
 - Kullanıcı 1.12 taslağında siyez pilavı, köz patlıcan salatası ve mantarın ana yemek

@@ -19,7 +19,7 @@ class RecipeService:
     def __init__(self, db: Session):
         self.db = db
 
-    def upsert_recipe(self, recipe_input: RecipeInput) -> Recipe:
+    def upsert_recipe(self, recipe_input: RecipeInput, *, commit: bool = True) -> Recipe:
         recipe = self.find_recipe(recipe_input.name, include_inactive=True)
         if recipe and recipe.status == RecipeStatus.APPROVED and recipe_input.status == RecipeStatus.CANDIDATE.value:
             return recipe
@@ -58,7 +58,10 @@ class RecipeService:
         if "nutrition" in recipe_input.model_fields_set:
             from app.recipes.nutrition import save_nutrition
             save_nutrition(self.db, recipe, recipe_input.nutrition)
-        self.db.commit()
+        if commit:
+            self.db.commit()
+        else:
+            self.db.flush()
         self.db.refresh(recipe)
         return recipe
 

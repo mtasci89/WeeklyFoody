@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 
 import logging
 from collections import Counter
@@ -86,36 +87,7 @@ def render_plan(session: WeeklyPlanningSession | None) -> str:
     return "\n".join(lines)
 
 
-UNITS = {
-    "gr", "g", "gram", "kg", "ml", "l", "lt", "litre", "adet", "paket", "demet",
-    "diş", "dis", "dal", "tutam", "su bardağı", "çay bardağı", "yemek kaşığı",
-    "çay kaşığı", "tatlı kaşığı",
-}
-
-
-def parse_ingredient(line: str) -> IngredientInput:
-    """"600 gr tavuk" -> (600, "gr", "tavuk").
-
-    Modele tek tek malzeme satiri yazdirdigimiz icin burada talimat metni
-    beklemiyoruz; eski duz metin ayristiricinin "rakam gecen her satir
-    malzemedir" varsayimi burada yok.
-    """
-    tokens = line.strip().split()
-    if not tokens:
-        return IngredientInput(name=line.strip() or "bilinmeyen")
-    try:
-        quantity = float(tokens[0].replace(",", "."))
-    except ValueError:
-        return IngredientInput(name=" ".join(tokens).casefold())
-    rest = tokens[1:]
-    unit = None
-    # Iki kelimelik birimler ("yemek kaşığı") tek kelimelilerden once denenir.
-    if len(rest) >= 2 and " ".join(rest[:2]).casefold() in UNITS:
-        unit, rest = " ".join(rest[:2]).casefold(), rest[2:]
-    elif rest and rest[0].casefold() in UNITS:
-        unit, rest = rest[0].casefold(), rest[1:]
-    name = " ".join(rest).casefold().strip()
-    return IngredientInput(name=name or line.strip().casefold(), quantity=quantity, unit=unit)
+from app.recipes.ingredient_lines import UNITS, parse_ingredient
 
 
 KNOWN_ROLES = {"main", "meze", "salad", "side", "soup"}
@@ -819,13 +791,29 @@ class MealAgentToolset:
                     prefs = PreferenceService(db)
                     house = [*prefs.hard_rules(), *prefs.soft_rules()]
                     rules = MealRules.from_db(db)
+                    if toolset.settings.menu_research_enabled:
+                        from app.planner.research import history
+                        research_recent = history(db, session.week_start)
+                        research_week = session.week_start
                 try:
-                    raw_ideas = await ask(
-                        build_batch_prompt([(r, w, old, plate) for r, w, old, _, _, plate, _, _ in spec], istek, avoid, house, rest),
-                        FRESH_SCHEMA,
-                    )
+                    if toolset.settings.menu_research_enabled:
+                        from app.planner.research import Target, researcher_for
+                        targets = [Target(day, slot, role, plate) for role, _, _, slot, _, plate, day, _ in spec]
+                        proposals = await researcher_for(toolset.settings, toolset.estimator).find(
+                            targets, avoid, research_recent, rules, istek,
+                        )
+                        raw_ideas = json.dumps({"tarifler": [
+                            {**proposals[target.key], "icin": number} for number, target in enumerate(targets, 1)
+                        ]})
+                    else:
+                        raw_ideas = await ask(
+                            build_batch_prompt([(r, w, old, plate) for r, w, old, _, _, plate, _, _ in spec], istek, avoid, house, rest),
+                            FRESH_SCHEMA,
+                        )
                 except Exception as error:
                     logger.exception("fresh_ideas_failed")
+                    if toolset.settings.menu_research_enabled:
+                        return f"Yeni internet tarifi bulunamadı; menü değiştirilmedi. {error}"
                     return f"Yeni öneri üretilemedi: {type(error).__name__}. Biraz sonra tekrar dene."
                 ideas = parse_ideas(raw_ideas)
                 results: list[str] = []
@@ -878,8 +866,11 @@ class MealAgentToolset:
                                     prep_minutes=int(idea.get("hazirlik_dakika") or 0) or None,
                                     cook_minutes=int(idea.get("pisirme_dakika") or 0) or None,
                                     protein_type=str(idea.get("protein") or "").strip().casefold() or None,
-                                    vegetarian=bool(idea.get("vejetaryen")), source=FRESH_SOURCE,
-                                    tags=["agent-eklendi", "yeni-oneri"], status="candidate",
+                                    vegetarian=bool(idea.get("vejetaryen")),
+                                    source=idea.get("kaynak") if toolset.settings.menu_research_enabled else FRESH_SOURCE,
+                                    notes=idea.get("neden"), cuisine=idea.get("mutfak"),
+                                    tags=["agent-eklendi", "yeni-oneri"] + (["menu-arastirmasi", f"menu-hafta:{research_week}"] if toolset.settings.menu_research_enabled else []),
+                                    status="candidate",
                                 )
                             )
                             taken.add(picked)
@@ -1075,11 +1066,14 @@ class MealAgentToolset:
         @beta_async_tool
         async def plan_hazirla(
             hafta: Literal["gelecek_hafta", "bu_hafta"] = "gelecek_hafta",
+            kutuphaneden: bool = False,
+            uzerine_yaz: bool = False,
+            istek: str = "",
         ) -> str:
             """Yeni bir haftalık plan kurmak için hazırlık bilgisini verir:
-            haftanın günleri, ÖNERİLEN gün şekli ve her ROL için PUANLANMIŞ
-            aday havuzu. Plan kurmadan önce bunu çağır; seçimlerini bu
-            havuzdan yap.
+            Varsayılan: internette yeni tarifleri araştırır, önce ana yemekleri,
+            sonra uyumlu yanları ve mezeleri kaynaklarıyla önerir. Menüye yazmaz.
+            Kütüphane yalnız geçmiş/benzerlik içindir. Başarısızsa eski tariflerle doldurma.
 
             Önerilen şekil bağlayıcı değildir. Kullanıcı "tek meze olsun",
             "çorba ekle", "cumartesi sadece ana yemek" derse ona göre kurarsın.
@@ -1091,6 +1085,9 @@ class MealAgentToolset:
 
             Args:
                 hafta: Hangi hafta için plan kurulacak.
+                kutuphaneden: Yalnız kullanıcı açıkça kayıtlı/eski yemeklerden menü istediğinde true.
+                uzerine_yaz: Onaylı haftayı baştan kurmak açıkça istendiyse true; burada onayı değiştirmez.
+                istek: Kullanıcının bu haftaya özel isteği, örneğin daha hafif veya Asya mutfağı.
             """
             toolset.calls.append(f"plan_hazirla(hafta={hafta})")
             with toolset.session_factory() as db:
@@ -1101,12 +1098,30 @@ class MealAgentToolset:
                 )
                 planner = MealPlannerService(db, toolset.settings)
                 existing = planner.current_session(week_start)
-                if existing and existing.state in (SessionState.APPROVED, SessionState.PUBLISHED):
+                if existing and existing.state in (SessionState.APPROVED, SessionState.PUBLISHED) and not uzerine_yaz:
                     return (
                         f"{week_start} haftası zaten onaylanmış/yayınlanmış. "
                         "Birkaç yemek değişecekse ogun_degistir veya yenisiyle_degistir kullan. "
                         "Kullanıcı açıkça baştan hazırlamayı istiyorsa mevcut menüyü okuduktan sonra plan_kaydet(uzerine_yaz=true) kullan; yeni taslak yeniden onaylanmalı."
                     )
+                if toolset.settings.menu_research_enabled and not kutuphaneden:
+                    from app.planner.research import researcher_for
+                    planner.researcher = researcher_for(toolset.settings, toolset.estimator)
+                    planner.researcher.request = istek
+                    try:
+                        output = await planner._generate_structured_plan(week_start)
+                        lines = [f"Hafta: {week_start} - {week_end(week_start)}", "İNTERNETTEN YENİ ARAŞTIRMA — menü henüz kaydedilmedi.",
+                                 "Aşağıdaki kaynaklı önerileri değerlendir, plan_kaydet ile kaydet. Eski kütüphaneyle doldurma."]
+                        for meal in output.meals:
+                            recipe = db.get(Recipe, meal.recipe_id)
+                            day = "HAFTA" if is_weekly_slot(meal.meal_slot) else meal.date
+                            lines += [f"{day}|{meal.meal_slot}|{recipe.name}", f"  Kaynak: {recipe.source}", f"  Neden: {recipe.notes}"]
+                        db.commit()  # only complete, validated candidate recipes; existing menu untouched
+                        return "\n".join(lines)
+                    except Exception as error:
+                        db.rollback()
+                        logger.exception("menu_research_failed")
+                        return f"İnternetten menü araştırması tamamlanamadı; mevcut menü korundu. {error}"
                 hard = PreferenceService(db).hard_rules()
                 selector = CandidateSelector(db)
                 scorer = CandidateScorer(db)
@@ -1188,6 +1203,7 @@ class MealAgentToolset:
             hafta: Literal["gelecek_hafta", "bu_hafta"] = "gelecek_hafta",
             notlar: str = "",
             uzerine_yaz: bool = False,
+            kutuphaneden: bool = False,
         ) -> str:
             """Kurduğun haftalık planı kaydeder. Önce `plan_hazirla` çağır.
 
@@ -1206,6 +1222,7 @@ class MealAgentToolset:
                     yazmak için true. Yalnızca kullanıcı açıkça "baştan kur / yeni
                     menü / hepsini değiştir" dediyse. Birkaç yemeği değiştirmek için
                     ogun_degistir ya da yenisiyle_degistir kullan.
+                kutuphaneden: Yalnız kullanıcı açıkça kayıtlı/eski yemeklerden menü istediyse true.
             """
             toolset.calls.append(f"plan_kaydet({len(ogunler)} öğün, hafta={hafta})")
             with toolset.session_factory() as db:
@@ -1222,7 +1239,6 @@ class MealAgentToolset:
                             f"{week_start} haftasının menüsü onaylı. Baştan yazmak istendiyse uzerine_yaz=true ile "
                             "çağır (menü yeniden taslağa döner); birkaç yemek için ogun_degistir / yenisiyle_degistir kullan."
                         )
-                    toolset._reopen(session)
                 elif session and session.meal_plan and session.meal_plan.items and not uzerine_yaz:
                     return (
                         f"{week_start} haftası için zaten {len(session.meal_plan.items)} öğünlük bir menü var. "
@@ -1279,6 +1295,11 @@ class MealAgentToolset:
                             f"'{recipe_name}' kütüphanede yok; yeni bir yemekse önce tarif_ekle ile kaydet"
                         )
                         continue
+                    if toolset.settings.menu_research_enabled and not kutuphaneden:
+                        from app.planner.research import TAG, source_url
+                        if not ({TAG, f"menu-hafta:{week_start}"} <= set(recipe.tags or []) and source_url(recipe.source or "")):
+                            problems.append(f"'{recipe.name}' bu hafta internetten araştırılmış yeni bir tarif değil; önce plan_hazirla çağır. Eski yemek yalnız açık kullanıcı isteğiyle seçilir.")
+                            continue
                     role = course_role(slot)
                     if not is_weekly_slot(slot) and not selector_matches_role(db, recipe, role):
                         problems.append(
@@ -1334,6 +1355,8 @@ class MealAgentToolset:
                 except RuleViolation as error:
                     return f"Plan kaydedilmedi: {error}"
 
+                if session and session.state in (SessionState.APPROVED, SessionState.PUBLISHED):
+                    toolset._reopen(session)
                 if session is None:
                     session = WeeklyPlanningSession(
                         week_start=week_start,
