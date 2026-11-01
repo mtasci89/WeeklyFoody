@@ -14,6 +14,10 @@ logger = logging.getLogger(__name__)
 
 WEB_TOOL_NAME = "web_ara"
 
+
+class GeminiCapabilityError(RuntimeError):
+    pass
+
 # Anthropic'in sunucu tarafi web_search araci Gemini'de yok. Google Search
 # grounding'i ayni istekte fonksiyon cagrilariyla birlikte kullanmak her
 # modelde desteklenmiyor; bu yuzden arama, kendi grounded istegini atan ayri
@@ -43,6 +47,24 @@ FALLBACK_CODES = {404, 429, 500, 503, 504}
 
 def should_fall_back(error: Exception) -> bool:
     return isinstance(error, errors.APIError) and getattr(error, "code", None) in FALLBACK_CODES
+
+
+def request_capability(config) -> str | None:
+    if any(getattr(tool, "google_search", None) is not None for tool in (getattr(config, "tools", None) or [])):
+        return "Google araması"
+    if getattr(config, "response_json_schema", None) is not None:
+        return "yapılandırılmış JSON"
+    return None
+
+
+def unsupported_capability(error, capability):
+    if not capability or not isinstance(error, errors.APIError) or getattr(error, "code", None) != 400:
+        return False
+    message = str(getattr(error, "message", "") or "").casefold()
+    unsupported = any(word in message for word in ("not supported", "unsupported", "not available", "does not support"))
+    feature = any(word in message for word in (("grounding", "google_search", "google search", "search tool")
+                                               if capability == "Google araması" else ("json", "response_schema", "response schema")))
+    return unsupported and feature
 
 
 # Mesgul/zaman asimi veren model bir sonraki mesajda da buyuk ihtimalle mesgul.
@@ -104,6 +126,7 @@ class GeminiBackend:
         self._cooldown_until: dict[str, float] = {}
         # Düşünme seviyesi ayarını kabul etmeyen modeller (ayarsız istenir).
         self._no_thinking: set[str] = set()
+        self._unsupported_capabilities: dict[str, set[str]] = {}
         self.client = client or genai.Client(
             api_key=settings.gemini_api_key,
             # Ucretsiz katmanin dakikalik siniri dusuk ve bir kullanici mesaji
@@ -140,25 +163,35 @@ class GeminiBackend:
     def _cooling(self, model: str) -> bool:
         return self._cooldown_until.get(model, 0.0) > time.monotonic()
 
-    def _start_index(self, cursor: ModelCursor) -> int:
+    def _start_index(self, cursor: ModelCursor, capability: str | None = None) -> int:
         """Bekleme surecindeki modelleri atlar; hepsi bekliyorsa sirayla dener."""
         models = self.models
         if cursor.started:
             return cursor.index
         for index in range(cursor.index, len(models)):
+            if capability and models[index] in self._unsupported_capabilities.get(capability, set()):
+                continue
             if not self._cooling(models[index]):
                 if index != cursor.index:
                     logger.info("agent_model_skipped_busy skipped=%s", ",".join(models[cursor.index:index]))
                 return index
+        if capability:
+            # If only incompatible models are idle, retry a compatible model.
+            for index in range(cursor.index, len(models)):
+                if models[index] not in self._unsupported_capabilities.get(capability, set()):
+                    return index
         return cursor.index
 
     async def _generate(self, cursor: ModelCursor, contents, config=None):
         """Zincirdeki ilk calisan modelle istek atar."""
         models = self.models
         last_error: Exception | None = None
-        start = self._start_index(cursor)
+        capability = request_capability(config)
+        start = self._start_index(cursor, capability)
         for index in range(start, len(models)):
             model = models[index]
+            if capability and model in self._unsupported_capabilities.get(capability, set()):
+                continue
             try:
                 use = config
                 if model in self._no_thinking and getattr(config, "thinking_config", None) is not None:
@@ -182,6 +215,12 @@ class GeminiBackend:
                     else:
                         raise
             except Exception as error:
+                if unsupported_capability(error, capability):
+                    self._unsupported_capabilities.setdefault(capability, set()).add(model)
+                    logger.warning("agent_capability_unsupported model=%s capability=%s", model, capability)
+                    if last_error is None or not should_fall_back(last_error):
+                        last_error = error
+                    continue  # this model may still work for ordinary chat
                 if not should_fall_back(error):
                     raise
                 code = getattr(error, "code", None)
@@ -200,7 +239,11 @@ class GeminiBackend:
                 logger.warning("agent_model_fallback from=%s to=%s", models[cursor.index], model)
                 cursor.index = index
             return response
-        raise last_error if last_error else RuntimeError("Denenecek Gemini modeli yok")
+        if last_error:
+            raise last_error
+        if capability:
+            raise GeminiCapabilityError(f"Gemini model zincirinde {capability} desteği bulunamadı")
+        raise RuntimeError("Denenecek Gemini modeli yok")
 
     async def run_turn(
         self,

@@ -318,3 +318,16 @@ API menü öğelerine `kaynak`/`neden`, tarif detayına `neden` ekler (eski iste
 yoksayabilir). Android 1.14 / versionCode 15: menüde yemeğe dokununca ve tarif
 sayfasında gerekçe ve HTTPS kaynak açma düğmesi bulunur. Eski cevaplar için yeni
 alanlar boş varsayılanlıdır. Paket, imza ve cihaz izinleri korunur.
+
+
+## Web araması hata ayrımı ve küçük gruplar (2026-11-01)
+
+Google Search veya JSON desteği olmayan modelin 400 yanıtı, anahtar/şema hatasından
+ayrılır; yalnız bu özellik için sonraki model denenir. Model normal sohbet için
+kapatılmaz. Uyumlu modelde kota/yoğunluk hatası, uyumsuz yedek modelin 400 hatasıyla
+gizlenmez. Web araması kapalı ayarı enjekte edilmiş araştırıcıda da korunur.
+Tarif araştırması en fazla dörder hedeflik gruplar kullanır; önce ana yemekler,
+sonra bunları görerek yanlar. Kaynak/ad/rol/ev kuralı denetimleri gevşetilmez.
+Kota, yetki, anahtar, ücretlendirme, model, ağ ve zaman aşımı ayrı kısa mesajlardır;
+arama ile JSON yapılandırma aşaması belirtilir, istek URL/anahtarları gösterilmez.
+Bu sunucu düzeltmesi 1.14 APK ile çalışır; APK/izin/imza değişmez.
