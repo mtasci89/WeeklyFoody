@@ -12,14 +12,19 @@
   rolden doldurma kaldırıldı. Eski hatalı menü adım adım düzeltilebilir.
 - Android 1.13 / versionCode 14: ana/yan/meze adları tam ve çok satırlı; kalori ve
   yeni rozeti altta. Seçim ve uzun basma korunur. Paket/imza/manifest değiştirilmedi.
-- Kontroller: 36 yeni rol regresyonu geçti; Python sözdizimi ve diff kontrolü geçti.
-  Tam Python ve Android/ekran/izin kontrolleri GitHub CI'da doğrulanacak. Yerel
-  TestClient testleri ortamın iş parçacığı/olay döngüsünde beklediği için henüz
-  tam yerel sonuç yok; bu durum uygulamada doğrulanmış hata sayılmadı.
+- Doğrulanan CI 41294704060 (86c214f): 463 Python/API testi geçti; Android 69 test,
+  0 hata, 5 canlı test atlandı; assembleRelease ve APK izin denetimi başarılı.
+  Dar 320 dp ekranda ana/yan/meze adlarının seçimde de çok satırlı ve taşmasız
+  olduğu test edildi; 4_tam_yemek_adlari ve 5_tam_adlar_coklu_secim görüntüleri
+  üretildi, seçim görüntüsü incelendi. Yeni 36 Python rol regresyonu da geçti.
+  Yerel TestClient için ortamın ağ izni gerektiği doğrulandı. Eksik yerel snapshot
+  deploy betiği tamamlandıktan sonra updater'ın 11 testi ayrıca geçti.
+- PR #5 kullanılan dala birleştirildi: eb20b96c1ee6b6aa75b3d8f9c7f4b84cca8e903a.
+  1.13 APK yayın akışı 41295191636 çalışıyor; tamamlandığı henüz doğrulanmadı.
 - Canlı sunucu/veritabanı/bot ve gerçek Gemini değiştirilmedi veya denenmedi.
   Kullanıcı APK'yı üzerine kurup Ayarlar > Sunucuyu güncelle yapmalı; mevcut
   hatalı taslağı çoklu seçimle düzeltmeli veya yeniden oluşturmalı.
-- Sıradaki adım: PR kontrolleri, kullanılan dala birleştirme ve APK yayınını doğrulama.
+- Sıradaki adım: 41295191636 yayın işinin tamamlanmasını ve uygulama-son APK kaynağını doğrulama.
   Önceki açık bakım/güvenlik işleri korunur.
 
 ## 2026-10-31 — Claude: 1.12 — günlük 10 tarif, çoklu seçim, tabak uyumu, kararlılık
