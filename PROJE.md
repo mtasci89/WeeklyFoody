@@ -267,3 +267,17 @@ Kullanıcı istekleri: her gün internetten (Instagram vb.) 10 yeni tarif; tasla
   keep-alive 75 sn; uygulama boşta bağlantıyı 30 sn'de bırakır. Uygulama GET'leri ve
   hiç ulaşamamış istekleri 3 kez sessizce yeniden dener; veri değiştiren isteği yolda
   koptuysa tekrarlamaz; sertifika hatasını ayrı söyler (`Sunucu.tekrarDenenir`).
+
+## Ana yemek rolü ve tam yemek adları (1.13, 2026-11-01)
+
+`app/recipes/roles.py` tarif adı ve malzemelerinden etkin rolü belirler. Modelin
+`main` etiketi tek başına yeterli değildir: pilav/risotto/makarna yan yemek,
+salata ve mezeler kendi rollerinde; sade mantar ve sebze garnitürleri yan yemektir.
+Mantarlı tavuk gibi gerçek ana yemekler korunur; et/tavuk suyu protein kanıtı sayılmaz.
+Yeni kayıtlar doğru kategoriyle saklanır, eski yanlış etiketli kayıtlar veritabanı
+değiştirilmeden seçimde denetlenir. Otomatik plan, aday yerleştirme, yeni öneri,
+plan kaydı, doğrudan değiştirme ve onay/yayın bu denetimi kullanır. Uygun ana yemek
+yoksa başka rolden doldurulmaz. Eski hatalı taslak tek tek veya toplu seçimle
+düzeltilebilir; kalan yanlış ana yemekler onaylanamaz. Menü kendiliğinden yeniden yazılmaz.
+Android menüde ana/yan/meze adları sınırsız satırla gösterilir; yeni/kalori bilgisi
+alt satırdadır. Çoklu seçimde de tam adlar korunur. Paket, imza ve izinler değişmez.

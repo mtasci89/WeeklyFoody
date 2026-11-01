@@ -57,6 +57,7 @@ MONTHS = ("Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağ
 
 
 def search_prompt(count: int, today: date, rules: list[str], avoid: list[str]) -> str:
+    from app.agent.fresh import MAIN_ROLE_RULE
     mains = max(1, round(count * 0.5))
     sides = max(1, round(count * 0.3))
     mezes = max(0, count - mains - sides)
@@ -66,6 +67,7 @@ def search_prompt(count: int, today: date, rules: list[str], avoid: list[str]) -
         "Appétit, Ottolenghi vb.) ve sosyal medyada (Instagram, TikTok, YouTube) popüler ya da yeni paylaşılmış, "
         f"evde yapılabilecek, biraz sıradışı {count + 4} tarif bul.",
         f"Yaklaşık {mains} akşam ana yemeği, {sides} yan yemek/çorba, {mezes} meze/salata olsun.",
+        MAIN_ROLE_RULE,
         "Farklı mutfaklardan olsun (Türk, Akdeniz, Orta Doğu, Asya, Latin...), mevsimine uygun olsun, "
         "birbirine benzemesin. Normal markette bulunan malzemelerle, 4 kişilik.",
         "Her tarif için: adı, kategorisi, mutfağı, kaynağı (site adı ve bağlantısı), bir cümleyle neden ilginç, "
@@ -79,7 +81,9 @@ def search_prompt(count: int, today: date, rules: list[str], avoid: list[str]) -
 
 
 def structure_prompt(found: str, sources: list[str]) -> str:
+    from app.agent.fresh import MAIN_ROLE_RULE
     return (
+        MAIN_ROLE_RULE + "\n"
         "Aşağıdaki arama sonucundaki tarifleri yapılandır. Her tarif için adı Türkçe yaz (yabancı adın yanına kısa "
         "Türkçe karşılığı olabilir), kategoriyi main/side/soup/salad/meze olarak seç, malzemeleri ayrı satırlarda "
         "miktarıyla yaz ('600 gr tavuk but', '1 yemek kaşığı zeytinyağı'), hazırlanışı 3-7 kısa adımda yaz, "

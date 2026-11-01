@@ -22,6 +22,13 @@ ROLE_TEXT = {
     "soup": "çorba",
 }
 
+MAIN_ROLE_RULE = (
+    "Ana yemek yerine pilav, risotto, makarna, salata, meze, sade mantar veya sebze garnitürü önerme. "
+    "Ana yemek et/tavuk/balık, baklagil, yumurta veya tofu gibi doyurucu bir yemek olsun; "
+    "et/tavuk suyu ya da peynir eklemek garnitürü ana yemeğe dönüştürmez. "
+    "Yan yemek ve mezeleri kendi rollerinde öner."
+)
+
 SCHEMA = {
     "type": "object",
     "properties": {
@@ -58,6 +65,7 @@ def build_prompt(role: str, replacing: str, request: str, avoid: list[str], rule
         f"Kullanıcının isteği: {request}" if request.strip() else "Kullanıcı yeni, biraz sıradışı bir şey istiyor.",
         "",
         "Kurallar:",
+        MAIN_ROLE_RULE,
         "- Hepsi farklı mutfaklardan olsun (ör. Akdeniz, Asya, Latin, Orta Doğu, modern Türk) ve birbirine benzemesin.",
         "- Evde, normal bir markette bulunan malzemelerle yapılabilsin; 4 kişilik.",
         "- Aşağıdaki 'kaçınılacak yemekler'den hiçbiri, onların küçük varyasyonu ya da aynı ana malzeme + aynı pişirme "
@@ -94,6 +102,7 @@ def build_batch_prompt(
         f"Kullanıcının isteği: {request}" if request.strip() else "Kullanıcı yeni, biraz sıradışı şeyler istiyor.",
         "",
         "Kurallar:",
+        MAIN_ROLE_RULE,
         "- Öneriler BİRBİRİNDEN farklı olsun: aynı ana malzeme (ör. nohut) iki öneride olmasın, aynı yemeğin "
         "çeşitlemeleri (frittata / tagine gibi aynı malzemeli) olmasın; farklı mutfaklardan olsun.",
         "- Haftanın geri kalanındaki yemeklerle de çakışmasın; ana malzemesi onlardan farklı olsun.",
@@ -164,6 +173,7 @@ def as_probe(idea: dict):
     """MealRules.excludes ile denetlenebilsin diye kaydetmeden önceki taslak tarif."""
     return SimpleNamespace(
         name=idea["ad"],
+        category="main",
         protein_type=str(idea.get("protein") or ""),
         aliases=[],
         tags=[],

@@ -272,4 +272,10 @@ def session_rows(session):
 def validate_session(db, session, settings):
     # Bos birakilan gunler (disarida yemek) serbest; yazilan her ogun kurala uymali.
     # Otomatik planlayicinin her gunu doldurmasini PlanValidator ayrica sart kosar.
-    MealRules.from_db(db).validate(session_rows(session))
+    rows = session_rows(session)
+    from app.config import course_role
+    from app.recipes.roles import matches_course_role
+    for _, slot, recipe in rows:
+        if not is_weekly_slot(slot) and course_role(slot) == "main" and not matches_course_role(recipe, "main"):
+            raise RuleViolation(f'{recipe.name} ana yemek olamaz; uygun bir ana yemek seçin.')
+    MealRules.from_db(db).validate(rows)

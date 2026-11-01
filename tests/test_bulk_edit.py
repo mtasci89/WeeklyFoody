@@ -56,6 +56,7 @@ async def test_selected_meals_are_replaced_together_in_one_request(factory, app_
         idea("Tavuklu Pad Thai", "300 gr pirinç eriştesi", "400 gr tavuk göğsü", icin=1),
         idea("Kuzu Tagine", "600 gr kuzu", "1 adet ayva", icin=2),
         idea("Mantarlı Risotto", "300 gr arborio pirinci", "250 gr mantar", icin=3),
+        idea("Fırında Limonlu Somon", "600 gr somon", "1 adet limon", icin=3),
     ])
     _with_estimator(monkeypatch, estimator)
     client = TestClient(create_api_app(app_settings, factory, agent=object()))
@@ -70,7 +71,8 @@ async def test_selected_meals_are_replaced_together_in_one_request(factory, app_
     assert len(estimator.prompts) == 1  # hepsi tek istekte: öneriler birbirini görür
     assert "daha hafif" in estimator.prompts[0]
     new = {d["yeni"] for d in result["degisiklikler"]}
-    assert new == {"Tavuklu Pad Thai", "Kuzu Tagine", "Mantarlı Risotto"}
+    assert new == {"Tavuklu Pad Thai", "Kuzu Tagine", "Fırında Limonlu Somon"}
+    assert "Mantarlı Risotto" not in new  # ana yemek diye önerilse de elenir
     assert result["plan_degisti"] is True and result["menu"]["plan"]["onaylanabilir"] is True
 
 
