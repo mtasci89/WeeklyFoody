@@ -1,6 +1,6 @@
 # WeeklyFoody — devir notu
 
-## 2026-11-01 — Codex: 1.14 — internetten yeni menü (CI/yayın bekliyor)
+## 2026-11-01 — Codex: 1.14 — internetten yeni menü (CI geçti, APK yayını sürüyor)
 
 - Kullanıcı planı onayladı: yeni menü için internet araştırması; kütüphane geçmiş
   ve favori arşivi. Ana yemekler önce, uyumlu yanlar ve haftalık mezeler sonra.
@@ -14,15 +14,17 @@
   Başarısız araştırma veya hatalı kayıt onaylı menüyü taslağa döndürmez.
 - API/Android kaynak ve gerekçe görünümü eklendi; örnek sözleşmeler yenilendi.
   Android 1.14/15, aynı imza/paket/izinler. Menü seçim penceresi kaydırılabilir.
-- Kontrol: son yerel tam koşuda 482 Python testi geçti. CI 41304912044 sunucu
-  aşaması da başarılı. Android 70 testten yeni kaynak açma testi başarısızdı:
-  Dialog kendi URI işleyicisini kullandığı için dış CompositionLocal test taklidi
-  çağrılmıyordu. Test gerçek ACTION_VIEW intentini doğrulayacak şekilde düzeltildi;
-  yeni CI, ekran görüntüsü, APK ve izin kontrolü bekleniyor.
+- Doğrulanan CI 41305574398 (2b88448): 482 Python/API testi; Android 70 test,
+  0 hata, 5 canlı test atlandı; assembleRelease ve APK izin denetimi başarılı.
+  Kaynak düğmesi doğru HTTPS adresiyle ACTION_VIEW gönderiyor. APK ikili
+  manifesti com.foody 1.14/15; debug/testOnly yok, yedekleme ve açık HTTP kapalı.
+  İzinler INTERNET + AndroidX iç imza izni. Menü ekranı incelendi; yeni Dialog
+  içeriği ayrı görsel olarak yakalanmadı, metin/bağlantı davranışı testle doğrulandı.
+- PR #6 kullanılan dala birleştirildi: 759229ea3033871963409c6468526ff41ac5c545.
+  APK yayın akışı 41306317412 çalışıyor; henüz yayın başarısı doğrulanmadı.
 - Canlı bot/sunucu/veritabanı ve gerçek Gemini/Google arama çalıştırılmadı.
   Gerçek tarif arama kalitesi/kota ve telefon kurulumu henüz doğrulanmadı.
-- Sonraki adım: tam CI, kaynak ekran görüntüsü ve izin denetimi; kullanılan dala
-  birleştirip 1.14 APK yayınını doğrula. Kullanıcı APK üzerine kurup Ayarlar >
+- Sonraki adım: 41306317412 APK yayınını doğrula. Kullanıcı APK üzerine kurup Ayarlar >
   Sunucuyu güncelle yapacak ve menüyü internetten yeniden hazırlatacak.
   Önceki açık bakım/güvenlik işleri korunur.
 
