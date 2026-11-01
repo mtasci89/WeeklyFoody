@@ -221,6 +221,7 @@ def recipe_detail(recipe: Recipe, people: int) -> dict:
         "kisi": people,
         "malzemeler": ingredients,
         "hazirlanis": recipe.instructions or "",
+        "neden": recipe.notes or "" if "menu-arastirmasi" in (recipe.tags or []) else "",
     }
 
 
@@ -250,6 +251,8 @@ def menu_json(db, session: WeeklyPlanningSession | None, settings: Settings) -> 
             "degisti": bool(item.admin_changed),
             # Kütüphanede olmayan, bu hafta denenecek yemek (aday tarif).
             "yeni": item.recipe.status == RecipeStatus.CANDIDATE,
+            "kaynak": item.recipe.source or "",
+            "neden": item.recipe.notes or "" if "menu-arastirmasi" in (item.recipe.tags or []) else "",
             **_nutrition(item.recipe),
         }
 

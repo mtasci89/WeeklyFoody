@@ -6,33 +6,35 @@
     "plan_kaydet(21 ogun)"
   ],
   "plan_degisti": true,
-  "kalori_ozeti": "🔥 Kişi başı kalori (tahmini, her yemekten bir porsiyon; haftalık mezeler hariç):\nPazartesi: toplam bilinmiyor (Fırında Tavuk ?, Makarna 400)\nSalı: ~740 kcal (Izgara Balık 310, Mercimek Çorbası 430)\nÇarşamba: ~920 kcal (Tavuk Fajita 520, Makarna 400)\nPerşembe: toplam bilinmiyor (Kuru Fasulye ?, Mercimek Çorbası 430)\nCuma: ~860 kcal (Nohut 460, Makarna 400)\nCumartesi: toplam bilinmiyor (Sebze Yemeği ?, Mercimek Çorbası 430)\nPazar: toplam bilinmiyor (Fırında Tavuk ?, Makarna 400)",
+  "kalori_ozeti": "🔥 Kişi başı kalori (tahmini, her yemekten bir porsiyon; haftalık mezeler hariç):\nPazartesi: toplam bilinmiyor (Fırında Tavuk ?, Makarna 400)\nSalı: ~740 kcal (Izgara Balık 310, Mercimek Çorbası 430)\nÇarşamba: ~920 kcal (Tavuk Fajita 520, Makarna 400)\nPerşembe: toplam bilinmiyor (Kuru Fasulye ?, Makarna 400)\nCuma: ~860 kcal (Nohut 460, Makarna 400)\nCumartesi: toplam bilinmiyor (Sebze Yemeği ?, Mercimek Çorbası 430)\nPazar: toplam bilinmiyor (Fırında Tavuk ?, Makarna 400)",
   "menu": {
     "kalori_goster": true,
     "kalori_siniri": null,
     "kisi": 4,
     "plan": {
-      "id": "d0ea6e9c-c002-47a2-ac84-0d8c7b0e5e9a",
-      "hafta_baslangic": "2026-10-26",
-      "hafta_bitis": "2026-11-01",
+      "id": "c9ae2d0a-8fdd-41bd-ba35-d10af8e38449",
+      "hafta_baslangic": "2026-11-02",
+      "hafta_bitis": "2026-11-08",
       "durum": "AWAITING_ADMIN_FEEDBACK",
       "durum_metni": "Taslak · onay bekliyor",
       "onaylanabilir": true,
       "versiyon": 1,
       "gunler": [
         {
-          "tarih": "2026-10-26",
+          "tarih": "2026-11-02",
           "gun": "Pazartesi",
           "ogunler": [
             {
               "slot": "dinner_main",
               "rol": "Ana yemek",
-              "tarif_id": "d1dc5d3d-425d-4179-babc-b6a0bdffba65",
+              "tarif_id": "f35b8f9a-18da-4f6d-967b-9f1828733843",
               "tarif": "Fırında Tavuk",
               "kategori": "main",
               "porsiyon": 4,
               "degisti": false,
               "yeni": false,
+              "kaynak": "",
+              "neden": "",
               "kcal": null,
               "protein": null,
               "tahmini": null
@@ -40,12 +42,14 @@
             {
               "slot": "dinner_side",
               "rol": "Yan",
-              "tarif_id": "af529793-b411-4492-bcd8-9b04ab42f015",
+              "tarif_id": "ced4eb72-6942-4493-af1c-ed4be80d7270",
               "tarif": "Makarna",
               "kategori": "side",
               "porsiyon": 4,
               "degisti": false,
               "yeni": false,
+              "kaynak": "",
+              "neden": "",
               "kcal": 400,
               "protein": 13,
               "tahmini": true
@@ -54,18 +58,20 @@
           "toplam_kcal": null
         },
         {
-          "tarih": "2026-10-27",
+          "tarih": "2026-11-03",
           "gun": "Salı",
           "ogunler": [
             {
               "slot": "dinner_main",
               "rol": "Ana yemek",
-              "tarif_id": "290cddcc-1c7e-474b-8aa5-ad1fa48a62a5",
+              "tarif_id": "a7db15a9-e9af-4e61-8646-0d4665e44ba9",
               "tarif": "Izgara Balık",
               "kategori": "main",
               "porsiyon": 4,
               "degisti": false,
               "yeni": false,
+              "kaynak": "",
+              "neden": "",
               "kcal": 310,
               "protein": 10,
               "tahmini": true
@@ -73,12 +79,14 @@
             {
               "slot": "dinner_side",
               "rol": "Yan",
-              "tarif_id": "c3ed13bc-c768-4a86-a80e-d15430c6cf9d",
+              "tarif_id": "dee78853-e3e5-4887-bc07-0c6a88067e73",
               "tarif": "Mercimek Çorbası",
               "kategori": "soup",
               "porsiyon": 4,
               "degisti": false,
               "yeni": false,
+              "kaynak": "",
+              "neden": "",
               "kcal": 430,
               "protein": 14,
               "tahmini": true
@@ -87,18 +95,20 @@
           "toplam_kcal": 740
         },
         {
-          "tarih": "2026-10-28",
+          "tarih": "2026-11-04",
           "gun": "Çarşamba",
           "ogunler": [
             {
               "slot": "dinner_main",
               "rol": "Ana yemek",
-              "tarif_id": "b00abf53-b8fe-4535-91e1-5bcfe67f43ac",
+              "tarif_id": "a036e0a9-ddfa-438c-bb46-0edef19673a3",
               "tarif": "Tavuk Fajita",
               "kategori": "main",
               "porsiyon": 4,
               "degisti": false,
               "yeni": true,
+              "kaynak": "https://ornek.example/fajita",
+              "neden": "",
               "kcal": 520,
               "protein": 17,
               "tahmini": true
@@ -106,12 +116,14 @@
             {
               "slot": "dinner_side",
               "rol": "Yan",
-              "tarif_id": "af529793-b411-4492-bcd8-9b04ab42f015",
+              "tarif_id": "ced4eb72-6942-4493-af1c-ed4be80d7270",
               "tarif": "Makarna",
               "kategori": "side",
               "porsiyon": 4,
               "degisti": false,
               "yeni": false,
+              "kaynak": "",
+              "neden": "",
               "kcal": 400,
               "protein": 13,
               "tahmini": true
@@ -120,18 +132,20 @@
           "toplam_kcal": 920
         },
         {
-          "tarih": "2026-10-29",
+          "tarih": "2026-11-05",
           "gun": "Perşembe",
           "ogunler": [
             {
               "slot": "dinner_main",
               "rol": "Ana yemek",
-              "tarif_id": "82e4f8c8-d97d-4981-871e-393f6503a2de",
+              "tarif_id": "a3341b4a-eed8-4a3a-8bad-bd80eb7199a5",
               "tarif": "Kuru Fasulye",
               "kategori": "main",
               "porsiyon": 4,
               "degisti": false,
               "yeni": false,
+              "kaynak": "",
+              "neden": "",
               "kcal": null,
               "protein": null,
               "tahmini": null
@@ -139,32 +153,36 @@
             {
               "slot": "dinner_side",
               "rol": "Yan",
-              "tarif_id": "c3ed13bc-c768-4a86-a80e-d15430c6cf9d",
-              "tarif": "Mercimek Çorbası",
-              "kategori": "soup",
+              "tarif_id": "ced4eb72-6942-4493-af1c-ed4be80d7270",
+              "tarif": "Makarna",
+              "kategori": "side",
               "porsiyon": 4,
               "degisti": false,
               "yeni": false,
-              "kcal": 430,
-              "protein": 14,
+              "kaynak": "",
+              "neden": "",
+              "kcal": 400,
+              "protein": 13,
               "tahmini": true
             }
           ],
           "toplam_kcal": null
         },
         {
-          "tarih": "2026-10-30",
+          "tarih": "2026-11-06",
           "gun": "Cuma",
           "ogunler": [
             {
               "slot": "dinner_main",
               "rol": "Ana yemek",
-              "tarif_id": "7ad28c7e-25a7-4a1d-b9d1-389fce202e75",
+              "tarif_id": "adf62869-e237-452a-bdb2-f9cb03a497e6",
               "tarif": "Nohut",
               "kategori": "main",
               "porsiyon": 4,
               "degisti": false,
               "yeni": false,
+              "kaynak": "",
+              "neden": "",
               "kcal": 460,
               "protein": 15,
               "tahmini": true
@@ -172,12 +190,14 @@
             {
               "slot": "dinner_side",
               "rol": "Yan",
-              "tarif_id": "af529793-b411-4492-bcd8-9b04ab42f015",
+              "tarif_id": "ced4eb72-6942-4493-af1c-ed4be80d7270",
               "tarif": "Makarna",
               "kategori": "side",
               "porsiyon": 4,
               "degisti": false,
               "yeni": false,
+              "kaynak": "",
+              "neden": "",
               "kcal": 400,
               "protein": 13,
               "tahmini": true
@@ -186,18 +206,20 @@
           "toplam_kcal": 860
         },
         {
-          "tarih": "2026-10-31",
+          "tarih": "2026-11-07",
           "gun": "Cumartesi",
           "ogunler": [
             {
               "slot": "dinner_main",
               "rol": "Ana yemek",
-              "tarif_id": "e765738c-aae8-4ea4-83f3-a952a3b0146e",
+              "tarif_id": "5447317e-99f8-4165-8614-19b750de4f6d",
               "tarif": "Sebze Yemeği",
               "kategori": "main",
               "porsiyon": 4,
               "degisti": false,
               "yeni": false,
+              "kaynak": "",
+              "neden": "",
               "kcal": null,
               "protein": null,
               "tahmini": null
@@ -205,12 +227,14 @@
             {
               "slot": "dinner_side",
               "rol": "Yan",
-              "tarif_id": "c3ed13bc-c768-4a86-a80e-d15430c6cf9d",
+              "tarif_id": "dee78853-e3e5-4887-bc07-0c6a88067e73",
               "tarif": "Mercimek Çorbası",
               "kategori": "soup",
               "porsiyon": 4,
               "degisti": false,
               "yeni": false,
+              "kaynak": "",
+              "neden": "",
               "kcal": 430,
               "protein": 14,
               "tahmini": true
@@ -219,18 +243,20 @@
           "toplam_kcal": null
         },
         {
-          "tarih": "2026-11-01",
+          "tarih": "2026-11-08",
           "gun": "Pazar",
           "ogunler": [
             {
               "slot": "dinner_main",
               "rol": "Ana yemek",
-              "tarif_id": "d1dc5d3d-425d-4179-babc-b6a0bdffba65",
+              "tarif_id": "f35b8f9a-18da-4f6d-967b-9f1828733843",
               "tarif": "Fırında Tavuk",
               "kategori": "main",
               "porsiyon": 4,
               "degisti": false,
               "yeni": false,
+              "kaynak": "",
+              "neden": "",
               "kcal": null,
               "protein": null,
               "tahmini": null
@@ -238,12 +264,14 @@
             {
               "slot": "dinner_side",
               "rol": "Yan",
-              "tarif_id": "af529793-b411-4492-bcd8-9b04ab42f015",
+              "tarif_id": "ced4eb72-6942-4493-af1c-ed4be80d7270",
               "tarif": "Makarna",
               "kategori": "side",
               "porsiyon": 4,
               "degisti": false,
               "yeni": false,
+              "kaynak": "",
+              "neden": "",
               "kcal": 400,
               "protein": 13,
               "tahmini": true
@@ -256,12 +284,14 @@
         {
           "slot": "hafta_meze_1",
           "rol": "Meze",
-          "tarif_id": "894c3479-5567-4131-8ad6-24e3b7652a87",
+          "tarif_id": "2ac45b19-8452-4a9a-b301-9568eddf90fd",
           "tarif": "Haydari",
           "kategori": "meze",
           "porsiyon": 4,
           "degisti": false,
           "yeni": false,
+          "kaynak": "",
+          "neden": "",
           "kcal": 280,
           "protein": 9,
           "tahmini": true
@@ -269,12 +299,14 @@
         {
           "slot": "hafta_meze_2",
           "rol": "Meze",
-          "tarif_id": "6e37a366-37c7-467e-aeaa-f43d61b44b1a",
+          "tarif_id": "d7d799c1-ee92-49dd-b25b-92ca1f0f01aa",
           "tarif": "Çoban Salata",
           "kategori": "salad",
           "porsiyon": 4,
           "degisti": false,
           "yeni": false,
+          "kaynak": "",
+          "neden": "",
           "kcal": 550,
           "protein": 18,
           "tahmini": true

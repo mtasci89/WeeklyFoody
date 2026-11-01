@@ -72,6 +72,8 @@ data class Ogun(
     val kcal: Int? = null,
     val protein: Int? = null,
     val tahmini: Boolean? = null,
+    val kaynak: String = "",
+    val neden: String = "",
 )
 
 @Serializable
@@ -114,6 +116,7 @@ data class TarifDetay(
     val kisi: Int = 4,
     val malzemeler: List<Malzeme> = emptyList(),
     val hazirlanis: String = "",
+    val neden: String = "",
     /** Menü tariflerinde: hangi gün ("Salı") ya da "Haftanın mezeleri". */
     val gun: String = "",
 ) {

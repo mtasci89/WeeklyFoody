@@ -377,7 +377,7 @@ class GeminiBackend:
             )
         except Exception as error:
             logger.exception("agent_web_search_failed")
-            return f"Arama yapılamadı ({type(error).__name__}). Kullanıcıya söyle, kütüphaneyle devam et."
+            return f"Arama yapılamadı ({type(error).__name__}). Kullanıcıya söyle; mevcut menüyü koru, eski tariflerle sessizce doldurma."
         candidate = response.candidates[0] if response.candidates else None
         text = text_of(candidate.content) if candidate is not None else ""
         if not text:

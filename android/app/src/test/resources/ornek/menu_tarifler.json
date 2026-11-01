@@ -1,9 +1,9 @@
 {
-  "hafta_baslangic": "2026-10-26",
+  "hafta_baslangic": "2026-11-02",
   "durum": "AWAITING_ADMIN_FEEDBACK",
   "tarifler": [
     {
-      "id": "d1dc5d3d-425d-4179-babc-b6a0bdffba65",
+      "id": "f35b8f9a-18da-4f6d-967b-9f1828733843",
       "ad": "Fırında Tavuk",
       "kategori": "main",
       "kategori_adi": "Ana yemek",
@@ -29,10 +29,11 @@
         }
       ],
       "hazirlanis": "",
+      "neden": "",
       "gun": "Pazartesi"
     },
     {
-      "id": "af529793-b411-4492-bcd8-9b04ab42f015",
+      "id": "ced4eb72-6942-4493-af1c-ed4be80d7270",
       "ad": "Makarna",
       "kategori": "side",
       "kategori_adi": "Yan yemek",
@@ -58,10 +59,11 @@
         }
       ],
       "hazirlanis": "",
+      "neden": "",
       "gun": "Pazartesi"
     },
     {
-      "id": "290cddcc-1c7e-474b-8aa5-ad1fa48a62a5",
+      "id": "a7db15a9-e9af-4e61-8646-0d4665e44ba9",
       "ad": "Izgara Balık",
       "kategori": "main",
       "kategori_adi": "Ana yemek",
@@ -87,10 +89,11 @@
         }
       ],
       "hazirlanis": "",
+      "neden": "",
       "gun": "Salı"
     },
     {
-      "id": "c3ed13bc-c768-4a86-a80e-d15430c6cf9d",
+      "id": "dee78853-e3e5-4887-bc07-0c6a88067e73",
       "ad": "Mercimek Çorbası",
       "kategori": "soup",
       "kategori_adi": "Çorba",
@@ -116,10 +119,11 @@
         }
       ],
       "hazirlanis": "",
+      "neden": "",
       "gun": "Salı"
     },
     {
-      "id": "b00abf53-b8fe-4535-91e1-5bcfe67f43ac",
+      "id": "a036e0a9-ddfa-438c-bb46-0edef19673a3",
       "ad": "Tavuk Fajita",
       "kategori": "main",
       "kategori_adi": "Ana yemek",
@@ -140,10 +144,11 @@
         }
       ],
       "hazirlanis": "Tavuğu baharatla soteleyin, lavaşa sarın.",
+      "neden": "",
       "gun": "Çarşamba"
     },
     {
-      "id": "82e4f8c8-d97d-4981-871e-393f6503a2de",
+      "id": "a3341b4a-eed8-4a3a-8bad-bd80eb7199a5",
       "ad": "Kuru Fasulye",
       "kategori": "main",
       "kategori_adi": "Ana yemek",
@@ -169,10 +174,11 @@
         }
       ],
       "hazirlanis": "",
+      "neden": "",
       "gun": "Perşembe"
     },
     {
-      "id": "7ad28c7e-25a7-4a1d-b9d1-389fce202e75",
+      "id": "adf62869-e237-452a-bdb2-f9cb03a497e6",
       "ad": "Nohut",
       "kategori": "main",
       "kategori_adi": "Ana yemek",
@@ -198,10 +204,11 @@
         }
       ],
       "hazirlanis": "",
+      "neden": "",
       "gun": "Cuma"
     },
     {
-      "id": "e765738c-aae8-4ea4-83f3-a952a3b0146e",
+      "id": "5447317e-99f8-4165-8614-19b750de4f6d",
       "ad": "Sebze Yemeği",
       "kategori": "main",
       "kategori_adi": "Ana yemek",
@@ -227,10 +234,11 @@
         }
       ],
       "hazirlanis": "",
+      "neden": "",
       "gun": "Cumartesi"
     },
     {
-      "id": "894c3479-5567-4131-8ad6-24e3b7652a87",
+      "id": "2ac45b19-8452-4a9a-b301-9568eddf90fd",
       "ad": "Haydari",
       "kategori": "meze",
       "kategori_adi": "Meze",
@@ -256,10 +264,11 @@
         }
       ],
       "hazirlanis": "",
+      "neden": "",
       "gun": "Haftanın mezeleri"
     },
     {
-      "id": "6e37a366-37c7-467e-aeaa-f43d61b44b1a",
+      "id": "d7d799c1-ee92-49dd-b25b-92ca1f0f01aa",
       "ad": "Çoban Salata",
       "kategori": "salad",
       "kategori_adi": "Salata",
@@ -285,6 +294,7 @@
         }
       ],
       "hazirlanis": "",
+      "neden": "",
       "gun": "Haftanın mezeleri"
     }
   ]

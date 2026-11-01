@@ -137,9 +137,10 @@ async def weekly_plan_job(**_legacy: object) -> None:
             from app.agent.nutrition import fill_for_rules
             from app.recipes.service import RecipeService
 
-            await fill_for_rules(db, settings, RecipeService(db).list_recipes(), library=True)
+            if not settings.menu_research_enabled:
+                await fill_for_rules(db, settings, RecipeService(db).list_recipes(), library=True)
             session = await MealPlannerService(db, settings).create_or_get_weekly_session()
-            if await _agent_new_dishes(settings, session):
+            if not settings.menu_research_enabled and await _agent_new_dishes(settings, session):
                 db.expire_all()
                 session = MealPlannerService(db, settings).current_session(session.week_start)
             if session.meal_plan:
@@ -159,7 +160,8 @@ async def weekly_plan_job(**_legacy: object) -> None:
         # ve nedenini anlamak icin loglara bakmasi gerekiyor (RUN-02).
         logger.exception("weekly_plan_failed")
         from app.memory.rules import RuleViolation
-        detail = str(error) if isinstance(error, RuleViolation) else "Bu haftanın menüsünü hazırlarken bir hata oldu ve taslak oluşmadı."
+        from app.planner.research import MenuResearchError
+        detail = str(error) if isinstance(error, (RuleViolation, MenuResearchError)) else "Bu haftanın menüsünü hazırlarken bir hata oldu ve taslak oluşmadı."
         await _notify_admin(settings, detail + " /preferences ile kuralları kontrol edip /regenerate ile tekrar deneyebilirsin.")
 
 

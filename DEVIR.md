@@ -1,5 +1,31 @@
 # WeeklyFoody — devir notu
 
+## 2026-11-01 — Codex: 1.14 — internetten yeni menü (CI/yayın bekliyor)
+
+- Kullanıcı planı onayladı: yeni menü için internet araştırması; kütüphane geçmiş
+  ve favori arşivi. Ana yemekler önce, uyumlu yanlar ve haftalık mezeler sonra.
+- Dal codex/foody-1.14-web-menus, temel 3590e7c; ilk çalışan bölüm e63bbc6 ile
+  GitHub'a kaydedildi. Ayrıntı PROJE.md son bölümde.
+- WebMenuResearch: grounded kaynak URL + arama metnindeki ad + miktarlı malzeme/
+  hazırlanış/gerekçe/rol/ev kuralı denetimi; geçmişle benzerlik ve alternatif arama.
+  Arama başarısızsa eski havuza dönüş yok; aday ve plan yazımı atomik.
+- Otomatik plan, sohbet plan hazırlama/kaydetme ve tekli/toplu yeni yemek aynı
+  araştırmayı kullanır. Kayıtlı menü yalnız kutuphaneden=true ile açık istekte.
+  Başarısız araştırma veya hatalı kayıt onaylı menüyü taslağa döndürmez.
+- API/Android kaynak ve gerekçe görünümü eklendi; örnek sözleşmeler yenilendi.
+  Android 1.14/15, aynı imza/paket/izinler. Menü seçim penceresi kaydırılabilir.
+- Kontrol: son yerel tam koşuda 482 Python testi geçti. CI 41304912044 sunucu
+  aşaması da başarılı. Android 70 testten yeni kaynak açma testi başarısızdı:
+  Dialog kendi URI işleyicisini kullandığı için dış CompositionLocal test taklidi
+  çağrılmıyordu. Test gerçek ACTION_VIEW intentini doğrulayacak şekilde düzeltildi;
+  yeni CI, ekran görüntüsü, APK ve izin kontrolü bekleniyor.
+- Canlı bot/sunucu/veritabanı ve gerçek Gemini/Google arama çalıştırılmadı.
+  Gerçek tarif arama kalitesi/kota ve telefon kurulumu henüz doğrulanmadı.
+- Sonraki adım: tam CI, kaynak ekran görüntüsü ve izin denetimi; kullanılan dala
+  birleştirip 1.14 APK yayınını doğrula. Kullanıcı APK üzerine kurup Ayarlar >
+  Sunucuyu güncelle yapacak ve menüyü internetten yeniden hazırlatacak.
+  Önceki açık bakım/güvenlik işleri korunur.
+
 ## 2026-11-01 — Codex: 1.13 — gerçek ana yemekler ve kesilmeyen yemek adları
 
 - Kullanıcı 1.12 taslağında siyez pilavı, köz patlıcan salatası ve mantarın ana yemek

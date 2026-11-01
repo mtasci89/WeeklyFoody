@@ -21,10 +21,11 @@ logger = logging.getLogger(__name__)
 
 
 class MealPlannerService:
-    def __init__(self, db: Session, settings: Settings):
+    def __init__(self, db: Session, settings: Settings, researcher=None):
         self.db = db
         self.settings = settings
         self.llm = build_llm_provider(settings)
+        self.researcher = researcher
 
     async def create_or_get_weekly_session(self, week_start: date | None = None, regenerate: bool = False) -> WeeklyPlanningSession:
         week_start = week_start or next_week_start(timezone=self.settings.timezone)
@@ -47,8 +48,9 @@ class MealPlannerService:
         from app.planner.mezes import fill_weekly_mezes
         from app.planner.novelty import add_new_dishes
 
-        fill_weekly_mezes(self.db, self.settings, session)
-        await add_new_dishes(self.db, self.settings, session)
+        if not self.settings.menu_research_enabled:
+            fill_weekly_mezes(self.db, self.settings, session)
+            await add_new_dishes(self.db, self.settings, session)
         session.state = SessionState.AWAITING_ADMIN_FEEDBACK
         session.draft_version += 1 if regenerate else 0
         self.db.commit()
@@ -56,6 +58,20 @@ class MealPlannerService:
         return session
 
     async def _generate_structured_plan(self, week_start: date) -> WeeklyPlanOutput:
+        if self.settings.menu_research_enabled:
+            from app.planner.research import researcher_for
+            from app.config import is_weekly_slot
+            try:
+                output, rows = await (self.researcher or researcher_for(self.settings)).prepare(self.db, week_start)
+                daily = output.model_copy(update={"meals": [m for m in output.meals if not is_weekly_slot(m.meal_slot)]})
+                from app.memory.rules import MealRules
+                effective = MealRules.from_db(self.db).settings_for_plan(self.settings)
+                PlanValidator(self.db).validate(daily, week_dates(week_start), effective.planning_slots,
+                                                PreferenceService(self.db).hard_rules(), researched_ids={r.id for _, r in rows})
+                return output
+            except BaseException:
+                self.db.rollback()
+                raise
         from app.memory.rules import MealRules
         rules = MealRules.from_db(self.db)
         effective = rules.settings_for_plan(self.settings)

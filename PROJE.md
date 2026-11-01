@@ -281,3 +281,40 @@ yoksa başka rolden doldurulmaz. Eski hatalı taslak tek tek veya toplu seçimle
 düzeltilebilir; kalan yanlış ana yemekler onaylanamaz. Menü kendiliğinden yeniden yazılmaz.
 Android menüde ana/yan/meze adları sınırsız satırla gösterilir; yeni/kalori bilgisi
 alt satırdadır. Çoklu seçimde de tam adlar korunur. Paket, imza ve izinler değişmez.
+
+
+## Menü için yeni internet araştırması (1.14, 2026-11-01)
+
+Varsayılan `MENU_RESEARCH_ENABLED=true`: yeni haftalık menü onaylı kütüphaneden
+seçilmez. `app/planner/research.py` önce ana yemekleri, sonra o günlerin ana
+yemeklerini görerek yan yemek/çorba ve haftalık mezeleri araştırır. Kütüphane
+adları/alternatif adları yeniden seçilmez; son dört hafta ve değiştirilen taslak
+benzerlik karşılaştırmasıdır. Aynı protein tek başına yasak değildir; aynı
+pişirme + aynı protein veya çok yakın adla sos değişikliği yeni tarif sayılmaz.
+
+Grounded Google araması ve JSON yapılandırması ayrı isteklerdir. Tarif adı arama
+metninde, HTTPS kaynak URL'si grounded kaynak listesinde olmalı; miktarlı malzeme,
+hazırlanış, gerekçe, öğün rolü ve ev kuralları denetlenir. Kapsanmayan hedefler
+bir kez daha araştırılır. Kaynak/model/kurallar başarısızsa mevcut menü korunur;
+eski tariflere sessizce dönülmez. Bu doğrulama modelin verdiği arama kanıtını
+kontrol eder; tarif sitesini ayrı HTTP istemcisiyle kazımaz, kapalı Instagram
+sayfalarına giriş yapmaz. Besin değerleri varsa tahmini olarak saklanır.
+
+Tam araştırma geçmeden aday tarif yazılmaz. `upsert_recipe(commit=False)` tüm
+adayları ve menüyü tek işlemde kaydetmeye izin verir; genel davranışı değiştiren
+şema göçü yoktur. Yeni tarifler aday kalır; menü onayı tarif onayı değildir.
+Otomatik plandaki eski meze doldurma/yeni yemek serpiştirme yeni kipte çalışmaz.
+Günlük 10 tarif keşfi ayrı olarak sürer; yeni menünün araştırmasının yerini almaz.
+
+Sohbet `plan_hazirla` ile kaynaklı tarifleri hazırlayıp aynı turda `plan_kaydet`
+ile menüyü yazar. Kayıt o turda araştırılmış aday kimliklerini denetler.
+`istek` haftaya özel tercihi aramaya taşır. `kutuphaneden=true` yalnız kullanıcının
+kayıtlı/favori yemekleri açıkça istemesi içindir; eski bir yemeği elle koyma
+sürer. `uzerine_yaz=true` açık baştan kurma isteğidir; onay ancak başarılı kayıt
+sonrası açılır. Tekli/toplu yenisiyle değiştirme de web araştırması kullanır;
+başarısız araştırma onaylı menüyü taslağa döndürmez.
+
+API menü öğelerine `kaynak`/`neden`, tarif detayına `neden` ekler (eski istemciler
+yoksayabilir). Android 1.14 / versionCode 15: menüde yemeğe dokununca ve tarif
+sayfasında gerekçe ve HTTPS kaynak açma düğmesi bulunur. Eski cevaplar için yeni
+alanlar boş varsayılanlıdır. Paket, imza ve cihaz izinleri korunur.

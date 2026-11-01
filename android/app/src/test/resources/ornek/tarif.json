@@ -1,5 +1,5 @@
 {
-  "id": "d1dc5d3d-425d-4179-babc-b6a0bdffba65",
+  "id": "f35b8f9a-18da-4f6d-967b-9f1828733843",
   "ad": "Fırında Tavuk",
   "kategori": "main",
   "kategori_adi": "Ana yemek",
@@ -24,5 +24,6 @@
       "not": ""
     }
   ],
-  "hazirlanis": ""
+  "hazirlanis": "",
+  "neden": ""
 }

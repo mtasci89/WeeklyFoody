@@ -52,8 +52,9 @@ class NutritionEstimator:
     dokunulmaz.
     """
 
-    def __init__(self, ask_json: AskJson):
+    def __init__(self, ask_json: AskJson, search_text=None):
         self.ask_json = ask_json
+        self.search_text = search_text
 
     async def fill_missing(self, db, recipes) -> list[str]:
         missing, seen = [], set()

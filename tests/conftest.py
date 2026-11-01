@@ -21,6 +21,7 @@ def settings(tmp_path: Path) -> Settings:
         default_servings=4,
         meal_slots=["dinner"],
         llm_provider="rule",
+        menu_research_enabled=False,  # legacy library behavior; research has dedicated offline tests
         openai_api_key="",
         # Eski testler mezeleri günlere dağıtılmış varsayar; haftalık meze
         # listesi tests/test_weekly_mezes.py'de ayrıca denetlenir.

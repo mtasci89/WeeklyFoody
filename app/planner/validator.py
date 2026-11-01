@@ -18,7 +18,7 @@ class PlanValidator:
     def __init__(self, db: Session):
         self.db = db
 
-    def validate(self, plan: WeeklyPlanOutput, dates: list[date], meal_slots: list[str], hard_rules: list[str]) -> None:
+    def validate(self, plan: WeeklyPlanOutput, dates: list[date], meal_slots: list[str], hard_rules: list[str], *, researched_ids: set[str] = frozenset()) -> None:
         expected = {(d.isoformat(), slot) for d in dates for slot in meal_slots}
         actual = {(meal.date, meal.meal_slot) for meal in plan.meals}
         if expected != actual or len(actual) != len(plan.meals):
@@ -29,7 +29,7 @@ class PlanValidator:
         recipes = {r.id: r for r in self.db.query(Recipe).filter(Recipe.id.in_(recipe_ids)).all()}
         for recipe_id in recipe_ids:
             recipe = recipes.get(recipe_id)
-            if not recipe or recipe.status != RecipeStatus.APPROVED:
+            if not recipe or (recipe.status != RecipeStatus.APPROVED and not (recipe.status == RecipeStatus.CANDIDATE and recipe.id in researched_ids)):
                 raise PlanValidationError(f"Recipe is unavailable: {recipe_id}")
         from app.memory.rules import MealRules
         from app.config import base_meal_slot
