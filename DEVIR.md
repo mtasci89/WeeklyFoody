@@ -1,5 +1,26 @@
 # WeeklyFoody — devir notu
 
+## 2026-11-01 — Codex: web araması hatası (kontroller sürüyor)
+
+- Kullanıcı 1.14'te sekiz yemeği değiştirirken genel internet araştırması hatası
+  gördü. Ekran görüntüsü Google/Gemini asıl nedenini göstermiyor; canlı sunucu
+  günlüğü/sağlayıcı erişimi olmadan özgül neden doğrulanmadı.
+- Genel mesajın asıl hatayı gizlediği ve 400 model özelliği hatasında başka
+  modelin denenmediği kodda doğrulandı. Google Search/JSON desteği özelinde
+  geçiş ve önbellek; kota hatasını uyumsuz yedek hatasıyla gizlememe eklendi.
+- Araştırma dörder hedeflik gruplara ayrıldı; ana yemekler önce, yanlar yeni
+  ana yemek bağlamıyla. Başarısızlıkta onay/menü ve kaynak denetimleri korunur.
+- Hata mesajı Google araması/JSON aşamasını ve güvenli gerçek hata sınıfını
+  gösterir (429 kota, 403 erişim, anahtar, ücretlendirme, model, ağ/zaman aşımı).
+- Dal codex/fix-web-search-failures, temel 75d2494. APK/izin/imza değişmedi;
+  kullanıcı yalnız Ayarlar > Sunucuyu güncelle yapacak.
+- Kontrol: son tam Python koşusunda 497 test geçti; 15 yeni SDK sınırı/hata/grup
+  regresyonu da geçti. GitHub CI bekleniyor.
+- Canlı Oracle/Gemini değiştirilmedi veya çağrılmadı. Gerçek kullanıcı hatasının
+  kota mı model desteği mi başka neden mi olduğu doğrulanmadı. Sonraki adım:
+  CI sonrası kullanılan dala birleştir; kullanıcı sunucuyu güncelleyip dener.
+  Önceki açık bakım/güvenlik işleri korunur.
+
 ## 2026-11-01 — Codex: 1.14 — internetten yeni menü (CI geçti, APK yayını sürüyor)
 
 - Kullanıcı planı onayladı: yeni menü için internet araştırması; kütüphane geçmiş

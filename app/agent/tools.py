@@ -814,7 +814,8 @@ class MealAgentToolset:
                 except Exception as error:
                     logger.exception("fresh_ideas_failed")
                     if toolset.settings.menu_research_enabled:
-                        return f"Yeni internet tarifi bulunamadı; menü değiştirilmedi. {error}"
+                        from app.planner.research import MenuResearchError, research_failure
+                        return str(error) if isinstance(error, MenuResearchError) else research_failure(error, "Tarif araştırması")
                     return f"Yeni öneri üretilemedi: {type(error).__name__}. Biraz sonra tekrar dene."
                 ideas = parse_ideas(raw_ideas)
                 results: list[str] = []
@@ -1123,7 +1124,8 @@ class MealAgentToolset:
                     except Exception as error:
                         db.rollback()
                         logger.exception("menu_research_failed")
-                        return f"İnternetten menü araştırması tamamlanamadı; mevcut menü korundu. {error}"
+                        from app.planner.research import MenuResearchError, research_failure
+                        return str(error) if isinstance(error, (MenuResearchError, RuleViolation)) else research_failure(error, "Menü araştırması")
                 hard = PreferenceService(db).hard_rules()
                 selector = CandidateSelector(db)
                 scorer = CandidateScorer(db)

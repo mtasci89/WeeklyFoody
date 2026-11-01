@@ -79,9 +79,9 @@ async def test_entire_week_is_researched_main_first_and_no_library_is_selected(d
     old_ids = set(db.scalars(select(Recipe.id)))
     fake = FakeWeb()
     session = await MealPlannerService(db, settings, researcher(settings, fake)).create_or_get_weekly_session(WEEK)
-    assert len(fake.searches) == 2
+    assert len(fake.searches) == 5
     assert "rol=main" in fake.searches[0] and "rol=side" not in fake.searches[0]
-    assert MAINS[0] in fake.searches[1]  # side research sees the selected day's main
+    assert MAINS[0] in fake.searches[2]  # side research sees the selected day's main
     assert {i.recipe_id for i in session.meal_plan.items}.isdisjoint(old_ids)
     assert len(session.meal_plan.items) == 18
     assert all(i.recipe.status == RecipeStatus.CANDIDATE for i in session.meal_plan.items)
@@ -195,7 +195,7 @@ async def test_replacement_does_not_invent_recipe_when_search_fails(db, settings
     db.commit()
     _, tools = toolset_for(db, configured(settings), FakeWeb(bad_source=True))
     result = await tools["yenisiyle_degistir"].call({"ogunler": [f"{WEEK}|dinner_main"]})
-    assert "menü değiştirilmedi" in result
+    assert "menü değiştirilmedi" in result.casefold()
     assert session.meal_plan.items[0].recipe.name == "Fırında Tavuk"
     assert session.state == SessionState.APPROVED
 
