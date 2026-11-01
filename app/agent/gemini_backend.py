@@ -255,10 +255,12 @@ class GeminiBackend:
                 self._cooldown_until[model] = time.monotonic() + cooldown
                 error.foody_model = model
                 if index == len(models) - 1:
+                    logger.warning("agent_model_chain_exhausted model=%s code=%s capability=%s quota=%s",
+                                   model, code, capability or "-", quota_ids(error) or "-")
                     raise
                 logger.warning(
-                    "agent_model_unavailable model=%s code=%s next=%s",
-                    model, code, models[index + 1],
+                    "agent_model_unavailable model=%s code=%s next=%s capability=%s quota=%s",
+                    model, code, models[index + 1], capability or "-", quota_ids(error) or "-",
                 )
                 last_error = error
                 continue
@@ -502,6 +504,12 @@ class GeminiBackend:
 DAILY_QUOTA_COOLDOWN = 3 * 3600
 # Dakikalık sınırda en fazla bu kadar beklenir; daha uzunsa yedeğe geçilir.
 MAX_QUOTA_WAIT = 40
+
+
+def quota_ids(error: Exception) -> str:
+    """429 ayrıntısındaki kota adları (gizli bilgi içermez), günlük teşhisi için."""
+    found = re.findall(r"quota(?:Id|Metric)['\"]?\s*:\s*['\"]([^'\"]+)", str(error))
+    return ",".join(dict.fromkeys(found))[:300]
 
 
 def quota_scope(error: Exception) -> str | None:

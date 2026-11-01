@@ -796,13 +796,14 @@ class MealAgentToolset:
                         from app.planner.research import history
                         research_recent = history(db, session.week_start)
                         research_week = session.week_start
+                offline_note = False
                 try:
                     if toolset.settings.menu_research_enabled:
                         from app.planner.research import Target, researcher_for
                         targets = [Target(day, slot, role, plate) for role, _, _, slot, _, plate, day, _ in spec]
-                        proposals = await researcher_for(toolset.settings, toolset.estimator).find(
-                            targets, avoid, research_recent, rules, istek,
-                        )
+                        researcher = researcher_for(toolset.settings, toolset.estimator)
+                        proposals = await researcher.find(targets, avoid, research_recent, rules, istek)
+                        offline_note = researcher.offline
                         raw_ideas = json.dumps({"tarifler": [
                             {**proposals[target.key], "icin": number} for number, target in enumerate(targets, 1)
                         ]})
@@ -897,6 +898,9 @@ class MealAgentToolset:
                     final = toolset._session_for(db, hafta, first_date)
                     tail = variety_block(final)
             summary = "Yeni yemekler (aday tarif olarak kaydedildi, kullanıcı beğenirse tarif_onayla):\n" + "\n".join(results)
+            if offline_note:
+                from app.planner.research import OFFLINE_NOTE
+                summary = OFFLINE_NOTE + "\n" + summary
             if problems:
                 summary += "\nAtlananlar: " + "; ".join(problems)
             return summary + toolset.reopen_note + tail
@@ -1112,7 +1116,9 @@ class MealAgentToolset:
                     planner.researcher.request = istek
                     try:
                         output = await planner._generate_structured_plan(week_start)
+                        from app.planner.research import OFFLINE_NOTE
                         lines = [f"Hafta: {week_start} - {week_end(week_start)}", "İNTERNETTEN YENİ ARAŞTIRMA — menü henüz kaydedilmedi.",
+                                 *([OFFLINE_NOTE + " Bunu kullanıcıya da söyle."] if planner.researcher.offline else []),
                                  "Kaynaklı tarifler aday olarak kaydedildi; tarif_ekle ile tekrar yazma. Bu turda önerileri değerlendir, plan_kaydet ile menüyü kaydet. Eski kütüphaneyle doldurma."]
                         for meal in output.meals:
                             recipe = db.get(Recipe, meal.recipe_id)

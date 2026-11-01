@@ -14,6 +14,7 @@ from datetime import date, timedelta
 from urllib.parse import urlsplit
 
 from sqlalchemy import select
+import logging
 
 from app.agent.fresh import MAIN_ROLE_RULE, as_probe, key_words, parse_ideas
 from app.config import WEEKLY_BASE, course_role, is_weekly_slot
@@ -25,13 +26,31 @@ from app.planner.pairing import pairing_penalty, protein_group
 from app.recipes.importer import RecipeInput
 from app.recipes.roles import matches_course_role, recipe_category
 
+logger = logging.getLogger(__name__)
+
 TAG = "menu-arastirmasi"
+# Google araması kotaya/erişime takılınca yemekler aramasız, modelin bilgisiyle önerilir.
+OFFLINE_SOURCE = "Foody yapay zekâ önerisi (internet araması o an kullanılamadı)"
+OFFLINE_NOTE = (
+    "Not: Google araması şu an kotaya takıldığı için bu yemekleri yapay zekâ internete bakmadan, "
+    "kendi bilgisiyle önerdi (kaynak bağlantısı yok). Kurallar, roller ve tekrar denetimleri aynen uygulandı."
+)
 SEARCH_BATCH_SIZE = 4
 URL = re.compile(r"https://[^\s<>\"\[\]]+")
 
 
 class MenuResearchError(ValueError):
     pass
+
+
+def search_unavailable(error) -> bool:
+    """Arama özelliği kota/erişim yüzünden kullanılamıyor mu (aramasız öneri yapılabilir)."""
+    from app.agent.gemini_backend import GeminiCapabilityError
+    if isinstance(error, GeminiCapabilityError):
+        return True
+    code = getattr(error, "code", None)
+    message = str(getattr(error, "message", "") or "").casefold()
+    return code in (429, 403) or any(word in message for word in ("billing", "paid tier", "payment"))
 
 
 def research_failure(error, stage):
@@ -145,6 +164,9 @@ class WebMenuResearch:
     def __init__(self, settings, search=None, ask=None):
         self.settings, self.search, self.ask = settings, search, ask
         self.request = ""
+        # True: Google araması kullanılamadı, öneriler aramasız (modelin bilgisiyle).
+        self.offline = False
+        self.offline_reason = ""
 
     def connect(self):
         if not self.settings.agent_web_search_enabled:
@@ -181,7 +203,9 @@ class WebMenuResearch:
         schema = deepcopy(RECIPE_SCHEMA)
         item = schema["properties"]["tarifler"]["items"]
         item["properties"].update({"icin": {"type": "integer"}, "kcal": {"type": "number"}, "protein_g": {"type": "number"}})
-        item["required"] += ["icin", "kaynak", "neden"]
+        item["required"] += ["icin", "neden"]
+        offline_schema = deepcopy(schema)
+        item["required"] += ["kaynak"]
         found = {}
         known_names = {normalized(name) for name in known}
         for attempt in range(2):
@@ -207,20 +231,49 @@ class WebMenuResearch:
             )
             stage = "Google araması"
             try:
-                text, sources = await self.search(prompt)
-                allowed = {url for s in sources for url in [source_url(s)] if url}
-                if not text.strip() or not allowed:
-                    continue
-                stage = "Tarif yanıtını hazırlama"
-                raw = await self.ask(
+                if not self.offline:
+                    try:
+                        text, sources = await self.search(prompt)
+                    except asyncio.CancelledError:
+                        raise
+                    except Exception as error:
+                        if not search_unavailable(error):
+                            raise
+                        # Kota dolu diye kullanıcıyı eli boş bırakma: aramasız öner.
+                        self.offline_reason = research_failure(error, "Google araması").removesuffix(" Menü değiştirilmedi.")
+                        logger.warning("menu_research_offline reason=%s", self.offline_reason)
+                        self.offline = True
+                if self.offline:
+                    stage = "Yapay zekâ önerisi"
+                    text, sources, allowed = "", [], set()
+                    raw = await self.ask(
+                        "İnternet araması şu an kullanılamıyor. Aşağıdaki hedefler için internete bakmadan, "
+                        "iyi bildiğin, gerçekten pişirilen ve evde yapılabilen tarifler öner; yemek uydurma. "
+                        "'icin' hedef numarasıdır. Tam Türkçe ad, miktarlı malzemeler, porsiyon ve gerçek "
+                        "hazırlanış adımları yaz. 'neden' yemeğin günün tabağına ve haftanın çeşitliliğine nasıl "
+                        "uyduğunu anlatsın. 'kaynak' alanını boş bırak. 'kcal' ve 'protein_g' bir porsiyon için "
+                        "tahmindir; bilinmiyorsa yazma.\n\n" + prompt.replace(
+                            "İnternette GERÇEK tarifleri araştır; eski kütüphaneden menü seçme. ", ""
+                        ).replace(
+                            "Yemek siteleri ve erişilebilen Instagram/YouTube tariflerinden yararlan; erişemediğin sayfayı okumuş gibi yapma. ", ""
+                        ).replace("kaynak URL, ", ""),
+                        offline_schema,
+                    )
+                    ideas = parse_ideas(raw)
+                else:
+                    allowed = {url for s in sources for url in [source_url(s)] if url}
+                    if not text.strip() or not allowed:
+                        continue
+                    stage = "Tarif yanıtını hazırlama"
+                    raw = await self.ask(
                     "Yalnız aşağıdaki arama sonucundaki tarifleri yapılandır. 'icin' hedef numarasıdır. "
                     "Adı arama metnindeki Türkçe adıyla birebir koru. 'kaynak' yalnız KAYNAKLAR listesindeki "
                     "ilgili tam HTTPS bağlantısı olsun. Okunmayan tarif/malzeme/adım uydurma. 'neden' bu "
                     "yemeğin günün tabağına ve haftanın çeşitliliğine nasıl uyduğunu anlatsın. Miktarları aynen koru. "
                     "'kcal' ve 'protein_g' bir porsiyon için tahmindir; bilinmiyorsa alanları yazma.\n"
                     + listing + "\nARAMA:\n" + text + "\nKAYNAKLAR:\n" + "\n".join(sources), schema,
-                )
-                ideas = parse_ideas(raw)
+                    )
+                    ideas = parse_ideas(raw)
             except asyncio.CancelledError:
                 raise
             except Exception as error:
@@ -231,10 +284,15 @@ class WebMenuResearch:
                 for idea in ideas:
                     if idea.get("icin") != index:
                         continue
-                    url = source_url(str(idea.get("kaynak") or ""))
                     name = normalized(idea["ad"])
-                    if url not in allowed or name not in normalized(text) or name in known_names | taken:
-                        continue
+                    if self.offline:
+                        url = OFFLINE_SOURCE
+                        if name in known_names | taken:
+                            continue
+                    else:
+                        url = source_url(str(idea.get("kaynak") or ""))
+                        if url not in allowed or name not in normalized(text) or name in known_names | taken:
+                            continue
                     probe = as_probe(idea)
                     probe.category = str(idea.get("kategori") or target.role)
                     probe.instructions = str(idea.get("hazirlanis") or "")
@@ -264,6 +322,9 @@ class WebMenuResearch:
                     found[target.key] = {**chosen, "kaynak": url, "kategori": category}
                     taken.add(normalized(chosen["ad"]))
         missing = [f"{t.day} {t.slot}" for t in targets if t.key not in found]
+        if missing and self.offline:
+            raise MenuResearchError(self.offline_reason + " İnternete bakmadan önerilen yemekler de yetmedi: "
+                                    + ", ".join(missing) + ". Menü değiştirilmedi.")
         if missing:
             raise MenuResearchError("Kaynağı ve tarifi doğrulanmış yeni yemek bulunamadı: " + ", ".join(missing)
                                     + ". Menü değiştirilmedi; araştırmayı yeniden deneyebilirsin.")

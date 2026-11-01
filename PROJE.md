@@ -349,3 +349,11 @@ aldı; Cal Track'te gemini-2.5-flash iyi çalışıyor. Kullanıcı model seçme
   günlük keşif 120 ad): tekrarları sunucu zaten süzüyor, dakikalık token sınırı korunur.
 - Cal Track'in anahtarı sunucununkinden farklı olabilir; 2.5-flash'ın sunucu anahtarıyla
   çalıştığı canlıda doğrulanmadı (çalışmazsa zincir kendiliğinden atlar).
+- Güncelleme (aynı gün): 2.5-flash'a geçişten sonra da dört modelin dördü Google aramasında
+  429 verdi (ayrıntıda günlük/dakikalık bilgisi yoktu). Arama kotası modelden bağımsız
+  dolmuş görünüyor. Artık Google araması 429/403/ücretlendirme/destek yok hatası verirse
+  araştırma **aramasız** sürer: aynı hedefler, kurallar, rol, tekrar ve tabak denetimleriyle
+  model kendi bilgisinden gerçek tarifler önerir (`WebMenuResearch.offline`; kaynak
+  `OFFLINE_SOURCE`, sonuç mesajının başında `OFFLINE_NOTE`). Başka hatalarda (400 şema vb.)
+  eskisi gibi durur. Sunucu günlüğünde `agent_model_unavailable ... quota=` ve
+  `menu_research_offline` satırları hangi kotanın dolduğunu gösterir.

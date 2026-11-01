@@ -1,5 +1,19 @@
 # WeeklyFoody — devir notu
 
+## 2026-11-01 — Claude: 429 sürdü → aramasız yedek öneri
+
+- Sunucu güncellendikten sonra da 9 yemekte "429 (son denenen: gemini-3.1-flash-lite)": zincirin
+  tamamı (2.5-flash dahil) Google aramasında 429 verdi; günlük/dakikalık ayrıntı yoktu.
+- Yapılan: Google araması kota/erişim hatasında menü araştırması aramasız sürüyor (model bilgisi,
+  aynı denetimler; kaynak "Foody yapay zekâ önerisi", mesajda not). Aramasız öneri de yetmezse
+  arama kotası nedeniyle birlikte söylenir, menü değişmez. Her modelin kota adları günlüğe yazılıyor.
+- Değişenler: app/planner/research.py, app/agent/tools.py, app/agent/gemini_backend.py,
+  tests/test_gemini_quota.py (+4), tests/test_search_provider_errors.py (bir beklenti yeni
+  davranışa göre). Android/APK değişmedi.
+- Kontrol: 508 Python testi geçti. Canlı Gemini çağrılmadı; gerçek kota türü doğrulanmadı.
+- Sonraki: kullanıcı Sunucuyu güncelle → tekrar dene. Kesin teşhis için
+  `./deploy/sunucu-gunluk.sh 300 | grep -E "agent_model_|menu_research_offline"`.
+
 ## 2026-11-01 — Claude: Google araması 429 kota hatası (yalnız sunucu)
 
 - Kullanıcı 1.14'te "Google araması: Gemini/Google arama kotası aşıldı (429)" ekranını gönderdi;

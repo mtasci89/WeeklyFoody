@@ -106,7 +106,8 @@ async def test_search_quota_reaches_bulk_tool_message_and_preserves_approved_men
     fake.search_text = quota
     _, tools = toolset_for(db, configured(settings), fake)
     text = await tools["yenisiyle_degistir"].call({"ogunler": [f"{WEEK}|dinner_main"]})
-    assert text.startswith("Google araması:") and "429" in text
+    # Kotada aramasız öneri denenir (tests/test_gemini_quota.py); o da boş dönerse neden yine söylenir.
+    assert text.startswith("Google araması:") and "429" in text and "Menü değiştirilmedi" in text
     assert old.state == SessionState.APPROVED
     assert old.meal_plan.items[0].recipe.name == "Fırında Tavuk"
 

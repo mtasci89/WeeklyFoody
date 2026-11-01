@@ -7,6 +7,9 @@ sınırda model saatlerce atlanır ve hata mesajı hangisi olduğunu söyler.
 """
 from __future__ import annotations
 
+import json
+from datetime import timedelta
+
 import pytest
 from google.genai import errors
 
@@ -105,3 +108,78 @@ async def test_when_every_model_is_out_the_message_says_which_limit(settings, no
 
     minute = research_failure(quota_error("Minute"), "Google araması")
     assert "dakikalık" in minute and "dakika sonra" in minute
+
+
+# --- Google araması kotada: aramasız öneri ---------------------------------------------
+
+from test_menu_research import FakeWeb, configured  # noqa: E402
+
+from app.db.models import RecipeStatus  # noqa: E402
+from app.planner.research import OFFLINE_NOTE, OFFLINE_SOURCE, WebMenuResearch  # noqa: E402
+from app.planner.service import MealPlannerService  # noqa: E402
+from test_no_repeat import WEEK  # noqa: E402
+
+
+class QuotaWeb(FakeWeb):
+    """Google araması 429 verir; aramasız JSON isteği çalışır."""
+
+    def __init__(self, error=None):
+        super().__init__()
+        self.error = error or errors.ClientError(429, {"error": {"code": 429, "status": "RESOURCE_EXHAUSTED",
+                                                                  "message": "Resource has been exhausted"}})
+
+    async def search_text(self, prompt):
+        self.searches.append(prompt)
+        raise self.error
+
+    async def ask_json(self, prompt, schema):
+        await FakeWeb.search_text(self, prompt)  # satırları hedeflerden üretir
+        self.searches.pop()
+        self.structured.append(prompt)
+        return json.dumps({"tarifler": [{k: v for k, v in r.items() if k != "kaynak"} for r in self.rows]})
+
+
+@pytest.mark.asyncio
+async def test_search_quota_does_not_leave_the_user_empty_handed(db, settings):
+    settings = configured(settings)
+    fake = QuotaWeb()
+    research = WebMenuResearch(settings, fake.search_text, fake.ask_json)
+
+    session = await MealPlannerService(db, settings, research).create_or_get_weekly_session(WEEK)
+
+    assert research.offline is True
+    assert len(fake.searches) == 1  # kotaya takılan arama tekrar tekrar denenmez
+    assert "internete bakmadan" in fake.structured[0] and "kaynak URL" not in fake.structured[0]
+    items = session.meal_plan.items
+    assert len(items) == 18 and all(i.recipe.status == RecipeStatus.CANDIDATE for i in items)
+    assert all(i.recipe.source == OFFLINE_SOURCE and i.recipe.notes for i in items)
+
+
+@pytest.mark.asyncio
+async def test_other_search_errors_still_stop_without_changes(db, settings):
+    from app.planner.research import MenuResearchError
+
+    settings = configured(settings)
+    fake = QuotaWeb(errors.ClientError(400, {"error": {"code": 400, "message": "Invalid schema"}}))
+    with pytest.raises(MenuResearchError):
+        await MealPlannerService(db, settings, WebMenuResearch(settings, fake.search_text, fake.ask_json)).create_or_get_weekly_session(WEEK)
+    assert fake.structured == []
+
+
+@pytest.mark.asyncio
+async def test_bulk_new_dishes_say_when_they_came_without_search(db, settings, monkeypatch):
+    from test_no_repeat import plan, toolset_for
+
+    settings = configured(settings)
+    session = plan(db, [(0, "dinner_main", "Fırında Tavuk"), (1, "dinner_main", "Kuru Fasulye")])
+    fake = QuotaWeb()
+    _, tools = toolset_for(db, settings, fake)
+    out = await tools["yenisiyle_degistir"].call({"ogunler": [WEEK.isoformat(), (WEEK + timedelta(days=1)).isoformat()]})
+    assert out.startswith(OFFLINE_NOTE), out
+    assert all(i.recipe.source == OFFLINE_SOURCE for i in session.meal_plan.items)
+
+
+def test_quota_ids_are_logged_for_diagnosis():
+    from app.agent.gemini_backend import quota_ids
+
+    assert quota_ids(quota_error("Day")) == "GenerateRequestsPerDayPerProjectPerModel-FreeTier"
