@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import asyncio
+
 import logging
 import re
 import time
@@ -155,7 +157,18 @@ class GeminiBackend:
     def models(self) -> list[str]:
         """Ana model + yedekler, tekrarsiz ve sirali."""
         chain: list[str] = []
-        for name in [self.settings.gemini_model, *self.settings.gemini_fallback_models]:
+        backup = getattr(self.settings, "gemini_backup_model", "")
+        for name in [self.settings.gemini_model, backup, *self.settings.gemini_fallback_models]:
+            if name and name not in chain:
+                chain.append(name)
+        return chain
+
+    def chain_for(self, capability: str | None) -> list[str]:
+        """Google aramalı istekler arama modelleriyle başlar; diğerleri ana zincirle."""
+        if capability != "Google araması":
+            return self.models
+        chain: list[str] = []
+        for name in [*getattr(self.settings, "gemini_search_models", []), *self.models]:
             if name and name not in chain:
                 chain.append(name)
         return chain
@@ -163,9 +176,9 @@ class GeminiBackend:
     def _cooling(self, model: str) -> bool:
         return self._cooldown_until.get(model, 0.0) > time.monotonic()
 
-    def _start_index(self, cursor: ModelCursor, capability: str | None = None) -> int:
+    def _start_index(self, cursor: ModelCursor, capability: str | None = None, models: list[str] | None = None) -> int:
         """Bekleme surecindeki modelleri atlar; hepsi bekliyorsa sirayla dener."""
-        models = self.models
+        models = models or self.models
         if cursor.started:
             return cursor.index
         for index in range(cursor.index, len(models)):
@@ -184,11 +197,14 @@ class GeminiBackend:
 
     async def _generate(self, cursor: ModelCursor, contents, config=None):
         """Zincirdeki ilk calisan modelle istek atar."""
-        models = self.models
         last_error: Exception | None = None
         capability = request_capability(config)
-        start = self._start_index(cursor, capability)
-        for index in range(start, len(models)):
+        models = self.chain_for(capability)
+        start = self._start_index(cursor, capability, models)
+        waited: set[str] = set()
+        index = start - 1
+        while index + 1 < len(models):
+            index += 1
             model = models[index]
             if capability and model in self._unsupported_capabilities.get(capability, set()):
                 continue
@@ -224,7 +240,20 @@ class GeminiBackend:
                 if not should_fall_back(error):
                     raise
                 code = getattr(error, "code", None)
-                self._cooldown_until[model] = time.monotonic() + COOLDOWN_SECONDS.get(code, 300)
+                wait = quota_wait_seconds(error)
+                if wait is not None and model not in waited:
+                    # Dakikalık sınır: Google kaç saniye sonra açılacağını söylüyor.
+                    # Hemen yedeğe geçip onların kotasını da yakmak yerine bir kez bekle.
+                    waited.add(model)
+                    logger.warning("agent_model_quota_wait model=%s seconds=%.0f", model, wait)
+                    await asyncio.sleep(wait)
+                    index -= 1
+                    continue
+                cooldown = COOLDOWN_SECONDS.get(code, 300)
+                if code == 429 and quota_scope(error) == "günlük":
+                    cooldown = DAILY_QUOTA_COOLDOWN
+                self._cooldown_until[model] = time.monotonic() + cooldown
+                error.foody_model = model
                 if index == len(models) - 1:
                     raise
                 logger.warning(
@@ -467,6 +496,38 @@ class GeminiBackend:
             except Exception as error:
                 results.append((model, False, model_status(error)))
         return results
+
+
+# Günlük kota dolmuşsa o model saatlerce atlanır (her istekte yeniden denenip zaman kaybettirmesin).
+DAILY_QUOTA_COOLDOWN = 3 * 3600
+# Dakikalık sınırda en fazla bu kadar beklenir; daha uzunsa yedeğe geçilir.
+MAX_QUOTA_WAIT = 40
+
+
+def quota_scope(error: Exception) -> str | None:
+    """429'un türü: "günlük", "dakikalık" ya da bilinmiyor (None)."""
+    if getattr(error, "code", None) != 429:
+        return None
+    text = str(error)
+    if re.search(r"per ?day|PerDay|daily", text, re.IGNORECASE):
+        return "günlük"
+    if re.search(r"per ?minute|PerMinute|tokens? per", text, re.IGNORECASE):
+        return "dakikalık"
+    return None
+
+
+def quota_wait_seconds(error: Exception) -> float | None:
+    """Dakikalık kota için Google'ın önerdiği bekleme (kısa ise); değilse None."""
+    if getattr(error, "code", None) != 429 or quota_scope(error) == "günlük":
+        return None
+    text = str(error)
+    match = re.search(r"retryDelay['\"]?\s*[:=]\s*['\"]?(\d+(?:\.\d+)?)s", text) or re.search(
+        r"retry in (\d+(?:\.\d+)?)\s*s", text, re.IGNORECASE
+    )
+    if not match:
+        return None
+    seconds = float(match.group(1))
+    return seconds + 1 if seconds <= MAX_QUOTA_WAIT else None
 
 
 def model_status(error: Exception) -> str:

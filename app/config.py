@@ -38,6 +38,13 @@ class Settings(BaseSettings):
         default_factory=lambda: ["gemini-3.5-flash-lite", "gemini-3.1-flash-lite"]
     )
 
+    # Ana model kotası dolunca ilk denenecek model (Cal Track'te sorunsuz çalışıyor).
+    # Bu anahtarda kapalıysa (404) zincir onu 6 saat atlar; elle seçim gerekmez.
+    gemini_backup_model: str = "gemini-2.5-flash"
+    # Google aramalı istekler (internetten tarif) bu modellerle başlar, sonra ana zincir.
+    # 3.8-flash'ın ücretsiz arama kotası çabuk doluyor (kullanıcı 429 aldı).
+    gemini_search_models: Annotated[list[str], NoDecode] = Field(default_factory=lambda: ["gemini-2.5-flash"])
+
     # Konusma ajani (tool-use dongusu). Saglayicinin anahtari yoksa eski niyet
     # yonlendiricisine geri dusulur, boylece ikisi yan yana denenebilir.
     # "gemini" ucretsiz katmanla calisir (GEMINI_API_KEY + GEMINI_MODEL);
@@ -138,7 +145,7 @@ class Settings(BaseSettings):
             return [int(v) for v in value]
         return [int(part.strip()) for part in value.split(",") if part.strip()]
 
-    @field_validator("gemini_fallback_models", mode="before")
+    @field_validator("gemini_fallback_models", "gemini_search_models", mode="before")
     @classmethod
     def parse_fallback_models(cls, value: str | list[str] | None) -> list[str]:
         if value is None:

@@ -1,5 +1,25 @@
 # WeeklyFoody — devir notu
 
+## 2026-11-01 — Claude: Google araması 429 kota hatası (yalnız sunucu)
+
+- Kullanıcı 1.14'te "Google araması: Gemini/Google arama kotası aşıldı (429)" ekranını gönderdi;
+  Cal Track'te 2.5-flash'ın iyi çalıştığını söyledi, model seçmek istemedi.
+- Önce Codex'in 1.13, 1.14 ve arama hatası düzeltmesi (f6e37bd) incelendi: hepsi dalda, 497 test
+  geçti, 1.14 APK yayında (759229e).
+- Neden (koddan): arama zinciri 3.8-flash → iki lite; 2.5-flash yoktu; her arama isteğine
+  ~26 bin karakter liste ekleniyordu ve 8 yemekte 4-8 aramalı istek art arda gidiyordu.
+- Yapılan: arama önce 2.5-flash, sohbette 3.8'den sonra 2.5-flash; dakikalık 429'da bekleyip
+  aynı modeli yeniden deneme, günlük 429'da 3 saat atlama; net hata mesajı; kısa istemler.
+  Ayrıntı PROJE.md "Gemini kota hataları ve model sırası".
+- Değişenler: app/config.py, app/agent/gemini_backend.py, app/planner/research.py,
+  app/agent/daily_discovery.py, .env.example, tests/conftest.py (eski zincir testleri yeni
+  yedeği görmez), yeni tests/test_gemini_quota.py (7 test). Android/APK değişmedi.
+- Kontrol: 504 Python testi geçti. Canlı Gemini çağrılmadı; sunucu anahtarında 2.5-flash'ın
+  ve onun arama kotasının çalıştığı doğrulanmadı. Sunucu .env'inde GEMINI_SEARCH_MODELS /
+  GEMINI_BACKUP_MODEL tanımlı değilse varsayılanlar geçerli.
+- Kullanıcı: Ayarlar > Sunucuyu güncelle; sonra menüde yeniden dene. Yine 429 olursa mesaj
+  günlük/dakikalık ve modeli söyler; `./deploy/sunucu-gunluk.sh` ile `agent_model_*` satırları.
+
 ## 2026-11-01 — Codex: web araması hatası (kontroller sürüyor)
 
 - Kullanıcı 1.14'te sekiz yemeği değiştirirken genel internet araştırması hatası

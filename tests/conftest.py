@@ -30,6 +30,10 @@ def settings(tmp_path: Path) -> Settings:
         no_repeat_meals=False,
         # Eski testler Telegram'a gönderimi denetler; varsayılan (kapalı) test_no_repeat.py'de.
         telegram_menu_messages=True,
+        # Eski model zinciri testleri yalnız verdikleri modelleri bekler; 2.5-flash yedeği ve
+        # aramaya özel zincir tests/test_gemini_quota.py'de denetlenir.
+        gemini_backup_model="",
+        gemini_search_models=[],
     )
 
 

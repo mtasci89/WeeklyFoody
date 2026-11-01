@@ -43,7 +43,19 @@ def research_failure(error, stage):
     if isinstance(error, GeminiCapabilityError):
         reason = str(error) + "."
     elif code == 429:
-        reason = "Gemini/Google arama kotası aşıldı (429). Dakikalık sınırsa biraz sonra, günlük sınırsa kota yenilenince denenebilir."
+        from app.agent.gemini_backend import quota_scope
+        scope = quota_scope(error)
+        model = getattr(error, "foody_model", "")
+        where = f" (son denenen: {model})" if model else ""
+        if scope == "günlük":
+            reason = (f"Denenen tüm Gemini modellerinin günlük Google arama kotası doldu{where}. "
+                      "Kota gece yenilenir; yarın tekrar dene.")
+        elif scope == "dakikalık":
+            reason = (f"Gemini'nin dakikalık sınırı doldu{where}; sunucu bekleyip yedek modelleri de denedi. "
+                      "Bir iki dakika sonra tekrar dene.")
+        else:
+            reason = (f"Gemini/Google arama kotası aşıldı (429){where}; yedek modeller de denendi. "
+                      "Birkaç dakika sonra tekrar dene; yine olursa günlük kota dolmuştur.")
     elif any(word in message for word in ("billing", "paid tier", "payment")):
         reason = f"Google araması bu API hesabında ücretlendirme/erişim gerektiriyor ({code})."
     elif code == 401 or "api key" in message or "api_key" in message:
@@ -189,8 +201,8 @@ class WebMenuResearch:
                 + MAIN_ROLE_RULE + "\nHEDEFLER:\n" + listing
                 + "\nİSTEK:\n" + request[:3000]
                 + "\nEV KURALLARI:\n" + "\n".join(rules.summary())
-                + "\nSON DÖRT HAFTA (benzerlerini araştırma):\n" + ", ".join(r.name for r in recent)[:10000]
-                + "\nKÜTÜPHANE (bunları yeniden seçme):\n" + ", ".join(known)[:16000]
+                + "\nSON DÖRT HAFTA (benzerlerini araştırma):\n" + ", ".join(r.name for r in recent)[:3000]
+                + "\nKÜTÜPHANE (bunları yeniden seçme):\n" + ", ".join(known)[:4000]
                 + "\nBU ARAŞTIRMADA SEÇİLENLER:\n" + ", ".join(row["ad"] for row in found.values())
             )
             stage = "Google araması"

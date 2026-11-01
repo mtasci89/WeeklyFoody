@@ -160,7 +160,7 @@ async def discover_daily(db, search, ask_json, count: int = 10, today: date | No
         need = count - len(saved)
         if need <= 0:
             break
-        avoid = list(dict.fromkeys([*saved, *known]))[:300]
+        avoid = list(dict.fromkeys([*saved, *known]))[:120]
         try:
             found, sources = await search(search_prompt(need, today, house, avoid))
             if not found.strip():

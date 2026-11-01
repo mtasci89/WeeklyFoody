@@ -331,3 +331,21 @@ sonra bunları görerek yanlar. Kaynak/ad/rol/ev kuralı denetimleri gevşetilme
 Kota, yetki, anahtar, ücretlendirme, model, ağ ve zaman aşımı ayrı kısa mesajlardır;
 arama ile JSON yapılandırma aşaması belirtilir, istek URL/anahtarları gösterilmez.
 Bu sunucu düzeltmesi 1.14 APK ile çalışır; APK/izin/imza değişmez.
+
+## Gemini kota hataları ve model sırası (2026-11-01, Claude)
+
+Kullanıcı 1.14'te internetten yeni yemek isterken "Google araması: ... kotası aşıldı (429)"
+aldı; Cal Track'te gemini-2.5-flash iyi çalışıyor. Kullanıcı model seçmek istemiyor
+("hangi modeli seçeceğimi bilemem"), seçim otomatik:
+
+- Sohbet zinciri: `GEMINI_MODEL` (3.8-flash) → `GEMINI_BACKUP_MODEL` (2.5-flash) →
+  `GEMINI_FALLBACK_MODELS`. Google aramalı istekler `GEMINI_SEARCH_MODELS` (2.5-flash) ile
+  başlar, sonra aynı zincir (`GeminiBackend.chain_for`). Sunucu anahtarında kapalı (404)
+  olan model 6 saat atlanır.
+- 429 dakikalık sınır ve Google ≤40 sn bekleme öneriyorsa aynı model bir kez beklenip
+  yeniden denenir; günlük sınırda beklenmez, model 3 saat atlanır (`quota_scope`,
+  `quota_wait_seconds`). Hata mesajı günlük/dakikalık ayrımını ve son denenen modeli söyler.
+- Arama istemlerindeki uzun listeler kısaltıldı (son 4 hafta 3000, kütüphane 4000 karakter;
+  günlük keşif 120 ad): tekrarları sunucu zaten süzüyor, dakikalık token sınırı korunur.
+- Cal Track'in anahtarı sunucununkinden farklı olabilir; 2.5-flash'ın sunucu anahtarıyla
+  çalıştığı canlıda doğrulanmadı (çalışmazsa zincir kendiliğinden atlar).
