@@ -14,8 +14,11 @@
   Başarısız araştırma veya hatalı kayıt onaylı menüyü taslağa döndürmez.
 - API/Android kaynak ve gerekçe görünümü eklendi; örnek sözleşmeler yenilendi.
   Android 1.14/15, aynı imza/paket/izinler. Menü seçim penceresi kaydırılabilir.
-- Kontrol: ilk tam Python koşusunda 476 test geçti. Son ek regresyonlarla 41
-  araştırma/tekli/toplu değişiklik testi geçti. Son tam koşu ve Android CI sırada.
+- Kontrol: son yerel tam koşuda 482 Python testi geçti. CI 41304912044 sunucu
+  aşaması da başarılı. Android 70 testten yeni kaynak açma testi başarısızdı:
+  Dialog kendi URI işleyicisini kullandığı için dış CompositionLocal test taklidi
+  çağrılmıyordu. Test gerçek ACTION_VIEW intentini doğrulayacak şekilde düzeltildi;
+  yeni CI, ekran görüntüsü, APK ve izin kontrolü bekleniyor.
 - Canlı bot/sunucu/veritabanı ve gerçek Gemini/Google arama çalıştırılmadı.
   Gerçek tarif arama kalitesi/kota ve telefon kurulumu henüz doğrulanmadı.
 - Sonraki adım: tam CI, kaynak ekran görüntüsü ve izin denetimi; kullanılan dala
