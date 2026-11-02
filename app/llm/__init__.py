@@ -46,7 +46,7 @@ class FallbackLLMProvider:
 
 
 def build_llm_provider(settings: Settings) -> LLMProvider:
-    if settings.llm_provider == "gemini" and settings.gemini_api_key:
+    if settings.llm_provider == "gemini" and settings.gemini_api_key and settings.google_enabled:
         return FallbackLLMProvider(GeminiLLMProvider(settings), RuleBasedLLMProvider())
     if settings.llm_provider == "openai" and settings.openai_api_key:
         return FallbackLLMProvider(OpenAILLMProvider(settings), RuleBasedLLMProvider())

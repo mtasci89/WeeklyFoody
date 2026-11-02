@@ -118,11 +118,11 @@ async def fill_for_rules(db, settings, recipes, *, library: bool = False) -> lis
 
     rules = MealRules.from_db(db)
     needed = rules.max_kcal is not None if library else (rules.show_calories or rules.max_kcal is not None)
-    if not needed or not settings.gemini_api_key:
-        return []
-    from app.agent.gemini_backend import GeminiBackend
+    from app.agent.ai import ai_available, make_backend
 
-    backend = GeminiBackend(settings)
+    if not needed or not ai_available(settings):
+        return []
+    backend = make_backend(settings)
     try:
         return await NutritionEstimator(backend.generate_json).fill_missing(db, recipes)
     finally:

@@ -285,6 +285,22 @@ def menu_json(db, session: WeeklyPlanningSession | None, settings: Settings) -> 
     }
 
 
+def _uses_groq(settings: Settings) -> bool:
+    from app.agent.ai import uses_groq
+
+    return uses_groq(settings)
+
+
+def _model_name(settings: Settings) -> str:
+    from app.agent.ai import uses_groq
+
+    if settings.agent_provider == "anthropic":
+        return settings.anthropic_model
+    if uses_groq(settings):
+        return (settings.groq_models or ["groq"])[0]
+    return settings.gemini_model
+
+
 def create_api_app(
     settings: Settings,
     session_factory: Callable = SessionLocal,
@@ -320,7 +336,9 @@ def create_api_app(
 
     def json_asker():
         """Modelden yapılandırılmış cevap isteyen fonksiyon (Gemini yoksa None)."""
-        if settings.agent_provider != "gemini" or not settings.gemini_api_key:
+        from app.agent.ai import ai_available
+
+        if not ai_available(settings):
             return None
         try:
             estimator = get_agent().estimator()
@@ -454,8 +472,8 @@ def create_api_app(
             "aciklama": version["aciklama"],
             "guncelleniyor": update_running(),
             "ajan": MealPlannerAgent.available(settings),
-            "saglayici": settings.agent_provider,
-            "model": settings.gemini_model if settings.agent_provider == "gemini" else settings.anthropic_model,
+            "saglayici": "anthropic" if settings.agent_provider == "anthropic" else ("groq" if _uses_groq(settings) else "gemini"),
+            "model": _model_name(settings),
             "kisi": settings.default_servings,
         }
 
@@ -508,7 +526,9 @@ def create_api_app(
         from app.agent.tools import MealAgentToolset
 
         estimator = None
-        if settings.agent_provider == "gemini" and settings.gemini_api_key and state["agent"] is not None:
+        from app.agent.ai import ai_available
+
+        if ai_available(settings) and state["agent"] is not None:
             estimator = state["agent"].estimator()
         toolset = MealAgentToolset(settings, session_factory, estimator=estimator)
         tool = next(t for t in toolset.build() if t.name == name)

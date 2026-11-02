@@ -173,10 +173,10 @@ class WebMenuResearch:
             raise MenuResearchError("Sunucuda web araması kapalı; menü değiştirilmedi.")
         if self.search is not None and self.ask is not None:
             return
-        if not self.settings.gemini_api_key or not self.settings.agent_web_search_enabled:
-            raise MenuResearchError("İnternetten menü araştırması kullanılamıyor. Gemini anahtarı ve web araması gerekli; eski tariflerle menü doldurulmadı.")
-        from app.agent.gemini_backend import GeminiBackend
-        backend = GeminiBackend(self.settings)
+        from app.agent.ai import ai_available, make_backend
+        if not ai_available(self.settings) or not self.settings.agent_web_search_enabled:
+            raise MenuResearchError("İnternetten menü araştırması kullanılamıyor. Yapay zekâ anahtarı (Groq) ve web araması gerekli; eski tariflerle menü doldurulmadı.")
+        backend = make_backend(self.settings)
         self.search, self.ask = backend.search_text, backend.generate_json
 
     async def find(self, targets, known, recent, rules, request="") -> dict[tuple, dict]:

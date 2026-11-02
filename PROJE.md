@@ -368,3 +368,22 @@ dosyaları bir kez uygular; uygulananlar `data/ice_aktarilanlar.json`. Dosya: ta
 (malzeme, hazırlanış, tahmini kcal/protein, `approved`), günler/slotlar, haftalık mezeler,
 `bos_gunler`, `onayla`. Kullanıcının seçtiği menü olduğu için ev kuralı uyarısı onayı
 durdurmaz (günlüğe `seed_rule_warning`). Geçmiş haftaya ait dosya yeni kurulumda uygulanmaz.
+
+## Groq + Tavily, Google kapalı (2026-11-02, Claude)
+
+Kullanıcı: "Google API'lerini tamamen sil, istemiyorum; yalnız Groq ve Tavily." `GOOGLE_ENABLED`
+varsayılan false: Gemini'ye hiçbir istek gitmez (anahtar .env'de kalsa bile). Tek seçici
+`app/agent/ai.py` (`make_backend`, `ai_available`). `app/agent/groq_backend.py` GeminiBackend ile aynı
+yüzeyi sunar (run_turn, generate_json, search_text, web_search, ping, check_models, check_search).
+- Ücretsiz Groq'un dakikalık token sınırı küçük (~6-12 bin/model): tam sistem istemi (~16 bin
+  karakter + 15 bin karakter araç tanımı) sığmıyordu. Groq'a `GROQ_SYSTEM_PROMPT` (~2,5 bin) gider,
+  araç açıklamalarının ilk paragrafı, eski araç sonuçları kısaltılır, geçmiş son 8 mesaj.
+- `GROQ_MODELS` sırayla; 429'da model Groq'un `retry-after` süresi kadar atlanır, sıradakine
+  geçilir; hepsi doluysa ≤65 sn beklenir. 413 (tek istek o modele büyük) → sıradaki model.
+  404/kapatılmış model 6 saat atlanır. Fotoğraflı mesaj `GROQ_VISION_MODEL`.
+- Arama `app/agent/tavily.py`: uzun araştırma isteminden kısa sorgu üretir (rol başına bir sorgu,
+  en fazla 3); 3 ana yemek = 1 sorgu. Bulunamayanlar için ikinci deneme yalnız eksik hedeflerle.
+  Tavily kredisi biterse (432/433) kota sayılır, araştırma aramasız sürer.
+- Gemini kodu duruyor ama kapalı; Groq canlıda doğrulanınca tamamen silinebilir. Testler
+  (conftest) eski Gemini sahte istemcisini kullanır; Groq testleri tests/test_groq_backend.py.
+- Kontrol: `python -m app.cli check-agent` (Groq modelleri), `check-search` (Tavily).

@@ -34,6 +34,10 @@ def settings(tmp_path: Path) -> Settings:
         # aramaya özel zincir tests/test_gemini_quota.py'de denetlenir.
         gemini_backup_model="",
         gemini_search_models=[],
+        # Eski ajan testleri Gemini sahte istemcisiyle yazıldı; üretimde varsayılan Groq
+        # (tests/test_groq_backend.py). Testler gerçek ağa çıkmasın.
+        agent_provider="gemini",
+        google_enabled=True,
     )
 
 

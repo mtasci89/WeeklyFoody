@@ -107,13 +107,16 @@ def main() -> None:
 
 async def _check_search(settings) -> int:
     """Internetten tarif aramasi (Google aramasi) hangi anahtar/modelle calisiyor."""
-    from app.agent.gemini_backend import GeminiBackend
+    from app.agent.ai import ai_available, make_backend, uses_groq
 
-    if not settings.gemini_api_key:
-        print("SONUC     : KAPALI - .env icinde GEMINI_API_KEY yok")
+    if not ai_available(settings):
+        print("SONUC     : KAPALI - .env icinde GROQ_API_KEY yok")
         return 1
-    backend = GeminiBackend(settings)
-    print("Ayri arama anahtari: " + ("VAR (GEMINI_SEARCH_API_KEY)" if backend.search_client else "yok"))
+    backend = make_backend(settings)
+    if uses_groq(settings):
+        print("Arama     : Tavily " + ("(TAVILY_API_KEY var)" if settings.tavily_api_key else "- TAVILY_API_KEY YOK"))
+    else:
+        print("Ayri arama anahtari: " + ("VAR (GEMINI_SEARCH_API_KEY)" if backend.search_client else "yok"))
     try:
         results = await backend.check_search()
     finally:
@@ -134,12 +137,15 @@ async def _check_agent(settings) -> int:
 
     print(f"Saglayici : {settings.agent_provider}")
     if not MealPlannerAgent.available(settings):
-        key = "GEMINI_API_KEY" if settings.agent_provider == "gemini" else "ANTHROPIC_API_KEY"
+        from app.agent.ai import uses_groq
+
+        key = ("ANTHROPIC_API_KEY" if settings.agent_provider == "anthropic"
+               else "GROQ_API_KEY" if uses_groq(settings) else "GEMINI_API_KEY")
         print(f"SONUC     : KAPALI - .env icinde {key} yok ya da AGENT_ENABLED=false")
         return 1
     agent = MealPlannerAgent(settings, SessionLocal)
     try:
-        if agent.provider == "gemini":
+        if agent.provider in ("gemini", "groq"):
             # Zincirdeki her modeli tek tek dene: hangisi mesgul, hangisi
             # kapatilmis, hangisi calisiyor - tahmin etmeden gor.
             results = await agent.gemini.check_models()

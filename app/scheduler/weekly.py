@@ -100,8 +100,10 @@ async def run_daily_discovery(settings: Settings, session_factory=SessionLocal, 
 
     agent = None
     if backend is None:
-        if settings.agent_provider != "gemini" or not MealPlannerAgent.available(settings):
-            logger.info("daily_recipe_discovery_skipped reason=no_gemini")
+        from app.agent.ai import ai_available
+
+        if not ai_available(settings) or not MealPlannerAgent.available(settings):
+            logger.info("daily_recipe_discovery_skipped reason=no_ai")
             return []
         agent = MealPlannerAgent(settings, session_factory)
         backend = agent.gemini
@@ -167,12 +169,12 @@ async def weekly_plan_job(**_legacy: object) -> None:
 
 async def _fill_empty_recipes(db, settings: Settings, recipes) -> None:
     """Malzemesi kaydedilmemiş tarifleri tamamlar (alışveriş listesi boş kalmasın)."""
-    if not settings.gemini_api_key:
-        return
-    from app.agent.gemini_backend import GeminiBackend
+    from app.agent.ai import ai_available, make_backend
     from app.agent.recipe_fill import fill_recipes
 
-    backend = GeminiBackend(settings)
+    if not ai_available(settings):
+        return
+    backend = make_backend(settings)
     try:
         await fill_recipes(db, backend.generate_json, recipes)
     except Exception:

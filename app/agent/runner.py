@@ -30,7 +30,14 @@ def explain_failure(error: Exception) -> str:
     neyi duzeltecegini bilemiyordu.
     """
     from app.agent.gemini_backend import explain_gemini_failure
+    from app.agent.groq_backend import GroqError
 
+    if isinstance(error, GroqError):
+        if error.code == 429:
+            return "Groq'un ücretsiz dakikalık/günlük sınırı doldu (tüm modeller). Bir iki dakika sonra tekrar dener misin?"
+        if error.code == 401:
+            return "Groq API anahtarı kabul edilmedi; sunucudaki GROQ_API_KEY kontrol edilmeli."
+        return f"Groq isteği başarısız oldu ({error.code}). Birazdan tekrar dener misin?"
     gemini = explain_gemini_failure(error)
     if gemini is not None:
         return gemini
@@ -109,10 +116,12 @@ class MealPlannerAgent:
         self.notifier = notifier
         self.provider = settings.agent_provider
         self.store = store or ConversationStore(max_turns=settings.agent_history_turns)
-        if self.provider == "gemini":
-            from app.agent.gemini_backend import GeminiBackend
+        if self.provider in ("gemini", "groq"):
+            from app.agent.ai import make_backend, uses_groq
 
-            self.gemini = GeminiBackend(settings, client=client)
+            # Groq varsayılan; Gemini yalnızca GOOGLE_ENABLED=true ise (kullanıcı Google istemiyor).
+            self.provider = "groq" if uses_groq(settings) else "gemini"
+            self.gemini = make_backend(settings, client=client)
             self.client = self.gemini.client
         elif client is not None:
             self.client = client
@@ -123,7 +132,7 @@ class MealPlannerAgent:
 
     def estimator(self):
         """Eksik kalori/protein degerlerini tahmin eden yardimci (yalnizca Gemini)."""
-        if self.provider != "gemini":
+        if self.provider not in ("gemini", "groq"):
             return None
         from app.agent.nutrition import NutritionEstimator
 
@@ -133,12 +142,16 @@ class MealPlannerAgent:
     def available(cls, settings: Settings) -> bool:
         if not settings.agent_enabled:
             return False
-        if settings.agent_provider == "gemini":
-            return bool(settings.gemini_api_key)
-        return bool(settings.anthropic_api_key)
+        if settings.agent_provider == "anthropic":
+            return bool(settings.anthropic_api_key)
+        from app.agent.ai import ai_available
+
+        return ai_available(settings)
 
     @property
     def model(self) -> str:
+        if self.provider == "groq":
+            return (self.settings.groq_models or ["groq"])[0]
         return self.settings.gemini_model if self.provider == "gemini" else self.settings.anthropic_model
 
     def _context(self, toolset: MealAgentToolset) -> str:
@@ -157,7 +170,7 @@ class MealPlannerAgent:
 
     async def ping(self) -> str:
         """Saglayiciya tek, kucuk bir istek atar. Kurulumu dogrulamak icin."""
-        if self.provider == "gemini":
+        if self.provider in ("gemini", "groq"):
             return await self.gemini.ping()
         response = await self.client.messages.create(
             model=self.settings.anthropic_model,
@@ -242,7 +255,7 @@ class MealPlannerAgent:
         self, chat_id: int, message: str, toolset: MealAgentToolset, images: list[Gorsel]
     ) -> AgentReply:
         history = self.store.history(chat_id)
-        if self.provider == "gemini":
+        if self.provider in ("gemini", "groq"):
             return await self._reply_gemini(chat_id, message, toolset, history, images)
         content: str | list = message
         if images:
@@ -308,7 +321,13 @@ class MealPlannerAgent:
     ) -> AgentReply:
         from app.agent.prompts import for_provider
 
-        system_text = for_provider(SYSTEM_PROMPT, "gemini") + "\n\n" + self._context(toolset)
+        if self.provider == "groq":
+            from app.agent.prompts import GROQ_SYSTEM_PROMPT
+
+            # Groq'un dakikalık token sınırı küçük: kısa istem.
+            system_text = GROQ_SYSTEM_PROMPT + "\n\n" + self._context(toolset)
+        else:
+            system_text = for_provider(SYSTEM_PROMPT, "gemini") + "\n\n" + self._context(toolset)
         try:
             text, problem = await self.gemini.run_turn(
                 system_text, toolset.build(), history, message, toolset.calls,

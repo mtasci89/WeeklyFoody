@@ -1,5 +1,16 @@
 # WeeklyFoody — devir notu
 
+## 2026-11-02 — Claude: Groq + Tavily, Google kapalı (canlıda henüz anahtar yok)
+
+- Kullanıcı Google'ı tamamen istemiyor; Cal Track kotası da kullanılmayacak. Ayrıntı PROJE.md
+  "Groq + Tavily, Google kapalı". Yeni: app/agent/{ai,groq_backend,tavily}.py, GROQ_SYSTEM_PROMPT;
+  değişen: runner, research, nutrition, scheduler/weekly, api, cli, llm/__init__, recipes/discovery,
+  config, .env.example, tests/conftest.py (eski testler Gemini sahtesiyle), yeni tests/test_groq_backend.py (9).
+- Kontrol: 523 test geçti. Groq/Tavily'ye gerçek istek atılmadı; model adları (GROQ_MODELS) canlıda
+  check-agent ile doğrulanmalı.
+- Sıradaki: kullanıcı GROQ_API_KEY ve TAVILY_API_KEY'i sunucu .env'ine gizli ekler, Gemini
+  anahtarlarını siler, sunucuyu günceller, check-agent + check-search çıktısını yollar.
+
 ## 2026-11-02 — Claude: kurallara uygun menü + sohbette Cal Track 2.5-flash
 
 - `check-search` (kullanıcı çalıştırdı): arama yalnız GEMINI_SEARCH_API_KEY (Cal Track anahtarı)

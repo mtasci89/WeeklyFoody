@@ -58,6 +58,6 @@ class GeminiRecipeDiscoveryProvider:
 
 
 def build_recipe_discovery_provider(settings: Settings) -> RecipeDiscoveryProvider:
-    if settings.gemini_api_key:
+    if settings.gemini_api_key and settings.google_enabled:
         return GeminiRecipeDiscoveryProvider(settings)
     return NullRecipeDiscoveryProvider()

@@ -53,7 +53,20 @@ class Settings(BaseSettings):
     # "gemini" ucretsiz katmanla calisir (GEMINI_API_KEY + GEMINI_MODEL);
     # "anthropic" ANTHROPIC_API_KEY + ANTHROPIC_MODEL kullanir.
     agent_enabled: bool = True
-    agent_provider: Literal["gemini", "anthropic"] = "gemini"
+    agent_provider: Literal["groq", "gemini", "anthropic"] = "groq"
+    # Kullanıcı: "Google API'lerini tamamen sil, istemiyorum." Kapalıyken Gemini'ye hiçbir
+    # istek gitmez (anahtar .env'de kalsa bile); yapay zekâ Groq, arama Tavily.
+    google_enabled: bool = False
+    groq_api_key: str = ""
+    # Sırayla denenir; her modelin dakikalık/günlük sınırı ayrı. Kapatılan model (404) atlanır.
+    groq_models: Annotated[list[str], NoDecode] = Field(default_factory=lambda: [
+        "openai/gpt-oss-120b", "moonshotai/kimi-k2-instruct-0905", "llama-3.3-70b-versatile",
+        "qwen/qwen3-32b", "openai/gpt-oss-20b",
+    ])
+    # Fotoğraflı mesajlar için görüntü anlayan model.
+    groq_vision_model: str = "meta-llama/llama-4-scout-17b-16e-instruct"
+    # İnternet araması (ücretsiz ~1.000 arama/ay).
+    tavily_api_key: str = ""
     anthropic_api_key: str = ""
     anthropic_model: str = "claude-opus-5-5"
     agent_effort: Literal["low", "medium", "high", "xhigh", "max"] = "medium"
@@ -148,7 +161,7 @@ class Settings(BaseSettings):
             return [int(v) for v in value]
         return [int(part.strip()) for part in value.split(",") if part.strip()]
 
-    @field_validator("gemini_fallback_models", "gemini_search_models", mode="before")
+    @field_validator("gemini_fallback_models", "gemini_search_models", "groq_models", mode="before")
     @classmethod
     def parse_fallback_models(cls, value: str | list[str] | None) -> list[str]:
         if value is None:
