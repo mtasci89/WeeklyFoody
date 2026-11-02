@@ -154,10 +154,10 @@ class MealPlannerAgent:
             return (self.settings.groq_models or ["groq"])[0]
         return self.settings.gemini_model if self.provider == "gemini" else self.settings.anthropic_model
 
-    def _context(self, toolset: MealAgentToolset) -> str:
+    def _context(self, toolset: MealAgentToolset, short: bool = False) -> str:
         hard, soft, pantry = toolset.ambient_context()
         today = datetime.now(ZoneInfo(self.settings.timezone)).date()
-        return context_block(today, toolset.plan_summary(), hard, soft, pantry, channel=toolset.channel)
+        return context_block(today, toolset.plan_summary(short=short), hard, soft, pantry, channel=toolset.channel)
 
     async def aclose(self) -> None:
         """Istemcinin ag oturumunu kapatir (kisa omurlu kullanim icin: CLI)."""
@@ -325,7 +325,7 @@ class MealPlannerAgent:
             from app.agent.prompts import GROQ_SYSTEM_PROMPT
 
             # Groq'un dakikalık token sınırı küçük: kısa istem.
-            system_text = GROQ_SYSTEM_PROMPT + "\n\n" + self._context(toolset)
+            system_text = GROQ_SYSTEM_PROMPT + "\n\n" + self._context(toolset, short=True)
         else:
             system_text = for_provider(SYSTEM_PROMPT, "gemini") + "\n\n" + self._context(toolset)
         try:

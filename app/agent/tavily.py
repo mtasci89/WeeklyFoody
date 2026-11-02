@@ -16,7 +16,9 @@ import httpx
 logger = logging.getLogger(__name__)
 
 URL = "https://api.tavily.com/search"
-PAGE_CHARS = 2500
+PAGE_CHARS = 1800
+# Tüm sayfaların toplamı: yapılandırma isteği Groq'un dakikalık sınırına sığsın.
+TOTAL_CHARS = 7000
 ROLE_TEXT = {"main": "ana yemek", "side": "yan yemek", "soup": "çorba", "salad": "salata", "meze": "meze"}
 
 
@@ -64,9 +66,10 @@ class TavilySearch:
             raise TavilyError(f"Tavily araması reddedildi ({response.status_code})", response.status_code)
         return list(response.json().get("results") or [])
 
-    async def search(self, queries: list[str], max_results: int = 4) -> tuple[str, list[str]]:
-        """Sorguları çalıştırır; tekrar eden sayfaları birleştirir."""
+    async def search(self, queries: list[str], max_results: int = 3) -> tuple[str, list[str]]:
+        """Sorguları çalıştırır; tekrar eden sayfaları birleştirir, toplam metni sınırlar."""
         pages, sources, seen = [], [], set()
+        used = 0
         for query in queries:
             for row in await self.query(query, max_results=max_results):
                 url = str(row.get("url") or "")
@@ -75,7 +78,11 @@ class TavilySearch:
                 seen.add(url)
                 title = str(row.get("title") or "kaynak").strip()
                 body = str(row.get("raw_content") or row.get("content") or "").strip()
-                pages.append(f"### {title}\n{url}\n{body[:PAGE_CHARS]}")
+                room = min(PAGE_CHARS, TOTAL_CHARS - used)
+                if room < 300:
+                    break
+                pages.append(f"### {title}\n{url}\n{body[:room]}")
+                used += min(len(body), room)
                 sources.append(f"{title}: {url}")
         logger.info("tavily_search queries=%s pages=%s", len(queries), len(pages))
         return "\n\n".join(pages), sources

@@ -90,6 +90,22 @@ def render_plan(session: WeeklyPlanningSession | None) -> str:
 from app.recipes.ingredient_lines import UNITS, parse_ingredient
 
 
+def compact_plan(session: WeeklyPlanningSession | None) -> str:
+    """Kısa plan özeti (Groq'un token sınırı için): gün başına yemek adları ve slotları."""
+    if session is None or not session.meal_plan or not session.meal_plan.items:
+        return render_plan(session)
+    lines = [f"Hafta {session.week_start} ({session.state.value}); ayrıntı için plani_getir."]
+    by_day: dict = {}
+    weekly = []
+    for item in sorted(session.meal_plan.items, key=lambda i: (i.date, i.meal_slot)):
+        (weekly if is_weekly_slot(item.meal_slot) else by_day.setdefault(item.date, [])).append(item)
+    for day, items in by_day.items():
+        lines.append(f"{day.isoformat()} {TR_DAY_NAMES[day.weekday()]}: " + "; ".join(f"{i.meal_slot}={i.recipe.name}" for i in items))
+    if weekly:
+        lines.append("HAFTA mezeleri: " + "; ".join(f"{i.meal_slot}={i.recipe.name}" for i in weekly))
+    return "\n".join(lines)
+
+
 KNOWN_ROLES = {"main", "meze", "salad", "side", "soup"}
 
 
@@ -337,9 +353,10 @@ class MealAgentToolset:
             self.reopen_note = self._reopen(session)
         return session, None
 
-    def plan_summary(self) -> str:
+    def plan_summary(self, short: bool = False) -> str:
         with self.session_factory() as db:
-            return render_plan(self._resolve_session(db, "aktif"))
+            session = self._resolve_session(db, "aktif")
+            return compact_plan(session) if short else render_plan(session)
 
     def ambient_context(self) -> tuple[list[str], list[str], list[str]]:
         with self.session_factory() as db:

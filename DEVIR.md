@@ -1,5 +1,16 @@
 # WeeklyFoody — devir notu
 
+## 2026-11-02 — Claude: Groq 413 (istek dakikalık sınırdan büyük) düzeltmesi
+
+- Kullanıcı sohbette "Groq isteği başarısız oldu (413)" aldı. Neden: Groq dakikalık sınırı (gpt-oss 8K)
+  girdi + istenen cevap uzunluğuyla denetliyor; girdi ~6K + max_completion 4096 > 8K.
+- Yapılan (app/agent/groq_backend.py): cevap alanı kalan bütçeye göre (TPM_BUDGET 7600), gpt-oss'ta
+  reasoning_effort=low, araç şemaları sıkıştırıldı (compact_schema), mesaja göre araç seçimi
+  (pick_tools: çekirdek + anahtar kelimeyle ek), geçmiş 4×600, araç sonucu 2000/eski 300, 413'te
+  geçmişsiz yeniden deneme. Groq bağlamında kısa plan özeti (tools.compact_plan). Tavily toplam
+  metin 7000 karakter; araştırma yapılandırmasında hedef başına en fazla 2 tarif. İlk istek ~3,8K token.
+- Testler +4 (tests/test_groq_backend.py). Canlıda doğrulanmadı; kullanıcı sunucuyu güncelleyip dener.
+
 ## 2026-11-02 — Claude: Groq canlıda çalışıyor
 
 - Kullanıcı GROQ_API_KEY + TAVILY_API_KEY ekledi, Gemini anahtarlarını sildi (.env yedeği sunucuda

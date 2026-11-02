@@ -267,6 +267,7 @@ class WebMenuResearch:
                     stage = "Tarif yanıtını hazırlama"
                     raw = await self.ask(
                     "Yalnız aşağıdaki arama sonucundaki tarifleri yapılandır. 'icin' hedef numarasıdır. "
+                    "Her hedef için en fazla 2 tarif yaz; hazırlanış en fazla 5 kısa adım olsun. "
                     "Adı arama metnindeki Türkçe adıyla birebir koru. 'kaynak' yalnız KAYNAKLAR listesindeki "
                     "ilgili tam HTTPS bağlantısı olsun. Okunmayan tarif/malzeme/adım uydurma. 'neden' bu "
                     "yemeğin günün tabağına ve haftanın çeşitliliğine nasıl uyduğunu anlatsın. Miktarları aynen koru. "

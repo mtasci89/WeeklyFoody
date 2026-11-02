@@ -192,3 +192,42 @@ async def test_photos_without_a_vision_model_are_explained_not_failed(settings):
     assert problem is None and "okuyamıyorum" in text
     sent = fake.bodies[0]["messages"][-1]["content"]
     assert isinstance(sent, str) and "fotoğraf" in sent and fake.bodies[0]["model"] == "model-a"
+
+
+def test_requests_fit_the_per_minute_token_budget(settings):
+    from app.agent.groq_backend import TPM_BUDGET, compact_schema, estimate_tokens, pick_tools, short_description
+    from app.agent.prompts import GROQ_SYSTEM_PROMPT
+    from app.agent.tools import MealAgentToolset
+
+    tools = MealAgentToolset(settings, lambda: None).build()
+    chosen = pick_tools(tools, "Çarşamba yemeğini değiştir", [])
+    names = {t.name for t in chosen}
+    assert "yenisiyle_degistir" in names and "alisveris_listesi" not in names and "kiler" not in names
+    assert "alisveris_listesi" in {t.name for t in pick_tools(tools, "alışveriş listesini göster", [])}
+    specs = [{"type": "function", "function": {"name": t.name, "description": short_description(t.description),
+                                               "parameters": compact_schema(t.input_schema)}} for t in chosen]
+    assert all("title" not in json.dumps(s["function"]["parameters"]) for s in specs)
+    body = {"messages": [{"role": "system", "content": GROQ_SYSTEM_PROMPT + "x" * 1500}], "tools": specs}
+    assert estimate_tokens(body) < TPM_BUDGET / 2  # cevaba yer kalsın
+
+
+@pytest.mark.asyncio
+async def test_completion_room_is_capped_and_gpt_oss_thinks_briefly(settings):
+    sdk, fake = backend(settings, [{"role": "assistant", "content": "tamam"}])
+    sdk.settings = sdk.settings.model_copy(update={"groq_models": ["openai/gpt-oss-120b"]})
+    await sdk._chat([{"role": "user", "content": "x" * 15000}])
+    body = fake.bodies[0]
+    assert body["max_completion_tokens"] <= 7600 - 5000 and body["reasoning_effort"] == "low"
+
+
+@pytest.mark.asyncio
+async def test_a_too_large_request_is_shrunk_and_retried(settings):
+    too_large = httpx.Response(413, json={"error": {"message": "Request too large for model", "code": "rate_limit_exceeded"}})
+    sdk, fake = backend(settings, [too_large, too_large, {"role": "assistant", "content": "oldu"}])
+    history = [{"role": "user", "content": "eski " * 100}, {"role": "assistant", "content": "cevap " * 100}]
+
+    text, problem = await sdk.run_turn("sistem", [], history, "yeni mesaj", [])
+
+    assert text == "oldu"
+    last = fake.bodies[-1]["messages"]
+    assert [m["role"] for m in last] == ["system", "user"] and last[-1]["content"] == "yeni mesaj"

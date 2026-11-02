@@ -31,11 +31,33 @@ GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
 WEB_TOOL_NAME = "web_ara"
 # Tüm modeller doluyken en fazla bu kadar beklenir (saniye); daha uzunsa hata verilir.
 MAX_POOL_WAIT = 65
-TOOL_RESULT_CHARS = 3500
-OLD_TOOL_RESULT_CHARS = 500
-HISTORY_TURNS = 8
-HISTORY_CHARS = 1200
-TOOL_DESCRIPTION_CHARS = 420
+TOOL_RESULT_CHARS = 2000
+OLD_TOOL_RESULT_CHARS = 300
+HISTORY_TURNS = 4
+HISTORY_CHARS = 600
+TOOL_DESCRIPTION_CHARS = 160
+PARAM_DESCRIPTION_CHARS = 60
+# Ücretsiz katmanda en küçük dakikalık sınır (gpt-oss: 8.000). Groq bu sınırı gönderilen metin
+# + istenen en fazla cevap uzunluğuyla birlikte denetler (413).
+TPM_BUDGET = 7600
+# Her zaman gönderilen araçlar; diğerleri yalnızca mesaj ilgiliyse (token tasarrufu).
+CORE_TOOLS = {
+    "plani_getir", "ogun_degistir", "ogun_ekle", "ogun_cikar", "yenisiyle_degistir", "tarif_ara",
+    "tarif_ekle", "plan_hazirla", "plan_kaydet", "kural_ekle",
+}
+OPTIONAL_TOOLS = {
+    "menuyu_onayla": ("onay",),
+    "tarif_onayla": ("beğen", "begen", "onay", "listeye", "kalıcı", "güzel"),
+    "alisveris_listesi": ("alışveriş", "alisveris", "liste", "market"),
+    "gecmis_getir": ("geçen", "gecen", "geçmiş", "gecmis", "önceki", "son hafta"),
+    "kurallari_goster": ("kural",),
+    "kural_sil": ("kural", "kaldır", "sil"),
+    "besin_degeri_kaydet": ("kalori", "kcal", "protein", "besin"),
+    "tarif_detay": ("tarif", "malzeme", "nasıl yapılır", "detay"),
+    "aday_tarifler": ("aday", "yeni tarifler", "öneriler"),
+    "tarif_cikar": ("tarifi çıkar", "tarifi sil", "listeden çıkar"),
+    "kiler": ("kiler", "evde var", "evde bulunan"),
+}
 
 
 class GroqError(RuntimeError):
@@ -65,6 +87,39 @@ def short_description(text: str) -> str:
     first = (text or "").strip().split("\n\n")[0]
     first = " ".join(first.split())
     return first[:TOOL_DESCRIPTION_CHARS]
+
+
+def compact_schema(schema, limit: int = PARAM_DESCRIPTION_CHARS):
+    """Parametre şemasını küçültür: başlık/varsayılan atılır, açıklamalar kısalır."""
+    if isinstance(schema, dict):
+        out = {}
+        for key, value in schema.items():
+            if key in ("title", "default", "additionalProperties", "$schema"):
+                continue
+            if key == "description" and isinstance(value, str):
+                out[key] = " ".join(value.split())[:limit]
+            else:
+                out[key] = compact_schema(value, limit)
+        return out
+    if isinstance(schema, list):
+        return [compact_schema(item, limit) for item in schema]
+    return schema
+
+
+def pick_tools(tools: list, message: str, history: list[dict]) -> list:
+    """Bu mesaj için gönderilecek araçlar: çekirdek + ilgili olanlar."""
+    text = " ".join([message, *(str(t.get("content", "")) for t in history[-2:])]).casefold()
+    chosen = []
+    for tool in tools:
+        words = OPTIONAL_TOOLS.get(tool.name)
+        if tool.name in CORE_TOOLS or words is None or any(w in text for w in words):
+            chosen.append(tool)
+    return chosen
+
+
+def estimate_tokens(payload) -> int:
+    """Kaba token tahmini (Türkçe + JSON ≈ 3 karakter/token)."""
+    return len(json.dumps(payload, ensure_ascii=False)) // 3
 
 
 def strip_thinking(text: str) -> str:
@@ -123,20 +178,25 @@ class GroqBackend:
     async def _chat(self, messages: list[dict], *, tools: list | None = None, json_mode: bool = False,
                     vision: bool = False, max_tokens: int | None = None) -> tuple[dict, str]:
         chain = [self.settings.groq_vision_model] if vision else self.models
-        body: dict = {"messages": messages, "temperature": 0.6,
-                      "max_completion_tokens": max_tokens or min(self.settings.agent_max_tokens, 4096)}
+        body: dict = {"messages": messages, "temperature": 0.6}
         if tools:
             body["tools"] = tools
             body["tool_choice"] = "auto"
         if json_mode:
             body["response_format"] = {"type": "json_object"}
+        # Cevap alanı, dakikalık sınıra sığacak kadar (413'ü önlemek için).
+        room = TPM_BUDGET - estimate_tokens(body)
+        body["max_completion_tokens"] = max(400, min(max_tokens or 2048, room))
         last: Exception | None = None
         for _ in range(4):  # havuz turu: hepsi doluysa bekle, tekrar dene
             for model in chain:
                 if self._cooldown_until.get(model, 0) > time.monotonic():
                     continue
+                request = dict(body)
+                if model.startswith("openai/gpt-oss"):
+                    request["reasoning_effort"] = "low"  # düşünme payı da token sınırına sayılıyor
                 try:
-                    data = await self._post(model, body)
+                    data = await self._post(model, request)
                 except GroqError as error:
                     last = error
                     if error.code == 429:
@@ -219,7 +279,8 @@ class GroqBackend:
                        calls_log: list[str], images: list[tuple[str, bytes]] | None = None) -> tuple[str, str | None]:
         by_name = {tool.name: tool for tool in tools}
         specs = [{"type": "function", "function": {"name": t.name, "description": short_description(t.description),
-                                                   "parameters": t.input_schema}} for t in tools]
+                                                   "parameters": compact_schema(t.input_schema)}}
+                 for t in pick_tools(tools, message, history)]
         if self.settings.agent_web_search_enabled and self.tavily is not None:
             specs.append(WEB_SPEC)
         vision = bool(images) and bool(self.settings.groq_vision_model)
@@ -241,7 +302,17 @@ class GroqBackend:
         searches = nudges = 0
         for step in range(1, max(1, self.settings.agent_max_iterations) + 1):
             self._shrink_old_tool_results(messages)
-            reply, model = await self._chat(messages, tools=specs, vision=vision)
+            try:
+                reply, model = await self._chat(messages, tools=specs, vision=vision)
+            except GroqError as error:
+                if error.code != 413:
+                    raise
+                # Hâlâ büyük: önceki sohbeti at, tüm araç sonuçlarını kısalt, bir kez daha dene.
+                logger.warning("groq_request_too_large_retry step=%s", step)
+                first_user = next(i for i, m in enumerate(messages) if m.get("content") is user_content)
+                messages = [messages[0], *messages[first_user:]]
+                self._shrink_old_tool_results(messages, keep=0)
+                reply, model = await self._chat(messages, tools=specs, vision=vision)
             logger.info("agent_model_request step=%s model=%s", step, model)
             calls = reply.get("tool_calls") or []
             content = strip_thinking(str(reply.get("content") or ""))
@@ -289,10 +360,10 @@ class GroqBackend:
         return text, (None if text else "adim_siniri")
 
     @staticmethod
-    def _shrink_old_tool_results(messages: list[dict]) -> None:
-        """Son iki araç sonucu dışındakileri kısaltır: her adımda tüm geçmiş yeniden gönderiliyor."""
+    def _shrink_old_tool_results(messages: list[dict], keep: int = 2) -> None:
+        """Son araç sonuçları dışındakileri kısaltır: her adımda tüm geçmiş yeniden gönderiliyor."""
         tool_indexes = [i for i, m in enumerate(messages) if m.get("role") == "tool"]
-        for index in tool_indexes[:-2]:
+        for index in (tool_indexes[:-keep] if keep else tool_indexes):
             content = messages[index]["content"]
             if len(content) > OLD_TOOL_RESULT_CHARS:
                 messages[index]["content"] = content[:OLD_TOOL_RESULT_CHARS] + " …(kısaltıldı)"
