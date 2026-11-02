@@ -1,0 +1,392 @@
+{
+ "id": "menu-2026-11-02-kurallar",
+ "aciklama": "Kullanıcının sohbette Claude ile birlikte seçtiği 2–6 Kasım menüsü (Google araması kotadayken).",
+ "hafta_baslangic": "2026-11-02",
+ "onayla": true,
+ "yalniz_tarifler": true,
+ "gunler": {
+  "2026-11-02": [
+   {
+    "slot": "dinner_main",
+    "tarif": "Ballı-Soyalı Susamlı Fırın Tavuk"
+   },
+   {
+    "slot": "dinner_side",
+    "tarif": "Sebzeli Wok Noodle"
+   },
+   {
+    "slot": "dinner_salad",
+    "tarif": "Çabuk Salatalık Turşusu"
+   }
+  ],
+  "2026-11-03": [
+   {
+    "slot": "dinner_main",
+    "tarif": "Fas Usulü Köfte Tajin"
+   },
+   {
+    "slot": "dinner_side",
+    "tarif": "Kuskus"
+   }
+  ],
+  "2026-11-04": [
+   {
+    "slot": "dinner_main",
+    "tarif": "Çıtır Mezgit, Tartar Soslu"
+   },
+   {
+    "slot": "dinner_side",
+    "tarif": "Naneli Bezelye Püresi"
+   }
+  ],
+  "2026-11-05": [
+   {
+    "slot": "dinner_main",
+    "tarif": "Hindi Piccata"
+   },
+   {
+    "slot": "dinner_side",
+    "tarif": "Parmesanlı Fırın Brokoli"
+   }
+  ],
+  "2026-11-06": [
+   {
+    "slot": "dinner_main",
+    "tarif": "Dana Fajita Dürüm"
+   },
+   {
+    "slot": "dinner_salad",
+    "tarif": "Meksika Usulü Mısır Salatası (Esquites)"
+   }
+  ]
+ },
+ "mezeler": [
+  "Muhammara",
+  "Yeşil Elmalı Semizotu",
+  "Havuç Tarator",
+  "Kuru Cacık",
+  "Girit Ezme"
+ ],
+ "tarifler": [
+  {
+   "ad": "Ballı-Soyalı Susamlı Fırın Tavuk",
+   "kategori": "main",
+   "mutfak": "Kore",
+   "porsiyon": 4,
+   "protein": "chicken",
+   "vejetaryen": false,
+   "malzemeler": [
+    "1 kg tavuk but",
+    "5 yemek kaşığı soya sosu",
+    "3 yemek kaşığı bal",
+    "3 diş sarımsak (ezilmiş)",
+    "1 yemek kaşığı limon suyu",
+    "1 tatlı kaşığı tatlı toz biber",
+    "Susam, taze soğan"
+   ],
+   "hazirlanis": "1. Soya sosu, bal, sarımsak, limon suyu ve tatlı toz biberi karıştırın.\n2. Tavukları sosla 30 dakika bekletin.\n3. 200°C fırında 35 dakika, üzeri kızarana kadar pişirin.\n4. Susam ve doğranmış taze soğan serperek servis edin.",
+   "kcal": 420,
+   "protein_g": 35
+  },
+  {
+   "ad": "Sebzeli Wok Noodle",
+   "kategori": "side",
+   "mutfak": "Asya",
+   "porsiyon": 4,
+   "protein": null,
+   "vejetaryen": true,
+   "malzemeler": [
+    "250 g noodle",
+    "1 havuç (jülyen)",
+    "1 su bardağı dondurulmuş bezelye",
+    "1 renkli biber (şerit)",
+    "2 avuç ince kıyılmış kırmızı lahana",
+    "2 diş sarımsak",
+    "3 yemek kaşığı soya sosu",
+    "1 tatlı kaşığı bal",
+    "1 yemek kaşığı sıvı yağ",
+    "Susam, taze soğan"
+   ],
+   "hazirlanis": "1. Noodle'ı paketteki gibi haşlayıp süzün.\n2. Geniş tavada yağı kızdırın; sebzeleri ve sarımsağı yüksek ateşte 3 dakika çevirin.\n3. Noodle, soya sosu ve balı ekleyip karıştırın; susam ve taze soğanla servis edin.",
+   "kcal": 300,
+   "protein_g": 8
+  },
+  {
+   "ad": "Çabuk Salatalık Turşusu",
+   "kategori": "salad",
+   "mutfak": "Asya",
+   "porsiyon": 4,
+   "protein": null,
+   "vejetaryen": true,
+   "malzemeler": [
+    "2 salatalık",
+    "3 yemek kaşığı sirke",
+    "1 tatlı kaşığı şeker",
+    "Tuz"
+   ],
+   "hazirlanis": "1. Salatalıkları ince dilimleyin.\n2. Sirke, şeker ve tuzla karıştırıp 15 dakika bekletin.",
+   "kcal": 25,
+   "protein_g": 1
+  },
+  {
+   "ad": "Fas Usulü Köfte Tajin",
+   "kategori": "main",
+   "mutfak": "Fas",
+   "porsiyon": 4,
+   "protein": "beef",
+   "vejetaryen": false,
+   "malzemeler": [
+    "500 g kıyma",
+    "2 kuru soğan (1'i rendelenmiş)",
+    "2 diş sarımsak",
+    "1 kutu doğranmış domates",
+    "4 yumurta",
+    "Kimyon, bir tutam tarçın, tatlı toz biber, tuz",
+    "Maydanoz"
+   ],
+   "hazirlanis": "1. Kıymayı rendelenmiş soğan, kimyon, tarçın, tuz ve kıyılmış maydanozla yoğurun; küçük köfteler yapın.\n2. Köfteleri tavada her yüzü mühürlenene kadar kızartın, alın.\n3. Aynı tavada doğranmış soğan ve sarımsağı kavurun; domates, kimyon ve tatlı toz biberi ekleyip 10 dakika kaynatın.\n4. Köfteleri sosa koyun, aralara yumurtaları kırın; kapağı kapalı 8 dakika pişirin.",
+   "kcal": 450,
+   "protein_g": 32
+  },
+  {
+   "ad": "Kuskus",
+   "kategori": "side",
+   "mutfak": "Fas",
+   "porsiyon": 4,
+   "protein": null,
+   "vejetaryen": true,
+   "malzemeler": [
+    "2 su bardağı kuskus",
+    "2 su bardağı kaynar su",
+    "1 yemek kaşığı tereyağı",
+    "Tuz"
+   ],
+   "hazirlanis": "1. Kuskusu kaseye alın; kaynar su, tereyağı ve tuzu ekleyin.\n2. Kapağını kapatıp 5 dakika bekletin, çatalla kabartın.",
+   "kcal": 350,
+   "protein_g": 11
+  },
+  {
+   "ad": "Çıtır Mezgit, Tartar Soslu",
+   "kategori": "main",
+   "mutfak": "İngiliz",
+   "porsiyon": 4,
+   "protein": "fish",
+   "vejetaryen": false,
+   "malzemeler": [
+    "1 kg mezgit fileto",
+    "1 su bardağı un (+ unlamak için biraz)",
+    "1 tatlı kaşığı kabartma tozu",
+    "1 su bardağı buz gibi maden suyu",
+    "Kızartmalık yağ",
+    "Tuz",
+    "4 yemek kaşığı mayonez",
+    "3 yemek kaşığı yoğurt",
+    "4 kornişon turşu (ince doğranmış)",
+    "1 yemek kaşığı kapari",
+    "Yarım demet dereotu",
+    "Yarım limon suyu"
+   ],
+   "hazirlanis": "1. Un, kabartma tozu, tuz ve maden suyunu çırpın; koyu bir hamur olsun.\n2. Filetoları kurulayıp hafifçe unlayın, hamura batırın.\n3. Kızgın yağda 3–4 dakika, altın rengi olana kadar kızartın; kâğıt havluya alın.\n4. Tartar sos: Hepsini karıştırın; servise kadar buzdolabında bekletin.",
+   "kcal": 540,
+   "protein_g": 46
+  },
+  {
+   "ad": "Naneli Bezelye Püresi",
+   "kategori": "side",
+   "mutfak": "İngiliz",
+   "porsiyon": 4,
+   "protein": null,
+   "vejetaryen": true,
+   "malzemeler": [
+    "500 g dondurulmuş bezelye",
+    "2 yemek kaşığı tereyağı",
+    "Yarım limon suyu",
+    "Bir avuç taze nane",
+    "Tuz, karabiber"
+   ],
+   "hazirlanis": "1. Bezelyeyi 5 dakika haşlayıp süzün.\n2. Tereyağı, limon, nane, tuz ve karabiberi ekleyip çatal ya da blenderla kabaca ezin.",
+   "kcal": 150,
+   "protein_g": 7
+  },
+  {
+   "ad": "Hindi Piccata",
+   "kategori": "main",
+   "mutfak": "İtalyan",
+   "porsiyon": 4,
+   "protein": "turkey",
+   "vejetaryen": false,
+   "malzemeler": [
+    "800 g hindi göğsü (ince dilim)",
+    "Unlamak için un",
+    "2 yemek kaşığı zeytinyağı",
+    "3 yemek kaşığı tereyağı",
+    "2 diş sarımsak",
+    "1 çay bardağı su (ya da tavuk suyu)",
+    "1 limon suyu",
+    "2 yemek kaşığı kapari",
+    "Maydanoz, tuz, karabiber"
+   ],
+   "hazirlanis": "1. Hindi dilimlerini dövün, tuz-karabiber serpip hafifçe unlayın.\n2. Zeytinyağı ve 1 kaşık tereyağında her yüzünü 3'er dakika kızartın, alın.\n3. Aynı tavada sarımsağı 30 saniye çevirin; su, limon suyu ve kapariyi ekleyip 2 dakika kaynatın.\n4. Kalan tereyağını ekleyip sos koyulaşınca hindiyi geri koyun; maydanozla servis edin.",
+   "kcal": 330,
+   "protein_g": 48
+  },
+  {
+   "ad": "Parmesanlı Fırın Brokoli",
+   "kategori": "side",
+   "mutfak": "İtalyan",
+   "porsiyon": 4,
+   "protein": null,
+   "vejetaryen": true,
+   "malzemeler": [
+    "2 brokoli",
+    "2 diş sarımsak",
+    "Zeytinyağı, tuz",
+    "40 g rendelenmiş parmesan (ya da eski kaşar)"
+   ],
+   "hazirlanis": "1. Brokoliyi çiçeklerine ayırın; zeytinyağı, sarımsak ve tuzla karıştırın.\n2. 200°C fırında 20 dakika pişirin; son 5 dakika parmesanı serpin.",
+   "kcal": 120,
+   "protein_g": 7
+  },
+  {
+   "ad": "Dana Fajita Dürüm",
+   "kategori": "main",
+   "mutfak": "Meksika",
+   "porsiyon": 4,
+   "protein": "beef",
+   "vejetaryen": false,
+   "malzemeler": [
+    "600 g dana bonfile ya da antrikot (şerit)",
+    "3 renkli biber (şerit)",
+    "1 kuru soğan (şerit)",
+    "2 diş sarımsak",
+    "1 limon suyu",
+    "Kimyon, tatlı toz biber, tuz",
+    "8 lavaş"
+   ],
+   "hazirlanis": "1. Eti sarımsak, limon suyu, kimyon, tatlı toz biber ve tuzla 20 dakika marine edin.\n2. Kızgın tavada eti 3 dakika soteleyip alın.\n3. Aynı tavada biber ve soğanı soteleyin.\n4. Et ve sebzeleri lavaşlara sarın.",
+   "kcal": 520,
+   "protein_g": 40
+  },
+  {
+   "ad": "Meksika Usulü Mısır Salatası (Esquites)",
+   "kategori": "salad",
+   "mutfak": "Meksika",
+   "porsiyon": 4,
+   "protein": null,
+   "vejetaryen": true,
+   "malzemeler": [
+    "2 kutu mısır konservesi",
+    "3 yemek kaşığı mayonez",
+    "2 yemek kaşığı yoğurt",
+    "1 limon suyu",
+    "100 g beyaz peynir (ufalanmış)",
+    "Tatlı toz biber, kimyon",
+    "Maydanoz"
+   ],
+   "hazirlanis": "1. Mısırı süzün; kızgın tavada hafif kızarana kadar 5 dakika kavurun.\n2. Ilıyınca mayonez, yoğurt, limon, tatlı toz biber ve kimyonu ekleyin.\n3. Beyaz peynir ve maydanozla karıştırıp servis edin.",
+   "kcal": 230,
+   "protein_g": 7
+  },
+  {
+   "ad": "Muhammara",
+   "kategori": "meze",
+   "mutfak": "Antep",
+   "porsiyon": 4,
+   "protein": null,
+   "vejetaryen": true,
+   "malzemeler": [
+    "3 közlenmiş kırmızı biber (kavanozdan olabilir)",
+    "1 su bardağı ceviz",
+    "3 yemek kaşığı galeta unu",
+    "1 yemek kaşığı nar ekşisi",
+    "1 diş sarımsak",
+    "1 yemek kaşığı tatlı biber salçası",
+    "1 tatlı kaşığı kimyon",
+    "3 yemek kaşığı zeytinyağı",
+    "Tuz"
+   ],
+   "hazirlanis": "1. Biberlerin suyunu süzün.\n2. Bütün malzemeleri robotta, hafif taneli kalacak şekilde çekin.\n3. Tabağa alın; üstüne zeytinyağı ve birkaç ceviz koyun.",
+   "kcal": 190,
+   "protein_g": 4
+  },
+  {
+   "ad": "Yeşil Elmalı Semizotu",
+   "kategori": "meze",
+   "mutfak": null,
+   "porsiyon": 4,
+   "protein": null,
+   "vejetaryen": true,
+   "malzemeler": [
+    "1 demet semizotu (yaklaşık 300 g; bulamazsanız taze ıspanak yaprağı)",
+    "1 yeşil elma",
+    "1,5 su bardağı süzme yoğurt",
+    "1 diş sarımsak",
+    "Yarım limon suyu",
+    "1 yemek kaşığı zeytinyağı",
+    "Tuz"
+   ],
+   "hazirlanis": "1. Semizotunun yapraklarını ve ince saplarını ayıklayıp yıkayın, kabaca doğrayın.\n2. Elmayı küçük küp doğrayıp kararmasın diye limonla karıştırın.\n3. Yoğurdu ezilmiş sarımsak ve tuzla çırpın; semizotu ve elmayı ekleyin.\n4. Üstüne zeytinyağı gezdirip soğuk servis edin.",
+   "kcal": 90,
+   "protein_g": 5
+  },
+  {
+   "ad": "Havuç Tarator",
+   "kategori": "meze",
+   "mutfak": null,
+   "porsiyon": 4,
+   "protein": null,
+   "vejetaryen": true,
+   "malzemeler": [
+    "4 havuç (rendelenmiş)",
+    "2 yemek kaşığı zeytinyağı",
+    "1,5 su bardağı süzme yoğurt",
+    "1 diş sarımsak",
+    "Yarım avuç ceviz (dövülmüş)",
+    "Biraz dereotu",
+    "Tuz"
+   ],
+   "hazirlanis": "1. Rendelenmiş havucu zeytinyağında 5 dakika, yumuşayana kadar soteleyin; soğutun.\n2. Yoğurdu ezilmiş sarımsak ve tuzla karıştırın.\n3. Havucu, cevizi ve kıyılmış dereotunu ekleyip karıştırın.",
+   "kcal": 110,
+   "protein_g": 4
+  },
+  {
+   "ad": "Kuru Cacık",
+   "kategori": "meze",
+   "mutfak": null,
+   "porsiyon": 4,
+   "protein": null,
+   "vejetaryen": true,
+   "malzemeler": [
+    "1,5 su bardağı süzme yoğurt",
+    "1 salatalık",
+    "1 diş sarımsak",
+    "1 tatlı kaşığı kuru nane",
+    "1 yemek kaşığı zeytinyağı",
+    "Tuz"
+   ],
+   "hazirlanis": "1. Salatalığı rendeleyin ve suyunu avucunuzla iyice sıkın.\n2. Yoğurt, salatalık, ezilmiş sarımsak, kuru nane ve tuzu karıştırın; koyu kıvamda olsun.\n3. Üstüne zeytinyağı ve biraz kuru nane serpin.",
+   "kcal": 80,
+   "protein_g": 5
+  },
+  {
+   "ad": "Girit Ezme",
+   "kategori": "meze",
+   "mutfak": "Ege",
+   "porsiyon": 4,
+   "protein": null,
+   "vejetaryen": true,
+   "malzemeler": [
+    "200 g tam yağlı beyaz peynir",
+    "150 g lor",
+    "3 yemek kaşığı zeytinyağı",
+    "Yarım su bardağı ceviz",
+    "2 yemek kaşığı Antep fıstığı",
+    "1 diş sarımsak",
+    "Birer tutam dereotu, maydanoz ve taze nane"
+   ],
+   "hazirlanis": "1. Beyaz peyniri ve loru çatalla ezin.\n2. Zeytinyağı, ezilmiş sarımsak ve ince kıyılmış yeşillikleri ekleyin.\n3. Cevizi ve fıstığı kabaca dövüp karıştırın; üstüne birkaç fıstık serpip servis edin.",
+   "kcal": 200,
+   "protein_g": 9
+  }
+ ]
+}

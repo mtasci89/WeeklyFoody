@@ -1,5 +1,18 @@
 # WeeklyFoody — devir notu
 
+## 2026-11-02 — Claude: kurallara uygun menü + sohbette Cal Track 2.5-flash
+
+- `check-search` (kullanıcı çalıştırdı): arama yalnız GEMINI_SEARCH_API_KEY (Cal Track anahtarı)
+  + gemini-2.5-flash ile çalışıyor; ana anahtarda tüm modeller KOTA DOLU, 2.5-flash 404.
+- Uygulamada "yeni menü hazırla" adım sınırına takıldı (3.8 günlük kota dolu → lite). Artık zincir:
+  3.8-flash (ana) → `ara:gemini-2.5-flash` (arama anahtarı) → ana anahtarın diğerleri. Cal Track
+  ile aynı kotayı paylaşır. Değişen: app/agent/gemini_backend.py (chain_for/_client_for), test +1.
+- Ev kuralları (ekran görüntüsünden): zencefil, zerdeçal, somon, zahter, kabak, acı yok. 2–6 Kas
+  menüsünde zencefil (Pzt tavuk), kabak (noodle), pul biber vardı → düzeltildi (tatlı toz biber,
+  bezelye, limon). app/seed/menu-2026-11-02-kurallar.json yalnız tarifleri günceller
+  (`yalniz_tarifler`), planı değiştirmez. Test: yasaklarla hiçbir tarif çelişmiyor.
+- Kullanıcı sonraki: sunucuyu güncelle; "gemini 2.5 da hata verdi" ekranı henüz gelmedi.
+
 ## 2026-11-02 — Claude: sunucu günlüğü teşhisi + ayrı arama anahtarı
 
 - Kullanıcının gönderdiği günlük (01–02 Kas): Google aramalı her istek tüm modellerde anında 429,

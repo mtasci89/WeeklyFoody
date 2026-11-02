@@ -79,11 +79,11 @@
     "5 yemek kaşığı soya sosu",
     "3 yemek kaşığı bal",
     "3 diş sarımsak (ezilmiş)",
-    "1 yemek kaşığı rendelenmiş taze zencefil",
-    "1 tatlı kaşığı pul biber",
+    "1 yemek kaşığı limon suyu",
+    "1 tatlı kaşığı tatlı toz biber",
     "Susam, taze soğan"
    ],
-   "hazirlanis": "1. Soya sosu, bal, sarımsak, zencefil ve pul biberi karıştırın.\n2. Tavukları sosla 30 dakika bekletin.\n3. 200°C fırında 35 dakika, üzeri kızarana kadar pişirin.\n4. Susam ve doğranmış taze soğan serperek servis edin.",
+   "hazirlanis": "1. Soya sosu, bal, sarımsak, limon suyu ve tatlı toz biberi karıştırın.\n2. Tavukları sosla 30 dakika bekletin.\n3. 200°C fırında 35 dakika, üzeri kızarana kadar pişirin.\n4. Susam ve doğranmış taze soğan serperek servis edin.",
    "kcal": 420,
    "protein_g": 35
   },
@@ -96,7 +96,8 @@
    "vejetaryen": true,
    "malzemeler": [
     "250 g noodle",
-    "1 havuç, 1 kabak (jülyen)",
+    "1 havuç (jülyen)",
+    "1 su bardağı dondurulmuş bezelye",
     "1 renkli biber (şerit)",
     "2 avuç ince kıyılmış kırmızı lahana",
     "2 diş sarımsak",
@@ -139,10 +140,10 @@
     "2 diş sarımsak",
     "1 kutu doğranmış domates",
     "4 yumurta",
-    "Kimyon, bir tutam tarçın, pul biber, tuz",
+    "Kimyon, bir tutam tarçın, tatlı toz biber, tuz",
     "Maydanoz"
    ],
-   "hazirlanis": "1. Kıymayı rendelenmiş soğan, kimyon, tarçın, tuz ve kıyılmış maydanozla yoğurun; küçük köfteler yapın.\n2. Köfteleri tavada her yüzü mühürlenene kadar kızartın, alın.\n3. Aynı tavada doğranmış soğan ve sarımsağı kavurun; domates, kimyon ve pul biberi ekleyip 10 dakika kaynatın.\n4. Köfteleri sosa koyun, aralara yumurtaları kırın; kapağı kapalı 8 dakika pişirin.",
+   "hazirlanis": "1. Kıymayı rendelenmiş soğan, kimyon, tarçın, tuz ve kıyılmış maydanozla yoğurun; küçük köfteler yapın.\n2. Köfteleri tavada her yüzü mühürlenene kadar kızartın, alın.\n3. Aynı tavada doğranmış soğan ve sarımsağı kavurun; domates, kimyon ve tatlı toz biberi ekleyip 10 dakika kaynatın.\n4. Köfteleri sosa koyun, aralara yumurtaları kırın; kapağı kapalı 8 dakika pişirin.",
    "kcal": 450,
    "protein_g": 32
   },
@@ -258,10 +259,10 @@
     "1 kuru soğan (şerit)",
     "2 diş sarımsak",
     "1 limon suyu",
-    "Kimyon, toz kırmızıbiber, tuz",
+    "Kimyon, tatlı toz biber, tuz",
     "8 lavaş"
    ],
-   "hazirlanis": "1. Eti sarımsak, limon suyu, kimyon, toz kırmızıbiber ve tuzla 20 dakika marine edin.\n2. Kızgın tavada eti 3 dakika soteleyip alın.\n3. Aynı tavada biber ve soğanı soteleyin.\n4. Et ve sebzeleri lavaşlara sarın.",
+   "hazirlanis": "1. Eti sarımsak, limon suyu, kimyon, tatlı toz biber ve tuzla 20 dakika marine edin.\n2. Kızgın tavada eti 3 dakika soteleyip alın.\n3. Aynı tavada biber ve soğanı soteleyin.\n4. Et ve sebzeleri lavaşlara sarın.",
    "kcal": 520,
    "protein_g": 40
   },
@@ -278,10 +279,10 @@
     "2 yemek kaşığı yoğurt",
     "1 limon suyu",
     "100 g beyaz peynir (ufalanmış)",
-    "Pul biber, kimyon",
+    "Tatlı toz biber, kimyon",
     "Maydanoz"
    ],
-   "hazirlanis": "1. Mısırı süzün; kızgın tavada hafif kızarana kadar 5 dakika kavurun.\n2. Ilıyınca mayonez, yoğurt, limon, pul biber ve kimyonu ekleyin.\n3. Beyaz peynir ve maydanozla karıştırıp servis edin.",
+   "hazirlanis": "1. Mısırı süzün; kızgın tavada hafif kızarana kadar 5 dakika kavurun.\n2. Ilıyınca mayonez, yoğurt, limon, tatlı toz biber ve kimyonu ekleyin.\n3. Beyaz peynir ve maydanozla karıştırıp servis edin.",
    "kcal": 230,
    "protein_g": 7
   },
@@ -298,7 +299,8 @@
     "3 yemek kaşığı galeta unu",
     "1 yemek kaşığı nar ekşisi",
     "1 diş sarımsak",
-    "1 tatlı kaşığı kimyon, 1 tatlı kaşığı pul biber",
+    "1 yemek kaşığı tatlı biber salçası",
+    "1 tatlı kaşığı kimyon",
     "3 yemek kaşığı zeytinyağı",
     "Tuz"
    ],
@@ -379,10 +381,9 @@
     "Yarım su bardağı ceviz",
     "2 yemek kaşığı Antep fıstığı",
     "1 diş sarımsak",
-    "Birer tutam dereotu, maydanoz ve taze nane",
-    "1 tatlı kaşığı pul biber"
+    "Birer tutam dereotu, maydanoz ve taze nane"
    ],
-   "hazirlanis": "1. Beyaz peyniri ve loru çatalla ezin.\n2. Zeytinyağı, ezilmiş sarımsak, ince kıyılmış yeşillikler ve pul biberi ekleyin.\n3. Cevizi ve fıstığı kabaca dövüp karıştırın; üstüne birkaç fıstık serpip servis edin.",
+   "hazirlanis": "1. Beyaz peyniri ve loru çatalla ezin.\n2. Zeytinyağı, ezilmiş sarımsak ve ince kıyılmış yeşillikleri ekleyin.\n3. Cevizi ve fıstığı kabaca dövüp karıştırın; üstüne birkaç fıstık serpip servis edin.",
    "kcal": 200,
    "protein_g": 9
   }

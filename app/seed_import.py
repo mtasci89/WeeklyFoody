@@ -65,6 +65,13 @@ def apply_seed(db, settings, data: dict) -> str:
                                    "source": NUTRITION_SOURCE, "estimated": True}
         recipes[row["ad"]] = service.upsert_recipe(RecipeInput(**values), commit=False)
 
+    if data.get("yalniz_tarifler"):
+        # Yalnız tarif düzeltmesi: plan (kullanıcının sonradan yaptığı değişiklikler) korunur.
+        db.commit()
+        summary = f"{data['id']}: {len(recipes)} tarif güncellendi"
+        logger.info("seed_applied %s", summary)
+        return summary
+
     week_start = date.fromisoformat(data["hafta_baslangic"])
     session = db.query(WeeklyPlanningSession).filter(WeeklyPlanningSession.week_start == week_start).one_or_none()
     if session is None:

@@ -84,3 +84,21 @@ def test_seed_is_applied_only_once(db, settings, tmp_path, monkeypatch):
     assert len(seed_import.apply_pending(configured, Factory())) == 1
     assert seed_import.apply_pending(configured, Factory()) == []
     assert json.loads((tmp_path / "data" / "ice_aktarilanlar.json").read_text()) == ["deneme"]
+
+
+def test_menu_follows_the_house_bans(db, settings, tmp_path):
+    """Kullanıcının kalıcı yasakları: zencefil, zerdeçal, somon, zahter, kabak, acı."""
+    from app.memory.preferences import PreferenceService
+    from app.memory.rules import MealRules
+
+    for ban in ("zencefil kullanma", "zerdeçal kullanma", "somon kullanma", "zahter kullanma", "kabak kullanma", "acı kullanma"):
+        PreferenceService(db).add(ban)
+    fix = json.loads((seed_import.SEED_DIR / "menu-2026-11-02-kurallar.json").read_text(encoding="utf-8"))
+    summary = seed_import.apply_seed(db, settings.model_copy(update={"data_dir": tmp_path}), fix)
+    assert "16 tarif güncellendi" in summary
+    rules = MealRules.from_db(db)
+    assert rules.excluded, "yasaklar okunamadı"
+    service = RecipeService(db)
+    for row in fix["tarifler"]:
+        assert not rules.excludes(service.find_recipe(row["ad"])), row["ad"]
+    assert db.query(WeeklyPlanningSession).count() == 0  # plana dokunmaz

@@ -170,11 +170,22 @@ class GeminiBackend:
         return chain
 
     def chain_for(self, capability: str | None) -> list[str]:
-        """Google aramalı istekler arama modelleriyle başlar; diğerleri ana zincirle."""
-        if capability != "Google araması":
-            return self.models
+        """Bu isteğin deneneceği sıra. "ara:" önekli adlar ayrı arama anahtarıyla gider.
+
+        Google araması: arama modelleri önce. Ayrı arama anahtarı (Cal Track) varsa onun
+        2.5-flash'ı sohbette de ana modelden hemen sonra denenir: ana anahtarın kotası
+        dolunca zayıf lite modellere düşüp adım sınırına takılmasın.
+        """
+        base = self.models
+        extra = [f"ara:{m}" for m in getattr(self.settings, "gemini_search_models", []) if m] if self.search_client else []
+        if capability == "Google araması":
+            names = extra + base if extra else [*getattr(self.settings, "gemini_search_models", []), *base]
+        elif extra:
+            names = base[:1] + extra + base[1:]
+        else:
+            names = base
         chain: list[str] = []
-        for name in [*getattr(self.settings, "gemini_search_models", []), *self.models]:
+        for name in names:
             if name and name not in chain:
                 chain.append(name)
         return chain
@@ -182,14 +193,13 @@ class GeminiBackend:
     def _cooling(self, model: str) -> bool:
         return self._cooldown_until.get(model, 0.0) > time.monotonic()
 
-    def _client_for(self, capability: str | None):
-        """(istemci, bekleme anahtarı öneki): arama ayrı anahtarla yapılıyorsa kotası da ayrı."""
-        if capability == "Google araması" and self.search_client is not None:
-            return self.search_client, "ara:"
-        return self.client, ""
+    def _client_for(self, entry: str):
+        """Zincir girdisi -> (istemci, gerçek model adı)."""
+        if entry.startswith("ara:") and self.search_client is not None:
+            return self.search_client, entry[4:]
+        return self.client, entry
 
-    def _start_index(self, cursor: ModelCursor, capability: str | None = None, models: list[str] | None = None,
-                     prefix: str = "") -> int:
+    def _start_index(self, cursor: ModelCursor, capability: str | None = None, models: list[str] | None = None) -> int:
         """Bekleme surecindeki modelleri atlar; hepsi bekliyorsa sirayla dener."""
         models = models or self.models
         if cursor.started:
@@ -197,7 +207,7 @@ class GeminiBackend:
         for index in range(cursor.index, len(models)):
             if capability and models[index] in self._unsupported_capabilities.get(capability, set()):
                 continue
-            if not self._cooling(prefix + models[index]):
+            if not self._cooling(models[index]):
                 if index != cursor.index:
                     logger.info("agent_model_skipped_busy skipped=%s", ",".join(models[cursor.index:index]))
                 return index
@@ -213,8 +223,7 @@ class GeminiBackend:
         last_error: Exception | None = None
         capability = request_capability(config)
         models = self.chain_for(capability)
-        client, prefix = self._client_for(capability)
-        start = self._start_index(cursor, capability, models, prefix)
+        start = self._start_index(cursor, capability, models)
         waited: set[str] = set()
         index = start - 1
         while index + 1 < len(models):
@@ -222,13 +231,14 @@ class GeminiBackend:
             model = models[index]
             if capability and model in self._unsupported_capabilities.get(capability, set()):
                 continue
+            client, real_model = self._client_for(model)
             try:
                 use = config
                 if model in self._no_thinking and getattr(config, "thinking_config", None) is not None:
                     use = config.model_copy(update={"thinking_config": None})
                 try:
                     response = await client.aio.models.generate_content(
-                        model=model, contents=contents, config=use
+                        model=real_model, contents=contents, config=use
                     )
                 except Exception as error:
                     # Düşünme seviyesini desteklemeyen model: ayarsız tekrar dene, hatırla.
@@ -240,7 +250,7 @@ class GeminiBackend:
                         self._no_thinking.add(model)
                         logger.warning("agent_thinking_unsupported model=%s", model)
                         response = await client.aio.models.generate_content(
-                            model=model, contents=contents, config=use.model_copy(update={"thinking_config": None})
+                            model=real_model, contents=contents, config=use.model_copy(update={"thinking_config": None})
                         )
                     else:
                         raise
@@ -266,7 +276,7 @@ class GeminiBackend:
                 cooldown = COOLDOWN_SECONDS.get(code, 300)
                 if code == 429 and quota_scope(error) == "günlük":
                     cooldown = DAILY_QUOTA_COOLDOWN
-                self._cooldown_until[prefix + model] = time.monotonic() + cooldown
+                self._cooldown_until[model] = time.monotonic() + cooldown
                 error.foody_model = model
                 if index == len(models) - 1:
                     logger.warning("agent_model_chain_exhausted model=%s code=%s capability=%s quota=%s",
@@ -278,7 +288,7 @@ class GeminiBackend:
                 )
                 last_error = error
                 continue
-            self._cooldown_until.pop(prefix + model, None)
+            self._cooldown_until.pop(model, None)
             cursor.started = True
             if index != cursor.index:
                 logger.warning("agent_model_fallback from=%s to=%s", models[cursor.index], model)
@@ -345,7 +355,7 @@ class GeminiBackend:
         for step in range(1, max(1, self.settings.agent_max_iterations) + 1):
             # Her adim terminalde gorunsun: uzun bir plan turu disaridan
             # "bot oldu" gibi gorunmesin.
-            logger.info("agent_model_request step=%s model=%s", step, self.models[cursor.index])
+            logger.info("agent_model_request step=%s model=%s", step, self.chain_for(None)[cursor.index] if cursor.index < len(self.chain_for(None)) else "-")
             response = await self._generate(cursor, contents, config)
             candidate = response.candidates[0] if response.candidates else None
             if candidate is None or candidate.content is None or not candidate.content.parts:
@@ -500,10 +510,10 @@ class GeminiBackend:
         config = types.GenerateContentConfig(tools=[types.Tool(google_search=types.GoogleSearch())])
         clients = [("ana anahtar", self.client, self.models)]
         if self.search_client is not None:
-            clients.insert(0, ("arama anahtarı", self.search_client, self.chain_for("Google araması")))
+            clients.insert(0, ("arama anahtarı", self.search_client, [*getattr(self.settings, "gemini_search_models", []), *self.models]))
         results = []
         for label, client, models in clients:
-            for model in models:
+            for model in dict.fromkeys(models):
                 try:
                     response = await client.aio.models.generate_content(
                         model=model, contents="Bugün internette popüler bir mercimek çorbası tarifinin adını yaz.", config=config,

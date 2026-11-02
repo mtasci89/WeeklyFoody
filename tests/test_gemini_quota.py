@@ -207,3 +207,16 @@ async def test_check_search_reports_each_key_and_model(settings):
 
     assert results[0][:3] == ("arama anahtarı", "gemini-2.5-flash", True)
     assert all(not ok for label, _, ok, _ in results if label == "ana anahtar")
+
+
+@pytest.mark.asyncio
+async def test_chat_uses_the_search_keys_25_flash_before_lite_models(settings):
+    sdk, main = make(settings, [quota_error("Day")])
+    search = FakeGeminiClient([text_response('{"ok": true}')])
+    sdk.search_client = search
+
+    assert await sdk.generate_json("yapılandır", {"type": "object"}) == '{"ok": true}'
+
+    assert [r["model"] for r in main.requests] == ["gemini-3.8-flash"]
+    assert [r["model"] for r in search.requests] == ["gemini-2.5-flash"]
+    assert sdk.chain_for(None) == ["gemini-3.8-flash", "ara:gemini-2.5-flash", "gemini-2.5-flash", "gemini-3.5-flash-lite"]
