@@ -314,6 +314,13 @@ class GroqBackend:
                 results.append((model, False, f"ag hatasi: {type(error).__name__}"))
         return results
 
+    async def list_models(self) -> list[str]:
+        """Bu anahtarla Groq'ta açık olan modellerin adları."""
+        response = await self.http.get("https://api.groq.com/openai/v1/models",
+                                       headers={"Authorization": f"Bearer {self.settings.groq_api_key}"})
+        response.raise_for_status()
+        return sorted(str(m.get("id")) for m in response.json().get("data") or [] if m.get("active", True))
+
     async def check_search(self) -> list[tuple[str, str, bool, str]]:
         if self.tavily is None:
             return [("tavily", "-", False, "TAVILY_API_KEY yok")]

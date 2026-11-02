@@ -24,6 +24,7 @@ def main() -> None:
     sub.add_parser("discover-now")
     sub.add_parser("check-agent", help="Ajanin saglayicisina tek bir deneme istegi atar")
     sub.add_parser("check-search", help="Google aramayi her anahtar ve modelle dener")
+    sub.add_parser("groq-models", help="Groq'ta acik olan modelleri listeler")
     app_parser = sub.add_parser("uygulama-hazirla", help="Foody uygulamasi icin HTTPS API'yi hazirlar")
     app_parser.add_argument("--adres", required=True, help="Telefonun baglanacagi adres, orn. https://152.67.69.25:8443")
     notify_parser = sub.add_parser("bildir", help="Yoneticiye Telegram'dan kisa mesaj gonderir")
@@ -101,8 +102,26 @@ def main() -> None:
         raise SystemExit(asyncio.run(_check_agent(settings)))
     elif args.command == "check-search":
         raise SystemExit(asyncio.run(_check_search(settings)))
+    elif args.command == "groq-models":
+        raise SystemExit(asyncio.run(_groq_models(settings)))
     elif args.command == "run":
         asyncio.run(async_main())
+
+
+async def _groq_models(settings) -> int:
+    from app.agent.groq_backend import GroqBackend
+
+    if not settings.groq_api_key:
+        print("GROQ_API_KEY yok")
+        return 1
+    backend = GroqBackend(settings)
+    try:
+        for name in await backend.list_models():
+            print(("* " if name in settings.groq_models or name == settings.groq_vision_model else "  ") + name)
+    finally:
+        await backend.aclose()
+    print("(* = Foody'nin listesinde)")
+    return 0
 
 
 async def _check_search(settings) -> int:
