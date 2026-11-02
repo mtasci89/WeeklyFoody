@@ -1,5 +1,17 @@
 # WeeklyFoody — devir notu
 
+## 2026-11-02 — Claude: "yenileriyle değiştir" kaynak doğrulamasında takılıyordu
+
+- Groq'la menü kuruldu (sohbet çalıştı). 3 yemek "Yenileriyle değiştir": "Kaynağı ve tarifi doğrulanmış
+  yeni yemek bulunamadı". Olası neden: genel Tavily sorgusu liste sayfaları getiriyor; sayfa metni başta
+  menü/reklamla doluyor; ad birebir eşleşme şartı katı.
+- Yapılan: GroqBackend.search_text araştırmada önce Groq'tan hedef başına somut yemek adı alır, sonra
+  "<ad> tarifi malzemeler" (yemek başına 1 Tavily sorgusu, sorgu başına 1 sayfa); Tavily metni
+  "malzeme"den başlar; research.named_in ana kelimelerle eşleştirir; kaynaklı tarif bulunamayan hedefler
+  hata yerine aramasız öneriyle (OFFLINE_SOURCE, OFFLINE_NOTE) dolar — eski kütüphaneden asla değil.
+  Codex'in "does_not_invent" testi bu karara göre güncellendi.
+- 527 test geçti. Canlıda doğrulanmadı.
+
 ## 2026-11-02 — Claude: Groq 413 (istek dakikalık sınırdan büyük) düzeltmesi
 
 - Kullanıcı sohbette "Groq isteği başarısız oldu (413)" aldı. Neden: Groq dakikalık sınırı (gpt-oss 8K)

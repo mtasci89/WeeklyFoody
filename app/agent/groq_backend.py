@@ -252,12 +252,31 @@ class GroqBackend:
 
         if self.tavily is None:
             raise GeminiCapabilityError("İnternet araması için TAVILY_API_KEY tanımlı değil")
+        dishes = await self._dish_names(prompt) if "HEDEFLER:" in prompt else []
         try:
+            if dishes:
+                # Yemek başına bir arama: liste sayfaları yerine o yemeğin gerçek tarif sayfası gelir.
+                return await self.tavily.search([f"{name} tarifi malzemeler" for name in dishes], per_query=1)
             return await self.tavily.search(queries_for(prompt))
         except TavilyError as error:
             # 432/433: aylık kredi bitti; araştırma aramasız sürebilsin diye kota (429) sayılır.
             code = 429 if error.code in (429, 432, 433) else (403 if error.code in (401, 403) else error.code)
             raise GroqError(str(error), code) from error
+
+    async def _dish_names(self, prompt: str) -> list[str]:
+        """Araştırma hedefleri için önce somut yemek adları (Groq), sonra bunlar aranır."""
+        schema = {"type": "object", "properties": {"hedefler": {"type": "array", "items": {
+            "type": "object", "properties": {"icin": {"type": "integer"}, "ad": {"type": "string"}}}}}}
+        ask = ("Aşağıdaki her hedef için internette tarifi kolayca bulunabilecek, ev kurallarına uyan, rolüne "
+               "uygun, sıradışı ama GERÇEK bir yemeğin Türkçe adını öner (hedef başına bir ad). Kütüphanedeki ve son "
+               "haftalardakilerin benzeri olmasın, adlar birbirinden farklı olsun.\n\n" + prompt)
+        try:
+            data = json.loads(await self.generate_json(ask[:9000], schema) or "{}")
+        except Exception:
+            logger.exception("groq_dish_names_failed")
+            return []
+        names = [str(row.get("ad") or "").strip() for row in data.get("hedefler") or [] if isinstance(row, dict)]
+        return list(dict.fromkeys(n for n in names if n))[:6]
 
     async def web_search(self, query: str) -> str:
         if not query.strip():

@@ -32,8 +32,8 @@ TAG = "menu-arastirmasi"
 # Google araması kotaya/erişime takılınca yemekler aramasız, modelin bilgisiyle önerilir.
 OFFLINE_SOURCE = "Foody yapay zekâ önerisi (internet araması o an kullanılamadı)"
 OFFLINE_NOTE = (
-    "Not: Google araması şu an kotaya takıldığı için bu yemekleri yapay zekâ internete bakmadan, "
-    "kendi bilgisiyle önerdi (kaynak bağlantısı yok). Kurallar, roller ve tekrar denetimleri aynen uygulandı."
+    "Not: İnternette kaynağıyla doğrulanan tarif bulunamayan yemekleri yapay zekâ kendi bilgisiyle önerdi "
+    "(kaynak bağlantısı yok). Kurallar, roller ve tekrar denetimleri aynen uygulandı."
 )
 SEARCH_BATCH_SIZE = 4
 URL = re.compile(r"https://[^\s<>\"\[\]]+")
@@ -98,6 +98,15 @@ def research_failure(error, stage):
 
 def normalized(text: str) -> str:
     return " ".join(text.casefold().replace("i\u0307", "i").translate(str.maketrans("çğıöşü", "cgiosu")).split())
+
+
+def named_in(name: str, text: str) -> bool:
+    """Yemek adı arama metninde geçiyor mu (birebir ya da ana kelimeleriyle)."""
+    haystack = normalized(text)
+    if normalized(name) in haystack:
+        return True
+    words = key_words(name)
+    return bool(words) and all(word in haystack for word in words)
 
 
 def source_url(text: str) -> str | None:
@@ -167,6 +176,8 @@ class WebMenuResearch:
         # True: Google araması kullanılamadı, öneriler aramasız (modelin bilgisiyle).
         self.offline = False
         self.offline_reason = ""
+        # Kaynaklı tarif bulunamazsa eksikler aramasız öneriyle doldurulsun mu.
+        self.offline_fill = True
 
     def connect(self):
         if not self.settings.agent_web_search_enabled:
@@ -292,7 +303,7 @@ class WebMenuResearch:
                             continue
                     else:
                         url = source_url(str(idea.get("kaynak") or ""))
-                        if url not in allowed or name not in normalized(text) or name in known_names | taken:
+                        if url not in allowed or not named_in(idea["ad"], text) or name in known_names | taken:
                             continue
                     probe = as_probe(idea)
                     probe.category = str(idea.get("kategori") or target.role)
@@ -323,6 +334,15 @@ class WebMenuResearch:
                     found[target.key] = {**chosen, "kaynak": url, "kategori": category}
                     taken.add(normalized(chosen["ad"]))
         missing = [f"{t.day} {t.slot}" for t in targets if t.key not in found]
+        if missing and not self.offline and self.offline_fill:
+            # Kaynaklı tarif bulunamayanlar hata yerine yapay zekâ önerisiyle (kaynaksız, işaretli) dolar.
+            self.offline = True
+            self.offline_reason = "İnternette bu yemekler için kaynağı doğrulanmış tarif bulunamadı."
+            logger.warning("menu_research_offline_fill missing=%s", len(missing))
+            pending = [t for t in targets if t.key not in found]
+            found.update(await self._find_batch(pending, [*known, *[row["ad"] for row in found.values()]],
+                                                recent, rules, request))
+            return found
         if missing and self.offline:
             raise MenuResearchError(self.offline_reason + " İnternete bakmadan önerilen yemekler de yetmedi: "
                                     + ", ".join(missing) + ". Menü değiştirilmedi.")

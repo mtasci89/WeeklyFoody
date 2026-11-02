@@ -136,19 +136,28 @@ def test_three_main_dishes_need_one_search_query():
 
 @pytest.mark.asyncio
 async def test_tavily_pages_become_search_text_and_sources(settings):
+    queries = []
+
     def handler(request):
         assert request.headers["authorization"] == "Bearer " + "t" * 20
+        queries.append(json.loads(request.content)["query"])
+        menu_junk = "Ana sayfa | Tarifler | Giriş " * 20
         return httpx.Response(200, json={"results": [
-            {"title": "Fırında Hünkar", "url": "https://tarif.example/hunkar", "raw_content": "Malzemeler: 500 g kuzu"},
+            {"title": "Fırında Hünkar", "url": "https://tarif.example/hunkar",
+             "raw_content": menu_junk + "Malzemeler: 500 g kuzu, 2 patlıcan. Hazırlanışı: kuzuyu pişirin."},
             {"title": "Kopya", "url": "https://tarif.example/hunkar", "content": "aynı sayfa"},
         ]})
 
     tavily = TavilySearch("t" * 20, client=httpx.AsyncClient(transport=httpx.MockTransport(handler)))
-    sdk, _ = backend(settings, [], tavily=tavily)
+    # Önce Groq somut yemek adını önerir, sonra tam o yemeğin tarifi aranır.
+    sdk, _ = backend(settings, [{"role": "assistant", "content": '{"hedefler": [{"icin": 1, "ad": "Fırında Hünkar"}]}'}],
+                     tavily=tavily)
 
     text, sources = await sdk.search_text("HEDEFLER:\n1) 2026-11-02: dinner_main, rol=main; tabak: x")
 
-    assert "500 g kuzu" in text and sources == ["Fırında Hünkar: https://tarif.example/hunkar"]
+    assert queries == ["Fırında Hünkar tarifi malzemeler"]
+    assert "500 g kuzu" in text and text.count("Ana sayfa") < 8  # sayfa başındaki menü atıldı
+    assert sources == ["Fırında Hünkar: https://tarif.example/hunkar"]
 
 
 @pytest.mark.asyncio

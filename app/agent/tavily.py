@@ -66,18 +66,29 @@ class TavilySearch:
             raise TavilyError(f"Tavily araması reddedildi ({response.status_code})", response.status_code)
         return list(response.json().get("results") or [])
 
-    async def search(self, queries: list[str], max_results: int = 3) -> tuple[str, list[str]]:
-        """Sorguları çalıştırır; tekrar eden sayfaları birleştirir, toplam metni sınırlar."""
+    async def search(self, queries: list[str], max_results: int = 3, per_query: int | None = None) -> tuple[str, list[str]]:
+        """Sorguları çalıştırır; tekrar eden sayfaları birleştirir, toplam metni sınırlar.
+        `per_query`: her sorgudan en fazla bu kadar sayfa (yemek başına arama için 1)."""
         pages, sources, seen = [], [], set()
         used = 0
         for query in queries:
+            taken = 0
             for row in await self.query(query, max_results=max_results):
+                if per_query is not None and taken >= per_query:
+                    break
                 url = str(row.get("url") or "")
                 if not url.startswith("https://") or url in seen:
                     continue
                 seen.add(url)
                 title = str(row.get("title") or "kaynak").strip()
                 body = str(row.get("raw_content") or row.get("content") or "").strip()
+                # Sayfanın başındaki menü/reklam yerine tarifin kendisi: malzemelerden başla.
+                start = body.casefold().find("malzeme")
+                if start > 200:
+                    body = body[start - 150:]
+                if len(body) < 40:
+                    continue
+                taken += 1
                 room = min(PAGE_CHARS, TOTAL_CHARS - used)
                 if room < 300:
                     break

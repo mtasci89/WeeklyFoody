@@ -189,15 +189,20 @@ async def test_replacement_searches_web_and_preserves_source_and_reason(db, sett
 
 
 @pytest.mark.asyncio
-async def test_replacement_does_not_invent_recipe_when_search_fails(db, settings):
+async def test_unverified_search_falls_back_to_labelled_ai_recipe_not_library(db, settings):
+    """Kaynak doğrulanamazsa (2026-11-02, kullanıcı: "iyileştirmede hata verdi") hata yerine
+    yapay zekâ önerisi gelir; kaynaksız diye işaretlenir ve eski kütüphaneden seçilmez."""
+    from app.planner.research import OFFLINE_NOTE, OFFLINE_SOURCE
+
     session = plan(db, [(0, "dinner_main", "Fırında Tavuk")])
     session.state = SessionState.APPROVED
     db.commit()
+    library = {r.name for r in RecipeService(db).list_recipes(include_candidates=True)}
     _, tools = toolset_for(db, configured(settings), FakeWeb(bad_source=True))
     result = await tools["yenisiyle_degistir"].call({"ogunler": [f"{WEEK}|dinner_main"]})
-    assert "menü değiştirilmedi" in result.casefold()
-    assert session.meal_plan.items[0].recipe.name == "Fırında Tavuk"
-    assert session.state == SessionState.APPROVED
+    assert result.startswith(OFFLINE_NOTE)
+    recipe = session.meal_plan.items[0].recipe
+    assert recipe.name not in library and recipe.source == OFFLINE_SOURCE
 
 
 @pytest.mark.asyncio
