@@ -129,6 +129,12 @@ class GeminiBackend:
         # Düşünme seviyesi ayarını kabul etmeyen modeller (ayarsız istenir).
         self._no_thinking: set[str] = set()
         self._unsupported_capabilities: dict[str, set[str]] = {}
+        search_key = getattr(settings, "gemini_search_api_key", "") or ""
+        # Ayrı arama anahtarı varsa Google aramalı istekler o istemciyle gider.
+        self.search_client = (
+            genai.Client(api_key=search_key, http_options=types.HttpOptions(timeout=settings.agent_request_timeout_seconds * 1000))
+            if search_key and search_key != settings.gemini_api_key and client is None else None
+        )
         self.client = client or genai.Client(
             api_key=settings.gemini_api_key,
             # Ucretsiz katmanin dakikalik siniri dusuk ve bir kullanici mesaji
@@ -176,7 +182,14 @@ class GeminiBackend:
     def _cooling(self, model: str) -> bool:
         return self._cooldown_until.get(model, 0.0) > time.monotonic()
 
-    def _start_index(self, cursor: ModelCursor, capability: str | None = None, models: list[str] | None = None) -> int:
+    def _client_for(self, capability: str | None):
+        """(istemci, bekleme anahtarı öneki): arama ayrı anahtarla yapılıyorsa kotası da ayrı."""
+        if capability == "Google araması" and self.search_client is not None:
+            return self.search_client, "ara:"
+        return self.client, ""
+
+    def _start_index(self, cursor: ModelCursor, capability: str | None = None, models: list[str] | None = None,
+                     prefix: str = "") -> int:
         """Bekleme surecindeki modelleri atlar; hepsi bekliyorsa sirayla dener."""
         models = models or self.models
         if cursor.started:
@@ -184,7 +197,7 @@ class GeminiBackend:
         for index in range(cursor.index, len(models)):
             if capability and models[index] in self._unsupported_capabilities.get(capability, set()):
                 continue
-            if not self._cooling(models[index]):
+            if not self._cooling(prefix + models[index]):
                 if index != cursor.index:
                     logger.info("agent_model_skipped_busy skipped=%s", ",".join(models[cursor.index:index]))
                 return index
@@ -200,7 +213,8 @@ class GeminiBackend:
         last_error: Exception | None = None
         capability = request_capability(config)
         models = self.chain_for(capability)
-        start = self._start_index(cursor, capability, models)
+        client, prefix = self._client_for(capability)
+        start = self._start_index(cursor, capability, models, prefix)
         waited: set[str] = set()
         index = start - 1
         while index + 1 < len(models):
@@ -213,7 +227,7 @@ class GeminiBackend:
                 if model in self._no_thinking and getattr(config, "thinking_config", None) is not None:
                     use = config.model_copy(update={"thinking_config": None})
                 try:
-                    response = await self.client.aio.models.generate_content(
+                    response = await client.aio.models.generate_content(
                         model=model, contents=contents, config=use
                     )
                 except Exception as error:
@@ -225,7 +239,7 @@ class GeminiBackend:
                     ):
                         self._no_thinking.add(model)
                         logger.warning("agent_thinking_unsupported model=%s", model)
-                        response = await self.client.aio.models.generate_content(
+                        response = await client.aio.models.generate_content(
                             model=model, contents=contents, config=use.model_copy(update={"thinking_config": None})
                         )
                     else:
@@ -252,7 +266,7 @@ class GeminiBackend:
                 cooldown = COOLDOWN_SECONDS.get(code, 300)
                 if code == 429 and quota_scope(error) == "günlük":
                     cooldown = DAILY_QUOTA_COOLDOWN
-                self._cooldown_until[model] = time.monotonic() + cooldown
+                self._cooldown_until[prefix + model] = time.monotonic() + cooldown
                 error.foody_model = model
                 if index == len(models) - 1:
                     logger.warning("agent_model_chain_exhausted model=%s code=%s capability=%s quota=%s",
@@ -264,7 +278,7 @@ class GeminiBackend:
                 )
                 last_error = error
                 continue
-            self._cooldown_until.pop(model, None)
+            self._cooldown_until.pop(prefix + model, None)
             cursor.started = True
             if index != cursor.index:
                 logger.warning("agent_model_fallback from=%s to=%s", models[cursor.index], model)
@@ -480,6 +494,29 @@ class GeminiBackend:
             if web is not None and web.uri:
                 sources.append(f"{web.title or web.domain or 'kaynak'}: {web.uri}")
         return text, sources[:20]
+
+    async def check_search(self) -> list[tuple[str, str, bool, str]]:
+        """Google aramayı her anahtar ve modelle ayrı dener: (anahtar, model, çalışıyor_mu, açıklama)."""
+        config = types.GenerateContentConfig(tools=[types.Tool(google_search=types.GoogleSearch())])
+        clients = [("ana anahtar", self.client, self.models)]
+        if self.search_client is not None:
+            clients.insert(0, ("arama anahtarı", self.search_client, self.chain_for("Google araması")))
+        results = []
+        for label, client, models in clients:
+            for model in models:
+                try:
+                    response = await client.aio.models.generate_content(
+                        model=model, contents="Bugün internette popüler bir mercimek çorbası tarifinin adını yaz.", config=config,
+                    )
+                    candidate = response.candidates[0] if response.candidates else None
+                    metadata = candidate.grounding_metadata if candidate is not None else None
+                    count = len(metadata.grounding_chunks or []) if metadata is not None else 0
+                    results.append((label, model, True, f"{count} kaynak"))
+                except Exception as error:
+                    detail = model_status(error)
+                    ids = quota_ids(error)
+                    results.append((label, model, False, detail + (f" [{ids}]" if ids else "")))
+        return results
 
     async def ping(self) -> str:
         response = await self._generate(ModelCursor(), "Sadece 'tamam' yaz.")

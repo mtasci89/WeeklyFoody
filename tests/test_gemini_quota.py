@@ -183,3 +183,27 @@ def test_quota_ids_are_logged_for_diagnosis():
     from app.agent.gemini_backend import quota_ids
 
     assert quota_ids(quota_error("Day")) == "GenerateRequestsPerDayPerProjectPerModel-FreeTier"
+
+
+@pytest.mark.asyncio
+async def test_a_separate_search_key_is_used_only_for_google_search(settings):
+    sdk, main = make(settings, [text_response("Sohbet")])
+    search = FakeGeminiClient([text_response("Tarif", sources=[("S", "https://a.com/b")])])
+    sdk.search_client = search
+
+    await sdk.search_text("ara")
+    assert await sdk.ping() == "Sohbet"
+
+    assert [r["model"] for r in search.requests] == ["gemini-2.5-flash"]
+    assert [r["model"] for r in main.requests] == ["gemini-3.8-flash"]
+
+
+@pytest.mark.asyncio
+async def test_check_search_reports_each_key_and_model(settings):
+    sdk, main = make(settings, [quota_error("Day")] * 3)
+    sdk.search_client = FakeGeminiClient([text_response("Tarif", sources=[("S", "https://a.com/b")]), quota_error("Day"), quota_error("Day")])
+
+    results = await sdk.check_search()
+
+    assert results[0][:3] == ("arama anahtarı", "gemini-2.5-flash", True)
+    assert all(not ok for label, _, ok, _ in results if label == "ana anahtar")

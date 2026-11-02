@@ -23,6 +23,7 @@ def main() -> None:
     sub.add_parser("plan-now")
     sub.add_parser("discover-now")
     sub.add_parser("check-agent", help="Ajanin saglayicisina tek bir deneme istegi atar")
+    sub.add_parser("check-search", help="Google aramayi her anahtar ve modelle dener")
     app_parser = sub.add_parser("uygulama-hazirla", help="Foody uygulamasi icin HTTPS API'yi hazirlar")
     app_parser.add_argument("--adres", required=True, help="Telefonun baglanacagi adres, orn. https://152.67.69.25:8443")
     notify_parser = sub.add_parser("bildir", help="Yoneticiye Telegram'dan kisa mesaj gonderir")
@@ -98,8 +99,33 @@ def main() -> None:
         asyncio.run(_notify())
     elif args.command == "check-agent":
         raise SystemExit(asyncio.run(_check_agent(settings)))
+    elif args.command == "check-search":
+        raise SystemExit(asyncio.run(_check_search(settings)))
     elif args.command == "run":
         asyncio.run(async_main())
+
+
+async def _check_search(settings) -> int:
+    """Internetten tarif aramasi (Google aramasi) hangi anahtar/modelle calisiyor."""
+    from app.agent.gemini_backend import GeminiBackend
+
+    if not settings.gemini_api_key:
+        print("SONUC     : KAPALI - .env icinde GEMINI_API_KEY yok")
+        return 1
+    backend = GeminiBackend(settings)
+    print("Ayri arama anahtari: " + ("VAR (GEMINI_SEARCH_API_KEY)" if backend.search_client else "yok"))
+    try:
+        results = await backend.check_search()
+    finally:
+        await backend.client.aio.aclose()
+    for label, model, ok, detail in results:
+        print(f"  {'OK ' if ok else '-- '} {label:15s} {model:24s} {detail}")
+    working = [(label, model) for label, model, ok, _ in results if ok]
+    if working:
+        print(f"SONUC     : ARAMA CALISIYOR - {working[0][0]} + {working[0][1]}")
+        return 0
+    print("SONUC     : ARAMA CALISMIYOR - hicbir anahtar/model Google aramasina izin vermedi")
+    return 1
 
 
 async def _check_agent(settings) -> int:

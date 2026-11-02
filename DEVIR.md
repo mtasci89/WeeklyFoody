@@ -1,5 +1,20 @@
 # WeeklyFoody — devir notu
 
+## 2026-11-02 — Claude: sunucu günlüğü teşhisi + ayrı arama anahtarı
+
+- Kullanıcının gönderdiği günlük (01–02 Kas): Google aramalı her istek tüm modellerde anında 429,
+  ayrıntısız ("check your plan and billing"), yeni günde de sürüyor → bu projede arama kotası
+  yok/dolu. gemini-2.5-flash sunucu anahtarında 404. 3.8-flash'ın ücretsiz günlük istek kotası
+  doluyor (GenerateRequestsPerDayPerProjectPerModel-FreeTier), sohbet lite modellere düşüyor.
+  Aramasız yedek yol devreye girdi ama `fresh_ideas_failed` ile bitti (ayrıntı istendi). Ayrıca
+  19:58'de bir "Exception in ASGI application" var (ayrıntı istendi).
+- Menü yüklendi (seed_applied, onaylı) ama ev kuralı uyarısı: "Kalıcı yasakla çelişen tarif:
+  Ballı-Soyalı Susamlı Fırın Tavuk" → hangi yasak olduğu kullanıcıya soruldu, Pazartesi değişecek.
+- Yapılan: `GEMINI_SEARCH_API_KEY` (isteğe bağlı, yalnız Google araması; ayrı bekleme listesi) ve
+  `python -m app.cli check-search` (her anahtar/model için gerçek aramalı deneme). Testler +2.
+- Kullanıcı Remote Control'ü kullanamadı (kredi istedi); komutları kullanıcı çalıştırıp çıktıyı
+  yapıştırıyor. Sıradaki: kullanıcı sunucu .env'ine anahtarı kendisi ekler, check-search çıktısı.
+
 ## 2026-11-01 — Claude: 2–6 Kasım menüsü uygulamaya (tek seferlik yükleme)
 
 - Kota sürerken kullanıcıya sohbette Pzt–Cum menüsü, 5 meze, tarifler ve alışveriş listesi
