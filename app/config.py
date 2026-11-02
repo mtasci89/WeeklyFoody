@@ -59,12 +59,12 @@ class Settings(BaseSettings):
     google_enabled: bool = False
     groq_api_key: str = ""
     # Sırayla denenir; her modelin dakikalık/günlük sınırı ayrı. Kapatılan model (404) atlanır.
+    # groq-models ile doğrulandı (2026-11-02): bu anahtarda açık sohbet modelleri bunlar.
     groq_models: Annotated[list[str], NoDecode] = Field(default_factory=lambda: [
-        "openai/gpt-oss-120b", "moonshotai/kimi-k2-instruct-0905", "llama-3.3-70b-versatile",
-        "qwen/qwen3-32b", "openai/gpt-oss-20b",
+        "openai/gpt-oss-120b", "qwen/qwen3.8-27b", "openai/gpt-oss-20b",
     ])
-    # Fotoğraflı mesajlar için görüntü anlayan model.
-    groq_vision_model: str = "meta-llama/llama-4-scout-17b-16e-instruct"
+    # Fotoğraflı mesajlar için görüntü anlayan model; Groq'ta şu an açık olan yok (boş).
+    groq_vision_model: str = ""
     # İnternet araması (ücretsiz ~1.000 arama/ay).
     tavily_api_key: str = ""
     anthropic_api_key: str = ""

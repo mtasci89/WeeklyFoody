@@ -222,9 +222,13 @@ class GroqBackend:
                                                    "parameters": t.input_schema}} for t in tools]
         if self.settings.agent_web_search_enabled and self.tavily is not None:
             specs.append(WEB_SPEC)
-        vision = bool(images)
+        vision = bool(images) and bool(self.settings.groq_vision_model)
         user_content: str | list = message
-        if images:
+        if images and not vision:
+            # Groq'ta görüntü anlayan model yok: hata vermek yerine söyle, yazıyla yardım et.
+            user_content = (message + "\n\n(Sistem notu: Kullanıcı fotoğraf ekledi ama şu an fotoğraf "
+                            "okunamıyor. Bunu kısaca söyle; fotoğraftaki yemek adlarını yazarsa yardım edeceğini belirt.)")
+        elif images:
             user_content = [{"type": "text", "text": message}] + [
                 {"type": "image_url", "image_url": {"url": f"data:{mime};base64,{base64.b64encode(data).decode()}"}}
                 for mime, data in images
@@ -301,7 +305,7 @@ class GroqBackend:
 
     async def check_models(self) -> list[tuple[str, bool, str]]:
         results = []
-        for model in [*self.models, self.settings.groq_vision_model]:
+        for model in [*self.models, *([self.settings.groq_vision_model] if self.settings.groq_vision_model else [])]:
             try:
                 data = await self._post(model, {"messages": [{"role": "user", "content": "Sadece 'tamam' yaz."}],
                                                 "max_completion_tokens": 200})

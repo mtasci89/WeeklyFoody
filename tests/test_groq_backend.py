@@ -180,3 +180,15 @@ async def test_agent_runs_on_groq_with_the_short_prompt(settings, session_factor
 
     assert reply.text.startswith("Merhaba") and agent.provider == "groq"
     assert seen["system"].startswith(GROQ_SYSTEM_PROMPT) and len(GROQ_SYSTEM_PROMPT) < len(SYSTEM_PROMPT) / 3
+
+
+@pytest.mark.asyncio
+async def test_photos_without_a_vision_model_are_explained_not_failed(settings):
+    sdk, fake = backend(settings, [{"role": "assistant", "content": "Fotoğrafı okuyamıyorum; adlarını yazar mısın?"}])
+    sdk.settings = sdk.settings.model_copy(update={"groq_vision_model": ""})
+
+    text, problem = await sdk.run_turn("sistem", [], [], "bunları ekle", [], images=[("image/jpeg", b"x")])
+
+    assert problem is None and "okuyamıyorum" in text
+    sent = fake.bodies[0]["messages"][-1]["content"]
+    assert isinstance(sent, str) and "fotoğraf" in sent and fake.bodies[0]["model"] == "model-a"

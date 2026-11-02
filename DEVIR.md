@@ -1,5 +1,14 @@
 # WeeklyFoody — devir notu
 
+## 2026-11-02 — Claude: Groq canlıda çalışıyor
+
+- Kullanıcı GROQ_API_KEY + TAVILY_API_KEY ekledi, Gemini anahtarlarını sildi (.env yedeği sunucuda
+  `.env.yedek-<tarih>`). check-agent: gpt-oss-120b ve gpt-oss-20b OK; check-search: Tavily OK.
+- groq-models: açık sohbet modelleri gpt-oss-120b, qwen/qwen3.8-27b, gpt-oss-20b; görüntü modeli yok.
+  Varsayılan GROQ_MODELS bu üçü; GROQ_VISION_MODEL boş → fotoğraflı mesajda hata yerine açıklama.
+- Sıradaki: kullanıcı uygulamada çoklu "Yenileriyle değiştir" ve sohbeti dener. Groq doğrulanınca
+  Gemini kodu tamamen silinecek (kullanıcı istedi).
+
 ## 2026-11-02 — Claude: Groq + Tavily, Google kapalı (canlıda henüz anahtar yok)
 
 - Kullanıcı Google'ı tamamen istemiyor; Cal Track kotası da kullanılmayacak. Ayrıntı PROJE.md
