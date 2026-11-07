@@ -368,6 +368,10 @@ dosyaları bir kez uygular; uygulananlar `data/ice_aktarilanlar.json`. Dosya: ta
 (malzeme, hazırlanış, tahmini kcal/protein, `approved`), günler/slotlar, haftalık mezeler,
 `bos_gunler`, `onayla`. Kullanıcının seçtiği menü olduğu için ev kuralı uyarısı onayı
 durdurmaz (günlüğe `seed_rule_warning`). Geçmiş haftaya ait dosya yeni kurulumda uygulanmaz.
+`kurallar`: sohbette söylenen kalıcı ev kuralları (ör. "alkol kullanma"), yoksa eklenir.
+
+Ev kuralı "alkol kullanma" / "içki kullanma" şarap, bira, rakı, votka, likör, mirin, sake vb.'ni de yasaklar
+(`FOOD_GROUPS['alkol']`); şarap sirkesi de takılır.
 
 ## Groq + Tavily, Google kapalı (2026-11-02, Claude)
 

@@ -1,5 +1,24 @@
 # WeeklyFoody — devir notu
 
+## 2026-11-07 — Claude: 9–13 Kasım menüsü uygulamaya (tek seferlik yükleme), alkol kuralı
+
+- Kullanıcı: "Uygulama olmadı" (yenileriyle değiştir hâlâ sonuç vermedi; canlıda ayrıca bakılmadı).
+  Menüyü sohbette seçtik: Pzt Tavuk Marbella + kinoa; Salı Vietnam usulü titreyen dana + hindistan cevizli
+  yasemin pilavı; Çrş mezgit meunière + rezene-portakal salatası; Prş osso buco usulü kuzu incik + polenta;
+  Cuma Lübnan usulü şiş tavuk (toum) + fattoush. Mezeler: kashk-e bademjan, pkhali, yoğurtlu fırın
+  karnabahar, yoğurtlu enginar, kereviz rémoulade. Hafta sonu boş, onaylı. "Alkol kullanmıyoruz": şarap yok.
+- Yeni `app/seed/menu-2026-11-09.json` (15 tarif). Yükleme dosyası artık `kurallar` alır (yoksa ekler;
+  bu dosyada "alkol kullanma").
+- `app/memory/rules.py`: "alkol"/"içki" yasağı şarap, bira, rakı, votka, mirin vb.'ni de kapsar
+  ("rom/rum/cin/porto" yok: "roma domatesi", "Rum/Çin usulü" yanlışlıkla yasaklanırdı). Şarap sirkesi de
+  yasağa takılır; tariflerde elma sirkesi kullanıldı.
+- Hata düzeltmesi: o haftanın taslağı yokken `apply_seed` planı kaydetmiyordu (menü boş kalırdı; geçen
+  hafta taslak vardığı için görünmedi). Test artık veritabanından sayıyor.
+- 529 test geçti. Canlıda: kullanıcı sunucuyu güncelleyince (`./deploy/sunucu-guncelle.sh` ya da uygulama
+  Ayarlar > Sunucuyu güncelle) açılışta bir kez uygulanır; günlükte `seed_applied menu-2026-11-09`.
+- Açık: yenileriyle değiştirin canlı teşhisi (günlük: `./deploy/sunucu-gunluk.sh 200`); Gemini kodunun
+  tamamen silinmesi (Groq doğrulanınca).
+
 ## 2026-11-02 — Claude: "yenileriyle değiştir" kaynak doğrulamasında takılıyordu
 
 - Groq'la menü kuruldu (sohbet çalıştı). 3 yemek "Yenileriyle değiştir": "Kaynağı ve tarifi doğrulanmış

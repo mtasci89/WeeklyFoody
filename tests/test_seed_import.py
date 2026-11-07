@@ -102,3 +102,54 @@ def test_menu_follows_the_house_bans(db, settings, tmp_path):
     for row in fix["tarifler"]:
         assert not rules.excludes(service.find_recipe(row["ad"])), row["ad"]
     assert db.query(WeeklyPlanningSession).count() == 0  # plana dokunmaz
+
+
+def test_november_9_menu_is_loaded_alcohol_free_with_the_rule(db, settings, tmp_path):
+    """9–13 Kasım: hafta sonu yok, 5 meze, alkol yok; "alkol kullanma" kuralı da eklenir."""
+    from app.memory.preferences import PreferenceService
+    from app.memory.rules import MealRules
+
+    for ban in ("zencefil kullanma", "zerdeçal kullanma", "somon kullanma", "zahter kullanma", "kabak kullanma", "acı kullanma"):
+        PreferenceService(db).add(ban)
+    data = json.loads((seed_import.SEED_DIR / "menu-2026-11-09.json").read_text(encoding="utf-8"))
+    configured = settings.model_copy(update={"data_dir": tmp_path})
+
+    summary = seed_import.apply_seed(db, configured, data)
+
+    assert "15 tarif" in summary and "5 meze" in summary and "onaylı" in summary and "uyarı" not in summary
+    assert "yeni kural: alkol kullanma" in summary
+    rules = MealRules.from_db(db)
+    assert {"sarap", "bira", "alkol"} <= rules.excluded
+    service = RecipeService(db)
+    for row in data["tarifler"]:
+        assert not rules.excludes(service.find_recipe(row["ad"])), row["ad"]
+    # O haftanın taslağı yokken de plan gerçekten kaydedilir (önbellekten değil, veritabanından).
+    assert db.query(MealPlanItem).join(MealPlan).join(WeeklyPlanningSession).filter(
+        WeeklyPlanningSession.week_start == date(2026, 11, 9)).count() == 15
+    db.expire_all()
+    session = db.query(WeeklyPlanningSession).filter_by(week_start=date(2026, 11, 9)).one()
+    assert session.state == SessionState.APPROVED
+    days = {i.date for i in session.meal_plan.items if not i.meal_slot.startswith("hafta_")}
+    assert days == {date(2026, 11, 9) + timedelta(days=d) for d in range(5)}
+    validate_session(db, session, configured)
+    shopping = {i.name for i in ShoppingListService(db, configured).generate(session.meal_plan)}
+    assert {"kuzu incik", "mezgit fileto"} <= shopping
+    # İkinci kez uygulanınca kural çoğalmaz.
+    assert "yeni kural" not in seed_import.apply_seed(db, configured, data)
+    assert PreferenceService(db).hard_rules().count("alkol kullanma") == 1
+
+
+def test_alcohol_ban_does_not_catch_lookalike_words():
+    from types import SimpleNamespace
+
+    from app.memory.rules import MealRules
+
+    rules = MealRules.parse(["alkol kullanma"])
+
+    def recipe(name, *ingredients):
+        return SimpleNamespace(name=name, protein_type=None, aliases=[], tags=[],
+                               ingredients=[SimpleNamespace(ingredient=SimpleNamespace(name=i)) for i in ingredients])
+
+    assert rules.excludes(recipe("Şaraplı Dana Yahni", "dana"))
+    assert rules.excludes(recipe("Fish and Chips", "mezgit", "bira"))
+    assert not rules.excludes(recipe("Roma Domatesli Çin Usulü Tavuk", "roma domatesi", "tavuk"))

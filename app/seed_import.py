@@ -10,6 +10,7 @@ Yükleme: tarifler (malzemeler, hazırlanış, tahmini kalori) kütüphaneye yaz
 o haftanın planında dosyada geçen günler ve haftalık mezeler değiştirilir,
 `bos_gunler` boşaltılır, diğer günler korunur; `onayla` doğruysa menü onaylı olur. Kullanıcı
 menüyü kendisi seçtiği için ev kurallarına aykırılık onayı durdurmaz, günlüğe yazılır.
+`kurallar`: sohbette söylenen kalıcı ev kuralları (ör. "alkol kullanma"), yoksa eklenir.
 """
 from __future__ import annotations
 
@@ -41,6 +42,26 @@ def _mark(settings, seed_id: str) -> None:
     path.write_text(json.dumps(sorted(_applied(settings) | {seed_id}), ensure_ascii=False), encoding="utf-8")
 
 
+def _add_rules(db, rules: list[str]) -> list[str]:
+    """Kullanıcının sohbette söylediği kalıcı kurallar ("alkol kullanma"); varsa tekrar eklenmez."""
+    from app.memory.preferences import PreferenceService
+    from app.memory.rules import normalize
+
+    service = PreferenceService(db)
+    existing = {normalize(rule).strip(" .!") for rule in service.hard_rules()}
+    added = []
+    for rule in rules:
+        if normalize(rule).strip(" .!") not in existing:
+            service.add(rule, source="sohbet", commit=False)
+            existing.add(normalize(rule).strip(" .!"))
+            added.append(rule)
+    return added
+
+
+def _rules_note(added: list[str]) -> str:
+    return f"; yeni kural: {', '.join(added)}" if added else ""
+
+
 def apply_seed(db, settings, data: dict) -> str:
     """Tek bir menü dosyasını uygular; kısa bir özet döndürür."""
     from app.db.models import MealPlan, MealPlanItem, SessionState, WeeklyPlanningSession
@@ -51,6 +72,7 @@ def apply_seed(db, settings, data: dict) -> str:
     from app.recipes.service import RecipeService
 
     service = RecipeService(db)
+    added_rules = _add_rules(db, data.get("kurallar") or [])
     recipes = {}
     for row in data["tarifler"]:
         values = dict(
@@ -68,7 +90,7 @@ def apply_seed(db, settings, data: dict) -> str:
     if data.get("yalniz_tarifler"):
         # Yalnız tarif düzeltmesi: plan (kullanıcının sonradan yaptığı değişiklikler) korunur.
         db.commit()
-        summary = f"{data['id']}: {len(recipes)} tarif güncellendi"
+        summary = f"{data['id']}: {len(recipes)} tarif güncellendi" + _rules_note(added_rules)
         logger.info("seed_applied %s", summary)
         return summary
 
@@ -80,8 +102,11 @@ def apply_seed(db, settings, data: dict) -> str:
         db.add(session)
         db.flush()
     if session.meal_plan is None:
-        session.meal_plan = MealPlan(session=session, status="draft")
+        # Açıkça eklenmeli: yalnız ilişkiye atamak yeni planı kaydetmiyordu (o haftanın taslağı
+        # yokken menü boş kalıyordu).
+        db.add(MealPlan(session=session, status="draft"))
         db.flush()
+        db.refresh(session)
     plan = session.meal_plan
     # Dosyadaki günler değiştirilir; `bos_gunler` boşaltılır (dışarıda/plansız); diğerleri korunur.
     days = {date.fromisoformat(d) for d in [*data["gunler"], *data.get("bos_gunler", [])]}
@@ -112,7 +137,8 @@ def apply_seed(db, settings, data: dict) -> str:
         session.state = SessionState.AWAITING_APPROVAL
     db.commit()
     summary = f"{data['id']}: {len(recipes)} tarif, {sum(len(m) for m in data['gunler'].values())} öğün, " \
-              f"{len(data.get('mezeler') or [])} meze; {'onaylı' if data.get('onayla') else 'taslak'}{note}"
+              f"{len(data.get('mezeler') or [])} meze; {'onaylı' if data.get('onayla') else 'taslak'}{note}" \
+              + _rules_note(added_rules)
     logger.info("seed_applied %s", summary)
     return summary
 

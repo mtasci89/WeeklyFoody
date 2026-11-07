@@ -1,0 +1,422 @@
+{
+ "id": "menu-2026-11-09",
+ "aciklama": "Kullanıcının sohbette Claude ile seçtiği 9–13 Kasım menüsü (hafta sonu yok, 5 meze, alkolsüz).",
+ "hafta_baslangic": "2026-11-09",
+ "onayla": true,
+ "kurallar": [
+  "alkol kullanma"
+ ],
+ "gunler": {
+  "2026-11-09": [
+   {
+    "slot": "dinner_main",
+    "tarif": "Tavuk Marbella"
+   },
+   {
+    "slot": "dinner_side",
+    "tarif": "Limonlu-Maydanozlu Kinoa"
+   }
+  ],
+  "2026-11-10": [
+   {
+    "slot": "dinner_main",
+    "tarif": "Vietnam Usulü Titreyen Dana (Bò Lúc Lắc)"
+   },
+   {
+    "slot": "dinner_side",
+    "tarif": "Hindistan Cevizli Yasemin Pilavı"
+   }
+  ],
+  "2026-11-11": [
+   {
+    "slot": "dinner_main",
+    "tarif": "Mezgit Meunière, Fındıklı Tereyağı Soslu"
+   },
+   {
+    "slot": "dinner_salad",
+    "tarif": "Rezene-Portakal Salatası"
+   }
+  ],
+  "2026-11-12": [
+   {
+    "slot": "dinner_main",
+    "tarif": "Osso Buco Usulü Kuzu İncik"
+   },
+   {
+    "slot": "dinner_side",
+    "tarif": "Parmesanlı Kremalı Polenta"
+   }
+  ],
+  "2026-11-13": [
+   {
+    "slot": "dinner_main",
+    "tarif": "Lübnan Usulü Şiş Tavuk, Toum ile"
+   },
+   {
+    "slot": "dinner_salad",
+    "tarif": "Fattoush Salatası"
+   }
+  ]
+ },
+ "mezeler": [
+  "Kashk-e Bademjan",
+  "Pkhali (Gürcü Ispanak-Cevizli Toplar)",
+  "Yoğurtlu Fırın Karnabahar, Tahin ve Nar Ekşili",
+  "Yoğurtlu-Dereotlu Enginar Kalbi",
+  "Kereviz Rémoulade"
+ ],
+ "bos_gunler": [
+  "2026-11-14",
+  "2026-11-15"
+ ],
+ "tarifler": [
+  {
+   "ad": "Tavuk Marbella",
+   "kategori": "main",
+   "mutfak": "Akdeniz",
+   "porsiyon": 4,
+   "protein": "chicken",
+   "vejetaryen": false,
+   "malzemeler": [
+    "1,2 kg tavuk but",
+    "1 su bardağı kuru erik",
+    "1 su bardağı yeşil zeytin",
+    "3 yemek kaşığı kapari",
+    "6 diş sarımsak",
+    "1 yemek kaşığı kekik",
+    "4 yemek kaşığı elma sirkesi",
+    "4 yemek kaşığı zeytinyağı",
+    "3 adet defne yaprağı",
+    "2 yemek kaşığı esmer şeker",
+    "1 su bardağı tavuk suyu",
+    "Yarım demet maydanoz",
+    "Tuz",
+    "Karabiber"
+   ],
+   "hazirlanis": "1. Kemikli, derili tavuk butlarını ezilmiş sarımsak, kekik, sirke, zeytinyağı, kuru erik, zeytin, kapari, defne, tuz ve karabiberle harmanlayın; buzdolabında en az 2 saat (mümkünse bir gece) bekletin.\n2. Tavukları marinasıyla birlikte geniş bir fırın kabına tek kat dizin, üzerlerine esmer şekeri serpin, tavuk suyunu kabın kenarından dökün.\n3. 200°C fırında 45–50 dakika, arada iki kez kendi suyuyla sulayarak, derileri kızarana kadar pişirin.\n4. Erik, zeytin ve kaparisiyle birlikte tabağa alın, sosunu üzerine gezdirip kıyılmış maydanoz serpin.",
+   "kcal": 520,
+   "protein_g": 38
+  },
+  {
+   "ad": "Vietnam Usulü Titreyen Dana (Bò Lúc Lắc)",
+   "kategori": "main",
+   "mutfak": "Vietnam",
+   "porsiyon": 4,
+   "protein": "beef",
+   "vejetaryen": false,
+   "malzemeler": [
+    "800 g dana bonfile",
+    "2 yemek kaşığı istiridye sosu",
+    "2 yemek kaşığı soya sosu",
+    "1 yemek kaşığı esmer şeker",
+    "5 diş sarımsak",
+    "1 tatlı kaşığı karabiber",
+    "3 yemek kaşığı ayçiçek yağı",
+    "1 adet kırmızı soğan",
+    "1 adet kırmızı kapya biber",
+    "1 demet su teresi",
+    "2 adet domates",
+    "2 adet limon",
+    "Tuz"
+   ],
+   "hazirlanis": "1. Bonfileyi 3 cm küp doğrayın; sarımsağı ince kıyın, soğanı ve biberi iri doğrayın. Eti istiridye sosu, soya sosu, şeker, sarımsağın yarısı ve yarım tatlı kaşığı karabiberle karıştırıp 30 dakika bekletin.\n2. Tavayı ya da woku dumanı çıkana kadar ısıtın. Etleri iki seferde, her seferinde 1 yemek kaşığı yağla, tavayı sallayarak 2–3 dakika (dışı kızarık, içi pembe) pişirin.\n3. Son yağla soğan, biber ve kalan sarımsağı 1 dakika çevirin, eti geri ekleyip birkaç kez sallayın.\n4. Daldırma sosu: 2 limonun suyu, 1 tatlı kaşığı tuz ve yarım tatlı kaşığı karabiber.\n5. Su teresini (yoksa roka) ve dilimlenmiş domatesleri tabağa yayın, eti üzerine alın; sosla birlikte servis edin.",
+   "kcal": 380,
+   "protein_g": 42
+  },
+  {
+   "ad": "Mezgit Meunière, Fındıklı Tereyağı Soslu",
+   "kategori": "main",
+   "mutfak": "Fransız",
+   "porsiyon": 4,
+   "protein": "fish",
+   "vejetaryen": false,
+   "malzemeler": [
+    "800 g mezgit fileto",
+    "4 yemek kaşığı un",
+    "2 yemek kaşığı zeytinyağı",
+    "80 g tereyağı",
+    "0,5 su bardağı fındık",
+    "1 adet limon",
+    "2 yemek kaşığı kapari",
+    "0,5 demet maydanoz",
+    "Tuz",
+    "Karabiber"
+   ],
+   "hazirlanis": "1. Filetoları kağıt havluyla iyice kurulayın, tuz ve karabiber serpip una bulayın, fazla ununu silkeleyin.\n2. Geniş tavada zeytinyağı ve 1 yemek kaşığı tereyağını kızdırın; filetoları her yüzü 2–3 dakika, altın renk olana kadar pişirip sıcak tabağa alın.\n3. Tavayı kağıt havluyla silin, kalan tereyağını ve kabaca kırılmış fındığı koyun; tereyağı köpürüp açık kahverengi olana ve fındık kokusu çıkana kadar 2–3 dakika karıştırın.\n4. Ocaktan alıp limon suyu, kapari ve kıyılmış maydanozu ekleyin; sıcak sosu balıkların üzerine dökün.",
+   "kcal": 430,
+   "protein_g": 38
+  },
+  {
+   "ad": "Osso Buco Usulü Kuzu İncik",
+   "kategori": "main",
+   "mutfak": "İtalyan",
+   "porsiyon": 4,
+   "protein": "lamb",
+   "vejetaryen": false,
+   "malzemeler": [
+    "4 adet kuzu incik",
+    "3 yemek kaşığı un",
+    "3 yemek kaşığı zeytinyağı",
+    "1 adet kuru soğan",
+    "1 adet havuç",
+    "2 adet kereviz sapı",
+    "6 diş sarımsak",
+    "1 yemek kaşığı domates salçası",
+    "400 g konserve doğranmış domates",
+    "3 su bardağı et suyu",
+    "1 yemek kaşığı elma sirkesi",
+    "2 dal biberiye",
+    "2 adet defne yaprağı",
+    "1 adet limon",
+    "0,5 demet maydanoz",
+    "Tuz",
+    "Karabiber"
+   ],
+   "hazirlanis": "1. İnciklere tuz ve karabiber sürüp una bulayın. Geniş, kalın tabanlı tencerede zeytinyağında her yüzünü 10 dakika boyunca kızartıp tabağa alın.\n2. Soğan, havuç ve kereviz sapını ince doğrayın, aynı tencerede 8 dakika yumuşatın; 4 diş ezilmiş sarımsak ve salçayı ekleyip 2 dakika kavurun.\n3. Sirke ve bir bardak et suyuyla tencerenin dibini kazıyın; doğranmış domates, kalan et suyu, biberiye ve defneyi ekleyin.\n4. İncikleri geri koyun, kapağı kapalı kısık ateşte 2,5 saat (ya da 160°C fırında 2,5 saat, düdüklüde 45 dakika) et kemikten ayrılana kadar pişirin. Gerekirse kapağı açıp sosu 10 dakika koyulaştırın.\n5. Gremolata: limonun rendelenmiş kabuğu, kalan 2 diş sarımsak ve maydanozu birlikte ince kıyın. İncikleri sosuyla tabağa alın, gremolatayı üzerine serpin.",
+   "kcal": 620,
+   "protein_g": 50
+  },
+  {
+   "ad": "Lübnan Usulü Şiş Tavuk, Toum ile",
+   "kategori": "main",
+   "mutfak": "Lübnan",
+   "porsiyon": 4,
+   "protein": "chicken",
+   "vejetaryen": false,
+   "malzemeler": [
+    "1 kg tavuk but",
+    "1 su bardağı süzme yoğurt",
+    "2 adet limon",
+    "4 diş sarımsak",
+    "1 yemek kaşığı domates salçası",
+    "1 tatlı kaşığı tatlı toz biber",
+    "1 yemek kaşığı kekik",
+    "Yarım tatlı kaşığı yenibahar",
+    "3 yemek kaşığı zeytinyağı",
+    "12 diş sarımsak",
+    "1 su bardağı ayçiçek yağı",
+    "Tuz"
+   ],
+   "hazirlanis": "1. Tavukları küp doğrayın. Yoğurt, 1 limonun suyu, 4 diş ezilmiş sarımsak, salça, tatlı toz biber, kekik, yenibahar, zeytinyağı ve tuzu karıştırın; tavukları bu marinada en az 2 saat bekletin.\n2. Tavukları şişlere dizin. 220°C fırında ya da ızgara tavada, arada çevirerek 15–18 dakika, kenarları kızarana kadar pişirin.\n3. Toum: 12 diş sarımsağı (yaklaşık 1 baş) soyun, yarım tatlı kaşığı tuzla rondoda ezin. Motor çalışırken ayçiçek yağını ince bir ip gibi akıtın; arada bir yarım limonun suyunu ve 2 yemek kaşığı buzlu suyu ekleyin. Beyaz, kabarık bir krema olunca durun.\n4. Şiş tavukları toum ile servis edin.",
+   "kcal": 480,
+   "protein_g": 52
+  },
+  {
+   "ad": "Limonlu-Maydanozlu Kinoa",
+   "kategori": "side",
+   "mutfak": "Akdeniz",
+   "porsiyon": 4,
+   "protein": null,
+   "vejetaryen": true,
+   "malzemeler": [
+    "1,5 su bardağı kinoa",
+    "3 su bardağı tavuk suyu",
+    "1 adet limon",
+    "1 demet maydanoz",
+    "2 adet taze soğan",
+    "2 yemek kaşığı zeytinyağı",
+    "Tuz"
+   ],
+   "hazirlanis": "1. Kinoayı ince süzgeçte bol suyla yıkayın.\n2. Tavuk suyu ve tuzla kaynatın, kısık ateşte kapağı kapalı 15 dakika suyunu çekene kadar pişirin; 5 dakika demlendirip çatalla kabartın.\n3. Limonun rendelenmiş kabuğu ve suyu, zeytinyağı, kıyılmış maydanoz ve taze soğanı karıştırın.",
+   "kcal": 230,
+   "protein_g": 8
+  },
+  {
+   "ad": "Hindistan Cevizli Yasemin Pilavı",
+   "kategori": "side",
+   "mutfak": "Vietnam",
+   "porsiyon": 4,
+   "protein": null,
+   "vejetaryen": true,
+   "malzemeler": [
+    "2 su bardağı yasemin pirinci",
+    "400 ml hindistan cevizi sütü",
+    "1 tatlı kaşığı şeker",
+    "2 adet taze soğan",
+    "Tuz"
+   ],
+   "hazirlanis": "1. Pirinci su berraklaşana kadar yıkayıp süzün.\n2. Hindistan cevizi sütü, 1 su bardağı su, 1 tatlı kaşığı tuz ve şekerle tencereye alın, kaynayınca kısın; kapağı kapalı 15 dakika pişirin.\n3. Ocaktan alıp 10 dakika demlendirin, çatalla kabartıp doğranmış taze soğan serpin.",
+   "kcal": 380,
+   "protein_g": 6
+  },
+  {
+   "ad": "Rezene-Portakal Salatası",
+   "kategori": "salad",
+   "mutfak": "Akdeniz",
+   "porsiyon": 4,
+   "protein": null,
+   "vejetaryen": true,
+   "malzemeler": [
+    "2 adet rezene",
+    "3 adet portakal",
+    "0,5 adet kırmızı soğan",
+    "12 adet siyah zeytin",
+    "3 yemek kaşığı zeytinyağı",
+    "0,5 adet limon",
+    "0,5 demet taze nane",
+    "Tuz",
+    "Karabiber"
+   ],
+   "hazirlanis": "1. Rezeneleri ve soğanı çok ince dilimleyin (rezenenin yeşil yapraklarını ayırın).\n2. Portakalların kabuğunu beyaz zarıyla birlikte soyun, halka halka dilimleyin; çıkan suyu saklayın.\n3. Portakal suyu, zeytinyağı, limon suyu, tuz ve karabiberle sos yapın.\n4. Rezene, portakal, soğan ve zeytini tabağa yayın; sosu dökün, nane ve rezene yapraklarıyla süsleyin.",
+   "kcal": 140,
+   "protein_g": 2
+  },
+  {
+   "ad": "Parmesanlı Kremalı Polenta",
+   "kategori": "side",
+   "mutfak": "İtalyan",
+   "porsiyon": 4,
+   "protein": null,
+   "vejetaryen": true,
+   "malzemeler": [
+    "1,5 su bardağı mısır irmiği",
+    "1 su bardağı süt",
+    "50 g tereyağı",
+    "60 g parmesan",
+    "Tuz"
+   ],
+   "hazirlanis": "1. 4 su bardağı su, süt ve tuzu kaynatın.\n2. Mısır irmiğini çırparak yavaş yavaş ekleyin; kısık ateşte, sık sık karıştırarak 25–30 dakika, kremamsı olana kadar pişirin (koyulaşırsa biraz sıcak su ekleyin).\n3. Ocaktan alıp tereyağı ve rendelenmiş parmesanı karıştırın; inciğin sosuyla birlikte hemen servis edin.",
+   "kcal": 330,
+   "protein_g": 11
+  },
+  {
+   "ad": "Fattoush Salatası",
+   "kategori": "salad",
+   "mutfak": "Lübnan",
+   "porsiyon": 4,
+   "protein": null,
+   "vejetaryen": true,
+   "malzemeler": [
+    "2 adet lavaş",
+    "1 adet marul",
+    "3 adet domates",
+    "2 adet salatalık",
+    "1 adet kırmızı kapya biber",
+    "5 adet kırmızı turp",
+    "4 adet taze soğan",
+    "0,5 demet maydanoz",
+    "0,5 demet taze nane",
+    "1 yemek kaşığı sumak",
+    "2 yemek kaşığı nar ekşisi",
+    "1 adet limon",
+    "5 yemek kaşığı zeytinyağı",
+    "1 diş sarımsak",
+    "Tuz"
+   ],
+   "hazirlanis": "1. Lavaşları küçük karelere kesin, 1 yemek kaşığı zeytinyağıyla harmanlayıp 200°C fırında 6–8 dakika kıtır olana kadar kızartın.\n2. Marul, domates, salatalık, biber, turp ve taze soğanı iri doğrayın; maydanoz ve naneyi kıyın.\n3. Sos: kalan zeytinyağı, limon suyu, nar ekşisi, sarımsak, sumak ve tuzu çırpın.\n4. Servisten hemen önce sebzeleri sosla karıştırın, kıtır lavaşları ekleyip üzerine biraz daha sumak serpin.",
+   "kcal": 220,
+   "protein_g": 4
+  },
+  {
+   "ad": "Kashk-e Bademjan",
+   "kategori": "meze",
+   "mutfak": "İran",
+   "porsiyon": 4,
+   "protein": null,
+   "vejetaryen": true,
+   "malzemeler": [
+    "4 adet patlıcan",
+    "1 su bardağı sıvı keş",
+    "2 adet kuru soğan",
+    "3 diş sarımsak",
+    "0,5 su bardağı ceviz",
+    "1 yemek kaşığı kuru nane",
+    "5 yemek kaşığı zeytinyağı",
+    "Tuz",
+    "Karabiber"
+   ],
+   "hazirlanis": "1. Patlıcanları ocakta közleyin ya da 220°C fırında 40 dakika pişirin; kabuklarını soyup çatalla ezin.\n2. Soğanları ince piyazlık doğrayıp 3 yemek kaşığı zeytinyağında kısık ateşte 20 dakika, koyu altın renk olana kadar karamelize edin; dörtte birini süs için ayırın.\n3. Kalan soğana sarımsağı ekleyip 1 dakika çevirin, patlıcanı ekleyip tuz ve karabiberle 5 dakika pişirin.\n4. Ocaktan alıp keşin çoğunu (keş bulamazsanız 1 su bardağı süzme yoğurt ile 50 g ezilmiş beyaz peynir) karıştırın. Kalan 2 yemek kaşığı yağı ısıtıp naneyi 10 saniye çevirin.\n5. Tabağa yayın; üzerine kalan keşi, karamelize soğanı, kırılmış cevizi ve nane yağını gezdirin.",
+   "kcal": 210,
+   "protein_g": 7
+  },
+  {
+   "ad": "Pkhali (Gürcü Ispanak-Cevizli Toplar)",
+   "kategori": "meze",
+   "mutfak": "Gürcü",
+   "porsiyon": 4,
+   "protein": null,
+   "vejetaryen": true,
+   "malzemeler": [
+    "500 g ıspanak",
+    "1 su bardağı ceviz",
+    "2 diş sarımsak",
+    "0,5 demet taze kişniş",
+    "0,5 demet maydanoz",
+    "1 tatlı kaşığı çemen otu tohumu",
+    "1 tatlı kaşığı kişniş tohumu",
+    "1 yemek kaşığı elma sirkesi",
+    "0,5 adet nar",
+    "Tuz"
+   ],
+   "hazirlanis": "1. Ispanağı kaynar suda 1 dakika haşlayıp soğuk suya alın; avuçlarınızla suyunu iyice sıkın.\n2. Ceviz, sarımsak, kişniş, maydanoz, toz çemen otu tohumu (pastırma çemeni değil) ve toz kişniş tohumu, sirke ve tuzu rondoda ezin; ıspanağı ekleyip kısa kısa çalıştırarak koyu bir karışım yapın.\n3. Ceviz büyüklüğünde toplar yapıp hafifçe bastırın, her birinin üzerine nar taneleri koyun. Buzdolabında 30 dakika dinlendirip servis edin.",
+   "kcal": 150,
+   "protein_g": 6
+  },
+  {
+   "ad": "Yoğurtlu Fırın Karnabahar, Tahin ve Nar Ekşili",
+   "kategori": "meze",
+   "mutfak": "Orta Doğu",
+   "porsiyon": 4,
+   "protein": null,
+   "vejetaryen": true,
+   "malzemeler": [
+    "1 adet karnabahar",
+    "3 yemek kaşığı zeytinyağı",
+    "1 tatlı kaşığı kimyon",
+    "1 su bardağı süzme yoğurt",
+    "1 diş sarımsak",
+    "2 yemek kaşığı tahin",
+    "1 yemek kaşığı nar ekşisi",
+    "2 yemek kaşığı çam fıstığı",
+    "0,5 demet maydanoz",
+    "Tuz"
+   ],
+   "hazirlanis": "1. Karnabaharı küçük çiçeklere ayırın; zeytinyağı, kimyon ve tuzla harmanlayıp 220°C fırında 25–30 dakika, kenarları kızarana kadar pişirin.\n2. Yoğurdu sarımsak ve tuzla çırpıp servis tabağına yayın.\n3. Sıcak karnabaharı yoğurdun üzerine alın; tahini ve nar ekşisini gezdirin.\n4. Tavada kavrulmuş çam fıstığı ve kıyılmış maydanoz serpin.",
+   "kcal": 170,
+   "protein_g": 7
+  },
+  {
+   "ad": "Yoğurtlu-Dereotlu Enginar Kalbi",
+   "kategori": "meze",
+   "mutfak": "Ege",
+   "porsiyon": 4,
+   "protein": null,
+   "vejetaryen": true,
+   "malzemeler": [
+    "8 adet dondurulmuş enginar kalbi",
+    "1 adet limon",
+    "3 yemek kaşığı zeytinyağı",
+    "1 su bardağı süzme yoğurt",
+    "1 diş sarımsak",
+    "0,5 demet dereotu",
+    "Tuz"
+   ],
+   "hazirlanis": "1. Enginarları limon suyu, 2 yemek kaşığı zeytinyağı, bir tutam şeker, tuz ve üzerlerini geçecek kadar suyla 20 dakika yumuşayana kadar pişirin; suyunda soğutun.\n2. Enginarları süzüp iri küp doğrayın.\n3. Yoğurdu sarımsak, kıyılmış dereotu ve tuzla karıştırın, enginarları ekleyin.\n4. Tabağa alıp kalan zeytinyağını gezdirin, dereotu ile süsleyin.",
+   "kcal": 120,
+   "protein_g": 6
+  },
+  {
+   "ad": "Kereviz Rémoulade",
+   "kategori": "meze",
+   "mutfak": "Fransız",
+   "porsiyon": 4,
+   "protein": null,
+   "vejetaryen": true,
+   "malzemeler": [
+    "1 adet kereviz kökü",
+    "1 adet limon",
+    "Yarım su bardağı süzme yoğurt",
+    "2 yemek kaşığı mayonez",
+    "1 yemek kaşığı hardal",
+    "1 yemek kaşığı kapari",
+    "2 adet kornişon turşusu",
+    "0,5 demet maydanoz",
+    "Tuz",
+    "Karabiber"
+   ],
+   "hazirlanis": "1. Büyük bir kereviz kökünü (yaklaşık 600 g) soyup rendenin iri tarafıyla ya da jülyen şeritler halinde rendeleyin; kararmaması için hemen limon suyu ve bir tutam tuzla karıştırın.\n2. Yoğurt, mayonez, hardal, kıyılmış kapari ve kornişon, kıyılmış maydanoz ve karabiberi karıştırın.\n3. Kerevizi sosla harmanlayın; buzdolabında en az 30 dakika dinlendirip servis edin.",
+   "kcal": 110,
+   "protein_g": 3
+  }
+ ]
+}

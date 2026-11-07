@@ -21,7 +21,12 @@ FOOD_GROUPS = {
     'balik': ('balik', 'balig', 'fish', 'somon', 'salmon', 'hamsi', 'levrek', 'cipura', 'uskumru', 'palamut', 'alabalik', 'sardalya', 'mezgit', 'lufer', 'ton baligi', 'tuna', 'anchovy', 'trout', 'seabass'),
     'tavuk': ('tavuk', 'chicken'),
     'kirmizi et': ('kirmizi et', 'beef', 'lamb', 'veal', 'dana', 'kuzu', 'kiyma', 'kusbasi'),
+    # "Alkol kullanmıyoruz": yemeğe giren içkiler de (şaraplı sos, biralı hamur, mirin...).
+    'alkol': ('alkol', 'sarap', 'wine', 'bira', 'beer', 'raki', 'votka', 'vodka', 'konyak', 'brendi', 'brandy',
+              'likor', 'viski', 'whisky', 'gin', 'mirin', 'sake', 'sherry', 'vermut', 'marsala', 'ouzo', 'calvados'),
+    # "rom/rum/cin/porto" yok: "roma domatesi", "Rum usulü", "Çin usulü" yanlışlıkla yasaklanırdı.
 }
+FOOD_GROUPS['icki'] = FOOD_GROUPS['alkol']
 
 
 _NUMBER_WORDS = [('bir', 1), ('iki', 2), ('uc', 3), ('dort', 4), ('bes', 5), ('alti', 6), ('yedi', 7)]
