@@ -1,5 +1,19 @@
 # WeeklyFoody — devir notu
 
+## 2026-11-15 — Claude: 16–20 Kasım menüsü (kolay hafta) uygulamaya
+
+- Kullanıcı: "Bu sefer yapması kolay olsun, yapacak kişi yoğun." Sohbette seçildi: Pzt ballı-hardallı
+  kemiksiz piliç tava + tereyağlı bulgur pilavı; Salı ekmeksiz smash burger kasesi + yoğurtlu coleslaw;
+  Çrş parmesan kabuklu fırın mezgit + dereotlu patates salatası; Prş fırında sebzeli kuzu incik (10 dk
+  hazırlık, 2,5 saat fırın) + şehriyeli pirinç pilavı; Cuma Asya usulü hindi kıymalı marul dürüm +
+  susamlı salatalık. Mezeler (4; marine beyaz peynir kullanıcı isteğiyle çıktı): labne topları, tavada
+  hellim, yoğurtlu avokado ezmesi, yoğurtlu brokoli tarator. Hafta sonu boş, onaylı, alkolsüz.
+- Yeni `app/seed/menu-2026-11-16.json` (14 tarif) + `tests/test_seed_import.py` testi. Kod değişmedi.
+- Kontrol: ev kurallarına takılan yok, tabak uyumu notu yok, alışveriş listesi tek satırlarda toplanıyor
+  (yalnız tuz/karabiber miktarsız). 530 test geçti.
+- Canlıda: kullanıcı sunucuyu güncelleyince açılışta bir kez uygulanır (`seed_applied menu-2026-11-16`).
+- Not: alışveriş kategorisinde mezgit ve hellim "Diğer"e düşüyor (sınıflandırıcı); ayrı iş.
+
 ## 2026-11-07 — Claude: 9–13 Kasım menüsü uygulamaya (tek seferlik yükleme), alkol kuralı
 
 - Kullanıcı: "Uygulama olmadı" (yenileriyle değiştir hâlâ sonuç vermedi; canlıda ayrıca bakılmadı).

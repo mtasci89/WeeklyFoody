@@ -153,3 +153,31 @@ def test_alcohol_ban_does_not_catch_lookalike_words():
     assert rules.excludes(recipe("Şaraplı Dana Yahni", "dana"))
     assert rules.excludes(recipe("Fish and Chips", "mezgit", "bira"))
     assert not rules.excludes(recipe("Roma Domatesli Çin Usulü Tavuk", "roma domatesi", "tavuk"))
+
+
+def test_november_16_easy_menu_is_loaded(db, settings, tmp_path):
+    """16–20 Kasım (kolay hafta): hafta sonu yok, 4 meze, ev kurallarına uygun."""
+    from app.memory.preferences import PreferenceService
+    from app.memory.rules import MealRules
+
+    for ban in ("zencefil kullanma", "zerdeçal kullanma", "somon kullanma", "zahter kullanma", "kabak kullanma",
+                "acı kullanma", "alkol kullanma"):
+        PreferenceService(db).add(ban)
+    data = json.loads((seed_import.SEED_DIR / "menu-2026-11-16.json").read_text(encoding="utf-8"))
+    configured = settings.model_copy(update={"data_dir": tmp_path})
+
+    summary = seed_import.apply_seed(db, configured, data)
+
+    assert "14 tarif" in summary and "4 meze" in summary and "onaylı" in summary and "uyarı" not in summary
+    assert "yeni kural" not in summary  # alkol kuralı zaten vardı
+    rules = MealRules.from_db(db)
+    service = RecipeService(db)
+    for row in data["tarifler"]:
+        assert not rules.excludes(service.find_recipe(row["ad"])), row["ad"]
+    db.expire_all()
+    session = db.query(WeeklyPlanningSession).filter_by(week_start=date(2026, 11, 16)).one()
+    assert session.state == SessionState.APPROVED and len(session.meal_plan.items) == 14
+    names = {i.recipe.name for i in session.meal_plan.items}
+    assert {"Fırında Sebzeli Kuzu İncik", "Ballı-Hardallı Kemiksiz Piliç Tava"} <= names
+    shopping = {i.name for i in ShoppingListService(db, configured).generate(session.meal_plan)}
+    assert {"kuzu incik", "kemiksiz tavuk but", "mezgit fileto", "labne"} <= shopping

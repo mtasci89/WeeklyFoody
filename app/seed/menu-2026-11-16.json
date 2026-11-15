@@ -1,0 +1,365 @@
+{
+ "id": "menu-2026-11-16",
+ "aciklama": "Kullanıcının sohbette Claude ile seçtiği 16–20 Kasım menüsü (kolay hafta; hafta sonu yok, 4 meze).",
+ "hafta_baslangic": "2026-11-16",
+ "onayla": true,
+ "kurallar": [
+  "alkol kullanma"
+ ],
+ "gunler": {
+  "2026-11-16": [
+   {
+    "slot": "dinner_main",
+    "tarif": "Ballı-Hardallı Kemiksiz Piliç Tava"
+   },
+   {
+    "slot": "dinner_side",
+    "tarif": "Tereyağlı Bulgur Pilavı"
+   }
+  ],
+  "2026-11-17": [
+   {
+    "slot": "dinner_main",
+    "tarif": "Ekmeksiz Smash Burger Kasesi"
+   },
+   {
+    "slot": "dinner_salad",
+    "tarif": "Yoğurtlu Lahana Salatası (Coleslaw)"
+   }
+  ],
+  "2026-11-18": [
+   {
+    "slot": "dinner_main",
+    "tarif": "Parmesan Kabuklu Fırın Mezgit"
+   },
+   {
+    "slot": "dinner_salad",
+    "tarif": "Dereotlu-Limonlu Patates Salatası"
+   }
+  ],
+  "2026-11-19": [
+   {
+    "slot": "dinner_main",
+    "tarif": "Fırında Sebzeli Kuzu İncik"
+   },
+   {
+    "slot": "dinner_side",
+    "tarif": "Şehriyeli Pirinç Pilavı"
+   }
+  ],
+  "2026-11-20": [
+   {
+    "slot": "dinner_main",
+    "tarif": "Asya Usulü Hindi Kıymalı Marul Dürüm"
+   },
+   {
+    "slot": "dinner_salad",
+    "tarif": "Susamlı Salatalık Salatası"
+   }
+  ]
+ },
+ "mezeler": [
+  "Labne Topları",
+  "Tavada Hellim, Nar Ekşili ve Naneli",
+  "Yoğurtlu Avokado-Dereotu Ezmesi",
+  "Yoğurtlu Brokoli Tarator"
+ ],
+ "bos_gunler": [
+  "2026-11-21",
+  "2026-11-22"
+ ],
+ "tarifler": [
+  {
+   "ad": "Ballı-Hardallı Kemiksiz Piliç Tava",
+   "kategori": "main",
+   "mutfak": null,
+   "porsiyon": 4,
+   "protein": "chicken",
+   "vejetaryen": false,
+   "malzemeler": [
+    "800 g kemiksiz tavuk but",
+    "2 yemek kaşığı un",
+    "2 yemek kaşığı zeytinyağı",
+    "2 yemek kaşığı hardal",
+    "2 yemek kaşığı bal",
+    "3 diş sarımsak",
+    "1 su bardağı tavuk suyu",
+    "2 adet havuç",
+    "0,5 demet maydanoz",
+    "Tuz",
+    "Karabiber"
+   ],
+   "hazirlanis": "1. Tavuk butlarını iri lokmalar halinde kesin, tuz ve karabiber serpip una bulayın. Havuçları ince halka doğrayın, sarımsağı ezin.\n2. Geniş tavada zeytinyağını kızdırın; tavukları her yüzü 4–5 dakika, kızarana kadar pişirip kenara alın.\n3. Aynı tavada havuç ve sarımsağı 3 dakika çevirin.\n4. Hardal, bal ve tavuk suyunu karıştırıp tavaya dökün. Tavukları geri koyun; kapağı kapalı, orta ateşte 10 dakika sos koyulaşana kadar pişirin.\n5. Kıyılmış maydanoz serpip servis edin. (Toplam 25 dakika.)",
+   "kcal": 450,
+   "protein_g": 40
+  },
+  {
+   "ad": "Tereyağlı Bulgur Pilavı",
+   "kategori": "side",
+   "mutfak": "Türk",
+   "porsiyon": 4,
+   "protein": null,
+   "vejetaryen": true,
+   "malzemeler": [
+    "2 su bardağı pilavlık bulgur",
+    "1 adet kuru soğan",
+    "1 yemek kaşığı domates salçası",
+    "30 g tereyağı",
+    "1 yemek kaşığı zeytinyağı",
+    "Tuz"
+   ],
+   "hazirlanis": "1. Soğanı ince doğrayıp tereyağı ve zeytinyağında 3 dakika kavurun; salçayı ekleyip 1 dakika çevirin.\n2. Bulguru ekleyip 2 dakika karıştırın; 3 su bardağı sıcak su ve tuzu ekleyin.\n3. Kaynayınca kısın, kapağı kapalı 15 dakika suyunu çekene kadar pişirin; 10 dakika demlendirin.",
+   "kcal": 300,
+   "protein_g": 8
+  },
+  {
+   "ad": "Ekmeksiz Smash Burger Kasesi",
+   "kategori": "main",
+   "mutfak": "Amerikan",
+   "porsiyon": 4,
+   "protein": "beef",
+   "vejetaryen": false,
+   "malzemeler": [
+    "600 g dana kıyma",
+    "100 g cheddar",
+    "1 adet marul",
+    "2 adet domates",
+    "1 adet kırmızı soğan",
+    "4 adet kornişon turşusu",
+    "3 yemek kaşığı mayonez",
+    "1 yemek kaşığı ketçap",
+    "1 yemek kaşığı hardal",
+    "1 tatlı kaşığı tatlı toz biber",
+    "Tuz",
+    "Karabiber"
+   ],
+   "hazirlanis": "1. Burger sosu: mayonez, ketçap, hardal, tatlı toz biber ve bir turşuyu ince doğrayıp karıştırın.\n2. Marulu, domatesi, kırmızı soğanı ve kalan turşuları doğrayıp dört kaseye paylaştırın.\n3. Kıymayı 8 top yapın (yoğurmayın). Döküm ya da kalın tavayı dumanı çıkana kadar kızdırın.\n4. Topları tavaya koyup spatulayla iyice ince bastırın, tuz ve karabiber serpin. 2 dakika sonra çevirin, üzerine birer ince dilim cheddar koyup 1 dakika daha pişirin.\n5. Köfteleri kaselere yerleştirip burger sosunu gezdirin. (Toplam 20 dakika.)",
+   "kcal": 560,
+   "protein_g": 38
+  },
+  {
+   "ad": "Yoğurtlu Lahana Salatası (Coleslaw)",
+   "kategori": "salad",
+   "mutfak": "Amerikan",
+   "porsiyon": 4,
+   "protein": null,
+   "vejetaryen": true,
+   "malzemeler": [
+    "0,5 adet beyaz lahana",
+    "2 adet havuç",
+    "1 su bardağı süzme yoğurt",
+    "2 yemek kaşığı mayonez",
+    "1 yemek kaşığı elma sirkesi",
+    "1 tatlı kaşığı şeker",
+    "Tuz"
+   ],
+   "hazirlanis": "1. Lahanayı çok ince doğrayın (marketteki hazır doğranmış lahana da olur), havuçları rendeleyin.\n2. Yoğurt, mayonez, sirke, şeker ve tuzu çırpın.\n3. Sebzelerle karıştırıp 15 dakika buzdolabında bekletin. Bir gün önceden de hazırlanabilir.",
+   "kcal": 120,
+   "protein_g": 4
+  },
+  {
+   "ad": "Parmesan Kabuklu Fırın Mezgit",
+   "kategori": "main",
+   "mutfak": null,
+   "porsiyon": 4,
+   "protein": "fish",
+   "vejetaryen": false,
+   "malzemeler": [
+    "800 g mezgit fileto",
+    "50 g parmesan",
+    "4 yemek kaşığı galeta unu",
+    "2 diş sarımsak",
+    "0,5 demet maydanoz",
+    "30 g tereyağı",
+    "1 adet limon",
+    "1 yemek kaşığı zeytinyağı",
+    "Tuz",
+    "Karabiber"
+   ],
+   "hazirlanis": "1. Fırını 220°C'ye ısıtın. Filetoları yağlı kağıt serili tepsiye dizin; tuz, karabiber ve zeytinyağı sürün.\n2. Rendelenmiş parmesan, galeta unu, ezilmiş sarımsak, kıyılmış maydanoz ve eritilmiş tereyağını karıştırın.\n3. Karışımı balıkların üzerine bastırarak yayın.\n4. 12–15 dakika, üstü kızarana kadar pişirin. Limon dilimleriyle servis edin.",
+   "kcal": 380,
+   "protein_g": 42
+  },
+  {
+   "ad": "Dereotlu-Limonlu Patates Salatası",
+   "kategori": "salad",
+   "mutfak": null,
+   "porsiyon": 4,
+   "protein": null,
+   "vejetaryen": true,
+   "malzemeler": [
+    "1 kg patates",
+    "0,5 demet dereotu",
+    "4 adet taze soğan",
+    "1 adet limon",
+    "4 yemek kaşığı zeytinyağı",
+    "1 yemek kaşığı hardal",
+    "Tuz",
+    "Karabiber"
+   ],
+   "hazirlanis": "1. Patatesleri soyup iri küp doğrayın; tuzlu suda 12 dakika, çatal batana kadar haşlayıp süzün.\n2. Limon suyu, zeytinyağı, hardal, tuz ve karabiberi çırpın.\n3. Patatesler ılıkken sosla karıştırın; doğranmış taze soğan ve dereotunu ekleyin. Bir gün önceden de yapılabilir.",
+   "kcal": 200,
+   "protein_g": 4
+  },
+  {
+   "ad": "Fırında Sebzeli Kuzu İncik",
+   "kategori": "main",
+   "mutfak": "Türk",
+   "porsiyon": 4,
+   "protein": "lamb",
+   "vejetaryen": false,
+   "malzemeler": [
+    "4 adet kuzu incik",
+    "2 adet kuru soğan",
+    "2 adet havuç",
+    "4 diş sarımsak",
+    "2 adet domates",
+    "1 yemek kaşığı domates salçası",
+    "2 yemek kaşığı zeytinyağı",
+    "1 tatlı kaşığı kekik",
+    "3 adet defne yaprağı",
+    "Tuz",
+    "Karabiber"
+   ],
+   "hazirlanis": "1. Fırını 180°C'ye ısıtın. İncikleri tuz, karabiber, kekik ve zeytinyağıyla ovun.\n2. Derin bir fırın kabına iri doğranmış soğan, havuç, domates ve soyulmuş bütün sarımsakları yayın; incikleri üzerine dizin.\n3. Salçayı 2 su bardağı sıcak suda eritip kaba dökün, defne yapraklarını ekleyin. Kabın üstünü folyoyla sıkıca kapatın.\n4. 2,5 saat pişirin (bu sırada başka iş yapılabilir). Folyoyu açıp 200°C'de 20 dakika daha, üstü kızarana kadar pişirin.\n5. Mutfakta geçen süre 10 dakika. Düdüklü tencerede 45 dakikada da olur; bir gün önceden pişirip ısıtmak da mümkün.",
+   "kcal": 600,
+   "protein_g": 48
+  },
+  {
+   "ad": "Şehriyeli Pirinç Pilavı",
+   "kategori": "side",
+   "mutfak": "Türk",
+   "porsiyon": 4,
+   "protein": null,
+   "vejetaryen": true,
+   "malzemeler": [
+    "2 su bardağı pirinç",
+    "0,5 su bardağı arpa şehriye",
+    "30 g tereyağı",
+    "1 yemek kaşığı zeytinyağı",
+    "Tuz"
+   ],
+   "hazirlanis": "1. Pirinci ılık tuzlu suda 20 dakika bekletip suyu berraklaşana kadar yıkayın.\n2. Tereyağı ve zeytinyağında şehriyeyi kızarana kadar kavurun; pirinci ekleyip 2 dakika çevirin.\n3. 3 su bardağı sıcak su ve tuzu ekleyin; kaynayınca kısın, kapağı kapalı 15 dakika pişirin, 10 dakika demlendirin.",
+   "kcal": 320,
+   "protein_g": 6
+  },
+  {
+   "ad": "Asya Usulü Hindi Kıymalı Marul Dürüm",
+   "kategori": "main",
+   "mutfak": "Asya",
+   "porsiyon": 4,
+   "protein": "turkey",
+   "vejetaryen": false,
+   "malzemeler": [
+    "600 g hindi kıyma",
+    "1 adet aysberg marul",
+    "2 adet havuç",
+    "4 adet taze soğan",
+    "3 diş sarımsak",
+    "3 yemek kaşığı soya sosu",
+    "1 yemek kaşığı istiridye sosu",
+    "1 yemek kaşığı bal",
+    "1 yemek kaşığı elma sirkesi",
+    "1 yemek kaşığı ayçiçek yağı",
+    "1 yemek kaşığı susam"
+   ],
+   "hazirlanis": "1. Tavada yağı kızdırın, kıymayı yüksek ateşte 6–7 dakika tane tane olana kadar kavurun.\n2. Ezilmiş sarımsak ve doğranmış taze soğanın beyaz kısımlarını ekleyip 1 dakika çevirin.\n3. Soya sosu, istiridye sosu, bal ve sirkeyi ekleyip 2 dakika pişirin; rendelenmiş havucu ekleyip 1 dakika karıştırın.\n4. Marul yapraklarını ayırın; harcı yapraklara paylaştırıp taze soğan yeşili ve susam serpin. Sarıp elle yenir. (Toplam 15 dakika.)",
+   "kcal": 340,
+   "protein_g": 36
+  },
+  {
+   "ad": "Susamlı Salatalık Salatası",
+   "kategori": "salad",
+   "mutfak": "Asya",
+   "porsiyon": 4,
+   "protein": null,
+   "vejetaryen": true,
+   "malzemeler": [
+    "4 adet salatalık",
+    "1 yemek kaşığı soya sosu",
+    "1 yemek kaşığı elma sirkesi",
+    "1 tatlı kaşığı şeker",
+    "1 diş sarımsak",
+    "1 yemek kaşığı susam",
+    "Tuz"
+   ],
+   "hazirlanis": "1. Salatalıkları bıçağın yan yüzüyle ezip lokma lokma parçalayın; bir tutam tuzla 10 dakika bekletip suyunu süzün.\n2. Soya sosu, sirke, şeker ve ezilmiş sarımsağı karıştırın.\n3. Salatalıkları sosla harmanlayıp susam serpin.",
+   "kcal": 70,
+   "protein_g": 2
+  },
+  {
+   "ad": "Labne Topları",
+   "kategori": "meze",
+   "mutfak": "Orta Doğu",
+   "porsiyon": 4,
+   "protein": null,
+   "vejetaryen": true,
+   "malzemeler": [
+    "400 g labne",
+    "1 yemek kaşığı çörek otu",
+    "1 yemek kaşığı susam",
+    "1 yemek kaşığı kuru nane",
+    "4 yemek kaşığı zeytinyağı"
+   ],
+   "hazirlanis": "1. Labneyi buzdolabında iyice soğutun (yumuşaksa 1 saat dondurucuda bekletin).\n2. Islak elle ceviz büyüklüğünde toplar yapın.\n3. Çörek otu, susam ve kuru naneyi ayrı tabaklara koyun; topların üçte birini her birine bulayın.\n4. Kaba dizip zeytinyağı gezdirin. Buzdolabında 5 güne kadar durur. Top yapmak zor gelirse labneyi tabağa yayıp üzerine serpmek de olur.",
+   "kcal": 150,
+   "protein_g": 6
+  },
+  {
+   "ad": "Tavada Hellim, Nar Ekşili ve Naneli",
+   "kategori": "meze",
+   "mutfak": "Kıbrıs",
+   "porsiyon": 4,
+   "protein": null,
+   "vejetaryen": true,
+   "malzemeler": [
+    "250 g hellim",
+    "1 yemek kaşığı nar ekşisi",
+    "1 yemek kaşığı zeytinyağı",
+    "0,5 demet taze nane"
+   ],
+   "hazirlanis": "1. Hellimi 1 cm kalınlığında dilimleyin.\n2. Yapışmaz tavada, yağsız, her yüzü 2 dakika altın renk olana kadar pişirin.\n3. Tabağa alıp nar ekşisi ve zeytinyağını gezdirin, nane yaprakları serpin. Sıcak servis edin.",
+   "kcal": 230,
+   "protein_g": 15
+  },
+  {
+   "ad": "Yoğurtlu Avokado-Dereotu Ezmesi",
+   "kategori": "meze",
+   "mutfak": null,
+   "porsiyon": 4,
+   "protein": null,
+   "vejetaryen": true,
+   "malzemeler": [
+    "2 adet avokado",
+    "1 su bardağı süzme yoğurt",
+    "1 diş sarımsak",
+    "0,5 adet limon",
+    "0,5 demet dereotu",
+    "1 yemek kaşığı zeytinyağı",
+    "Tuz"
+   ],
+   "hazirlanis": "1. Avokadoları çatalla ezin, kararmaması için hemen limon suyunu ekleyin.\n2. Yoğurt, ezilmiş sarımsak, kıyılmış dereotu ve tuzu karıştırın.\n3. Tabağa alıp zeytinyağı gezdirin. Yiyeceğiniz gün hazırlayın (bekledikçe kararır).",
+   "kcal": 160,
+   "protein_g": 4
+  },
+  {
+   "ad": "Yoğurtlu Brokoli Tarator",
+   "kategori": "meze",
+   "mutfak": null,
+   "porsiyon": 4,
+   "protein": null,
+   "vejetaryen": true,
+   "malzemeler": [
+    "1 adet brokoli",
+    "1 su bardağı süzme yoğurt",
+    "2 diş sarımsak",
+    "0,5 su bardağı ceviz",
+    "1 yemek kaşığı zeytinyağı",
+    "Tuz"
+   ],
+   "hazirlanis": "1. Brokoliyi küçük çiçeklere ayırın; kaynar tuzlu suda 3 dakika haşlayıp soğuk suya alın, süzüp ince doğrayın.\n2. Yoğurdu ezilmiş sarımsak ve tuzla çırpın, kabaca kırılmış cevizi ekleyin.\n3. Brokoliyle karıştırıp zeytinyağı gezdirin. Buzdolabında 2 gün durur.",
+   "kcal": 140,
+   "protein_g": 7
+  }
+ ]
+}
