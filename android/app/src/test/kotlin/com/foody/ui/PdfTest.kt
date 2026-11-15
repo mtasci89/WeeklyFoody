@@ -57,4 +57,19 @@ class PdfTest {
         // Gelecek hafta onaylıysa bu haftanın eski taslağı Taslak'ta görünmez
         assertNull(bolumSec("taslak", taslak, onayli)!!.plan)
     }
+
+    @Test fun haftaBitinceGelecekHaftaninOnayliMenusuGorunur() {
+        val buHafta = Ornek.menu.copy(plan = Ornek.menu.plan!!.copy(onaylanabilir = false, durum = "APPROVED"))
+        val gunler = buHafta.plan!!.gunler.filter { it.ogunler.isNotEmpty() }.map { it.tarih }.sorted()
+        val gelecek = buHafta.copy(plan = buHafta.plan!!.copy(id = "gelecek", haftaBaslangic = "2099-01-05"))
+        // Hafta içinde, yemeği olan bir gün daha varken: bu haftanınki
+        assertEquals(buHafta, bolumSec("onayli", buHafta, gelecek, bugun = gunler.first()))
+        assertEquals(buHafta, bolumSec("onayli", buHafta, gelecek, bugun = gunler.last()))
+        // Son yemekli günden sonra (ör. boş hafta sonu): gelecek haftanın onaylı menüsü
+        val sonrasi = java.time.LocalDate.parse(gunler.last()).plusDays(1).toString()
+        assertEquals(gelecek, bolumSec("onayli", buHafta, gelecek, bugun = sonrasi))
+        // Gelecek hafta henüz onaylanmadıysa bitmiş haftanınki kalır
+        val taslak = gelecek.copy(plan = gelecek.plan!!.copy(onaylanabilir = true))
+        assertEquals(buHafta, bolumSec("onayli", buHafta, taslak, bugun = sonrasi))
+    }
 }

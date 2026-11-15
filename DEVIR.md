@@ -1,5 +1,17 @@
 # WeeklyFoody — devir notu
 
+## 2026-11-15 — Claude: Foody 1.15 — hafta bitince gelecek haftanın onaylı menüsü
+
+- Kullanıcı: "Güncelledim ama onaylı menü aynı kaldı" (Pazar). Neden: uygulamadaki `bolumSec`
+  "Onaylı menü"de önce bu haftayı seçiyordu; 9–15 Kasım onaylı olduğu için yeni yüklenen 16–20 Kasım
+  menüsü (ve alışveriş listesi, tarifler) Pazartesiye kadar görünmüyordu. Sunucu tarafında yükleme
+  doğrulanmadı (erişim yok); kod yolu doğru.
+- Düzeltme: bu haftanın yemekli son gününden sonra (`bugun` > son dolu gün; hafta sonu boşsa
+  Cumartesi'den itibaren) gelecek haftanın onaylı menüsü öne geçer. Gelecek hafta onaylı değilse
+  bitmiş hafta kalır. `AnaViewModel.kt` + `PdfTest.haftaBitinceGelecekHaftaninOnayliMenusuGorunur`.
+  Sürüm 1.15 (16). Yerelde Android ortamı yok; doğrulama CI'da (uygulama.yml birim testleri).
+- Sıradaki: CI yeşilse kullanıcı `uygulama-son/foody.apk`'yı kurar.
+
 ## 2026-11-15 — Claude: 16–20 Kasım menüsü (kolay hafta) uygulamaya
 
 - Kullanıcı: "Bu sefer yapması kolay olsun, yapacak kişi yoğun." Sohbette seçildi: Pzt ballı-hardallı

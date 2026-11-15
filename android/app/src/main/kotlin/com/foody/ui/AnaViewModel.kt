@@ -91,12 +91,17 @@ fun haftaKodu(haftaBaslangic: String, bugun: java.time.LocalDate = java.time.Loc
 
 /**
  * Menü sekmesinin bölümü bu ve gelecek haftanın planından seçilir (sunucu eski olsa da çalışır):
- * "taslak" onay bekleyen plan (önce gelecek hafta), "onayli" onaylanmış plan (önce bu hafta).
+ * "taslak" onay bekleyen plan (önce gelecek hafta), "onayli" onaylanmış plan (önce bu hafta;
+ * bu haftanın yemekleri bittiyse — ör. hafta sonu boşsa Cumartesi'den itibaren — gelecek hafta).
+ * `bugun`: "yyyy-MM-dd".
  */
-fun bolumSec(bolum: String, bu: MenuCevap?, gelecek: MenuCevap?): MenuCevap? {
+fun bolumSec(bolum: String, bu: MenuCevap?, gelecek: MenuCevap?, bugun: String = java.time.LocalDate.now().toString()): MenuCevap? {
+    // Kullanıcı Pazar günü gelecek haftanın onaylı menüsünü ve alışveriş listesini göremiyordu:
+    // bu haftanın (bitmiş) menüsü öne geçiyordu.
+    val buHaftaBitti = bu?.plan?.gunler?.none { it.tarih >= bugun && it.ogunler.isNotEmpty() } ?: true
     // Gelecek haftanın menüsü varsa (onaylı olsa bile) bitmekte olan haftanın eski taslağı
     // "Taslak" diye gösterilmez; kullanıcı onu çoktan geride bıraktı.
-    val adaylar = if (bolum == "onayli") listOf(bu, gelecek)
+    val adaylar = if (bolum == "onayli") (if (buHaftaBitti) listOf(gelecek, bu) else listOf(bu, gelecek))
     else if (gelecek?.plan != null) listOf(gelecek) else listOf(bu)
     val uyan = adaylar.firstOrNull { c ->
         val p = c?.plan
